@@ -91,6 +91,13 @@ test('workflow contract retains required checks, main full run, pinned actions a
   const core=readFileSync(new URL('../workflows/core-ci.yml',import.meta.url),'utf8').replaceAll('\r\n','\n');
   assert.match(core,/name: Core package/);assert.match(core,/\n  core:\n/);
   assert.match(core,/fetch-depth: 0/);assert.match(core,/PR_BASE_SHA: \$\{\{ github.event.pull_request.base.sha \}\}/);
+  // Runtime prerequisites must fail before suites, including the installed
+  // consumers, rather than silently skipping subprocess/cancellation coverage.
+  assert.match(core,/uses: actions\/setup-python@[a-f0-9]{40}[\s\S]*python-version: '3\.11'/);
+  const probe=core.indexOf('src/verification-supervisor.py --probe');
+  assert(probe>0&&probe<core.indexOf('run: node tooling/ci-tests.mjs run'));
+  assert.match(core,/env -i PATH=\/usr\/bin:\/bin \/usr\/bin\/python3 -I -S/);
+  for(const name of ['node','npm'])assert(core.includes('/usr/local/bin/'+name+' --version'));
   assert.match(core,/run: node tooling\/ci-tests.mjs run/);assert.match(core,/run: npm run verify:archive\n\s+if: steps.plan.outputs.archive == 'true'/);
   const website=readFileSync(new URL('../workflows/website-ci.yml',import.meta.url),'utf8').replaceAll('\r\n','\n');
   assert.match(website,/\n  website:\n/);assert.match(website,/always\(\) && steps.plan.outputs.website == 'true'/);

@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {unlinkSync,writeFileSync} from 'node:fs';
+import {unlinkSync,writeFileSync,cpSync} from 'node:fs';
 import {join} from 'node:path';
 import {coreFixture} from '../tooling/core-fixture.mjs';
 import {acceptFixture} from '../tooling/accept-fixture.mjs';
+import {codexFixture} from '../tooling/codex-fixture.mjs';
 import {chain,fixture} from '../tooling/evidence-fixture.mjs';
-import {contentIdentity,coreStages,createAgentLifecycle,selectInstructions,compareEvidence} from '../src/index.mjs';
+import {contentIdentity,coreStages,createAgentLifecycle,selectInstructions,compareEvidence,createProtectedRoleHost,supportedRunnerDefaults,captureWorkspace} from '../src/index.mjs';
 
 // Synthetic retained history. Selected owners still verify actual workspaces,
 // lifecycle output, both hook passes, custody and their independent expectations.
@@ -282,5 +283,80 @@ test('eligible CI, deployment and fanout preserve exact inputs and successful ow
       assert.equal(na.disposition,'completed');assert.equal(na.owner.output.status,'not-applicable');assert.deepEqual(successors,[]);}
     if(stage==='fanout'){assert.equal(v.inputs.completion,fanout.completions.get(f.pin.target.issueId).identity);assert.deepEqual(v.owner.output.outcomes.map(o=>o.outcome),['confirmed-success','confirmed-success']);
       assert.equal(fanout.writes().length,2);for(const r of fanout.requests.values())assert.equal(r.origin.identity,fanout.completions.get(f.pin.target.issueId).identity);}
+  }
+});
+
+
+test('Core Deliver captures real Writer edits after termination and hands off only the trusted Candidate',async()=>{
+  for(const agent of ['codex','claude','gemini']) for(const fault of ['none','unchanged','candidate','publication','binding','execution','inputs','result','expectation','replay']) {
+    const a=await acceptFixture({empty:true,repository:'example-org/core',issueId:'I_101'}),fixtures=[];
+    try {
+      const f=coreFixture();f.adopt(a.pin);position(f,'deliver',a);
+      const instructions=selectInstructions({role:'deliver',skill:'deliver'});
+      const binding={...f.pin.binding,instructions:instructions.identity};
+      const pin={...a.pin,binding,capture:Object.fromEntries(['root','base','permittedPaths','binding'].map(k=>[k,a.captureInput[k]])),
+        publication:f.pin.receipts.publication,publicationCurrent:f.pin.evidenceCurrent.publication};
+      const profiles=[];
+      for(const role of ['shape','shape-validator','shape-diagnosis','shaper-review','deliver','accept']) {
+        const fixture=codexFixture(role,undefined,agent);fixtures.push(fixture);
+        fixture.environment.id=role+'-environment';
+        fixture.environment.instances.forEach((i,n)=>i.id=role+'-instance-'+n);
+        fixture.config.instanceId=role+'-instance-0';
+        const {process:ignored,task,...backend}=fixture.config;
+        profiles.push({id:role,agent,os:'linux',backend});
+      }
+      const writer=fixtures.find(x=>x.input.execution.role==='deliver'),execution=writer.input.execution;
+      cpSync(a.root,writer.environment.instances[0].workspace,{recursive:true});
+      a.captureInput.root=writer.environment.instances[0].workspace;pin.capture.root=a.captureInput.root;
+      const initial=structuredClone(a.workspace.candidate),launchInputs={publication:contentIdentity(pin.publication),candidate:initial};
+      Object.assign(writer.expected.result,{summary:'Writer completed actual file edit'});
+      if(fault!=='unchanged')writer.flags.edit={path:'binary',content:'post-launch Writer bytes'};
+      if(['candidate','publication','binding','execution','inputs','result'].includes(fault))writer.flags.mutateCollected=e=>{
+        if(fault==='candidate')e.inputs.candidate.tree='f'.repeat(40);
+        if(fault==='publication')e.inputs.publication='f'.repeat(64);
+        if(fault==='binding')e.binding.policy='f'.repeat(64);
+        if(fault==='execution')e.execution.id='foreign-writer';
+        if(fault==='inputs')delete e.inputs;
+        if(fault==='result')e.result={authorized:true};
+      };
+      let prepared,captures=0;
+      const expected=()=>({expected:{version:1,stage:'deliver',execution,binding,
+        inputs:{...launchInputs,candidate:fault==='expectation'?initial:captureWorkspace(a.captureInput).candidate},
+        result:writer.expected.result},consumed:fault==='replay'?[execution.result]:[]});
+      const host=createProtectedRoleHost({configuration:{runner:{version:1,platform:'linux',arch:'x64',account:{user:'member',uid:1000,githubUserId:'42'},
+        path:supportedRunnerDefaults.path,interpreter:supportedRunnerDefaults.interpreter,work:'/fixture/work',scratch:'/fixture/scratch',cache:'/fixture/cache'},
+        profiles,assignments:Object.fromEntries(profiles.map(p=>[p.id,p.id]))},
+        probe:async()=>({status:'verified',userId:'42'}),observe:()=>({platform:'linux',arch:'x64',user:'member',uid:1000,tokenOverride:false,roots:{work:true,scratch:true,cache:true}}),
+        retain:async()=> 'custody:writer',process:writer.config.process,bind:async task=>({
+          input:{...writer.input,binding,instructions:{identity:task.instructions.identity,content:task.instructions.content}},
+          current:expected,startCurrent:()=>({expected:{stage:'deliver',execution,binding,result:writer.expected.result},consumed:[]}),
+          resultContext:()=>pin,deadlineAt:Date.now()+360000,reserveMs:30000,prompt:'Edit binary in the approved workspace',inputs:launchInputs})});
+      const owners=host.owners({deliver:{current:()=>structuredClone(pin),captureInput:()=>{captures++;return a.captureInput;},evidenceCurrent:expected}});
+      const prepare=owners.deliver.prepareRole;
+      owners.deliver.prepareRole=async task=>{
+        prepared=await prepare(task);
+        await assert.rejects(prepared.bindCandidate(initial),'handoff before launch must fail');
+        return prepared;
+      };
+      const runtime=f.create(owners);
+      let result=await run(f,runtime);
+      for(let n=0;n<100&&result.disposition!=='completed'&&captures===0;n++) {
+        await new Promise(r=>setTimeout(r,10));
+        f.pin.prior={state:'unresolved',stage:'deliver',request:f.request()};result=await run(f,runtime);
+      }
+      // Reconciliation is driven by the same Core owner/run, never a second launch.
+      if(result.disposition!=='completed'&&captures===0)throw Error(JSON.stringify(result));
+      const good=['none','unchanged'].includes(fault);
+      assert.equal(result.disposition==='completed',good,JSON.stringify({agent,fault,result}));
+      assert.equal(writer.calls.filter(c=>c.args.at(-1)==='execute').length,1);
+      if(good) {
+        const candidate=result.owner.output.evidence.inputs.candidate;
+        assert.deepEqual(candidate,captureWorkspace(a.captureInput).candidate);
+        assert.equal(candidate.tree===initial.tree,fault==='unchanged');
+        assert.equal(result.owner.output.workspace.metadata.tree,candidate.tree);
+        await assert.rejects(prepared.bindCandidate({...candidate,tree:'f'.repeat(40)}),/candidate-rebinding/);
+      }
+      await prepared.lifecycle.cleanup();
+    }finally{a.close();for(const fixture of fixtures)await fixture.dispose();}
   }
 });

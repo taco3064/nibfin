@@ -1,3 +1,6 @@
+import {recoveryPolicy,rejectSecrets} from './agent-session.mjs';
+import {redactRuntimeText} from './verification.mjs';
+import {createContainerEgress,endpointProfiles} from './egress.mjs';
 import {spawn} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import {lstatSync, realpathSync, readdirSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync} from 'node:fs';
@@ -19,19 +22,21 @@ const cleanEnv = Object.freeze({PATH:'/usr/bin:/bin',LANG:'C'});
 /** External process boundary only. It cannot supply a readiness/permission override. */
 export function codexProcess(command) {
   return new Promise(resolveResult => {
-    let child, chunks = [], bytes = 0, settled = false, timer;
-    const finish = value => { if (!settled) { settled = true; clearTimeout(timer); resolveResult(value); } };
+    let child,chunks=[],bytes=0,settled=false,timer,failed=false;
+    const finish=value=>{if(!settled){settled=true;clearTimeout(timer);resolveResult(value);}};
+    const kill=()=>{failed=true;try{if(child?.pid)process.kill(-child.pid,'SIGKILL');}catch{child?.kill('SIGKILL');}};
     try {
-      child = spawn(command.file, command.args, {env:command.env, cwd:'/', shell:false, stdio:['ignore','pipe','ignore']});
-      child.stdout.on('data', data => {
-        bytes += data.length;
-        if (bytes > command.limit) { child.kill('SIGKILL'); finish({ok:false,output:''}); }
-        else chunks.push(data);
+      child=spawn(command.file,command.args,{env:command.env,cwd:'/',shell:false,detached:true,stdio:['ignore','pipe','ignore']});
+      child.stdout.on('data',data=>{bytes+=data.length;if(bytes>command.limit)kill();else chunks.push(data);});
+      child.on('error',()=>{failed=true;if(!child.pid)finish({ok:false,output:''});});
+      child.on('close',code=>{
+        // Reap the attached CLI and its process group. The owned container is
+        // independently reconciled/stopped by the backend before cleanup.
+        try{if(child.pid)process.kill(-child.pid,'SIGKILL');}catch{}
+        finish({ok:!failed&&code===0,output:!failed&&(code===0||command.failureOutput)?Buffer.concat(chunks).toString('utf8'):''});
       });
-      child.on('error', () => finish({ok:false,output:''}));
-      child.on('close', code => finish({ok:code === 0,output:code === 0 || command.failureOutput ? Buffer.concat(chunks).toString('utf8') : ''}));
-      timer = setTimeout(() => { child.kill('SIGKILL'); finish({ok:false,output:''}); },command.timeout);
-    } catch { finish({ok:false,output:''}); }
+      timer=setTimeout(kill,command.timeout);
+    }catch{finish({ok:false,output:''});}
   });
 }
 
@@ -44,23 +49,27 @@ export function createLinuxBackend(config, profile = null) {
   const selectedEntry = profile?.entry ?? entry;
   const selectedProfile = profile?.identity ?? linuxCodexProfile;
   const {root, image, socket, environment:original, instanceId, process:run = codexProcess,
-    timeout = 300000, task} = config;
-  if (Object.keys(config).some(k => !['root','image','socket','environment','instanceId','process','timeout','task'].includes(k))) fail('configuration');
+    timeout = 300000, task, egress, recovery, deadlineAt = Date.now()+timeout+60000, reserveMs = 30000} = config;
+  if (Object.keys(config).some(k => !['root','image','socket','environment','instanceId','process','timeout','task','egress','recovery','deadlineAt','reserveMs'].includes(k))) fail('configuration');
   if (!safePath(root) || !/^sha256:[a-f0-9]{64}$/.test(image) || !safePath(socket)
       || !/^\/run\/user\/[1-9][0-9]*\/docker.sock$/.test(socket)
       || typeof task !== 'function' || typeof run !== 'function' || !Number.isInteger(timeout) || timeout < 50 || timeout > 3600000) fail('profile');
+  if(!Number.isSafeInteger(deadlineAt)||!Number.isSafeInteger(reserveMs)||reserveMs<0||reserveMs>300000)fail('deadline');
+  recoveryPolicy(recovery,agent,profile?.version??selectedProfile.codex);
   const environment = createAgentEnvironments().describe(original);
   const instance = environment.instances.find(i => i.id === instanceId);
   if (environment.agent !== agent || !instance) fail('environment');
   const resources = [instance.workspace,instance.registration,instance.service];
   const all = [environment.loginSpace,...environment.instances.flatMap(i => [i.workspace,i.registration,i.service])];
   if (all.some(p => !safePath(p) || !within(root,p))) fail('resource-root');
-  const scratch = join(instance.service,agent);
+  const scratch = join(instance.service,agent), verificationRoot=join(instance.service,'verification');
+  let verificationPin=null;
   const states = new Map(), containers = new Map(), pins = new Map();
-  let deleting = false;
+  let deleting = false,workPhase=false;
   let diagnostic = 'not-checked', ready = false, retired = false;
   async function command(args, ms = 15000, limit = 1048576) {
     try {
+      ms=Math.min(ms,deadlineAt-(workPhase?reserveMs:0)-Date.now());if(ms<=0)return {ok:false,output:''};
       const response = await run(Object.freeze({file:'/usr/bin/docker',args:Object.freeze(['--host',`unix://${socket}`,...args]),
         env:cleanEnv,timeout:ms,limit,...(profile?{failureOutput:true}:{})}));
       if (!response || typeof response.ok !== 'boolean' || typeof response.output !== 'string'
@@ -68,6 +77,9 @@ export function createLinuxBackend(config, profile = null) {
       return response;
     } catch { return {ok:false,output:''}; }
   }
+  const network = egress ? createContainerEgress({command,image:egress.image,profile:agent,node:egress.node??false}) : null;
+  if(egress && egress.image!==image)fail('egress-image');
+  if (egress && Object.keys(egress).some(k=>!['image','node'].includes(k))) fail('egress-configuration');
   async function json(args) {
     const r = await command(args);
     if (!r.ok) throw Error();
@@ -97,6 +109,7 @@ export function createLinuxBackend(config, profile = null) {
       if (s.isSymbolicLink() || (!s.isDirectory() && !s.isFile()) || s.dev !== dev
           || (s.isFile() && s.nlink !== 1) || seen.has(id)) fail('unsafe-filesystem');
       seen.add(id);
+      if(p===verificationRoot && verificationPin!==null) {if(id!==verificationPin||!s.isDirectory())fail('verification-replaced');return;}
       if (s.isDirectory()) for (const name of readdirSync(p)) {
         if (name === '.codex' || profile?.forbidden.includes(name)) fail('project-configuration');
         walk(join(p,name),dev);
@@ -125,16 +138,30 @@ export function createLinuxBackend(config, profile = null) {
         || !value.tokens.access_token || value.OPENAI_API_KEY) fail('login-invalid');
     return Object.freeze(Object.values(value.tokens).filter(v=>typeof v === 'string' && v.length));
   }
+  // Keep selected login material inside the transport. Check both the launch
+  // credential and the current selected file at every evidence boundary.
+  function assertVerificationInput(execution, value) {
+    const s=states.get(execution);if(!s)fail('verification-unavailable');
+    let secrets;
+    try {secrets=[...s.secrets,...loginFile(physical())];}
+    catch {fail('verification-credentials-unavailable');}
+    const text=canonicalJSON(value);
+    if(redactRuntimeText(text,secrets)!==text)throw Error('verification:credential-input');
+  }
   const mount = (source,target,write=false) => ['--mount',
     `type=bind,src=${source},dst=${target},bind-propagation=rprivate,bind-recursive=disabled${write?'':',readonly'}`];
   function base(name, auth) {
     return ['create','--name',name,'--label',`nibfin.execution=${name}`,'--pull','never','--platform','linux/amd64',
       '--read-only','--user','0:0','--no-healthcheck','--ipc','private','--cgroupns','private','--cap-drop','ALL','--security-opt','no-new-privileges','--pids-limit','128',
-      '--memory','1g','--cpus','2','--network','bridge','--log-driver','none',
+      '--memory','1g','--cpus','2','--network',network.network,'--dns','127.0.0.1','--dns-search','.','--log-driver','none',
       '--tmpfs','/tmp:rw,nosuid,nodev,size=64m,mode=1777','--workdir','/work',
-      '--env','HOME=/tmp/home',...(profile?.agent === 'claude' ? ['--env','CLAUDE_CONFIG_DIR=/tmp/home/.claude'] : profile ? [] : ['--env','CODEX_HOME=/tmp/home/.codex']),
-      '--env','PATH=/usr/local/bin:/usr/bin:/bin',...mount(auth,profile?.authTarget ?? '/tmp/home/.codex/auth.json'),
-      ...mount(selectedEntry,'/entry.mjs'),'--entrypoint','/usr/local/bin/node'];
+      '--env','HOME=/tmp/home','--env',`NIBFIN_NODE_WORKLOAD=${egress?.node?'1':'0'}`,...(profile?.agent === 'claude' ? ['--env','CLAUDE_CONFIG_DIR=/tmp/home/.claude'] : profile ? [] : ['--env','CODEX_HOME=/tmp/home/.codex']),
+      '--env','PATH=/usr/local/bin:/usr/bin:/bin',
+      ...Object.entries(network.environment).flatMap(([key,value])=>['--env',`${key}=${value}`]),...mount(auth,profile?.authTarget ?? '/tmp/home/.codex/auth.json'),
+      ...mount(selectedEntry,'/entry.mjs'),...mount(fileURLToPath(new URL('./agent-session.mjs',import.meta.url)),'/agent-session.mjs'),
+      ...mount(fileURLToPath(new URL('./verification-child.mjs',import.meta.url)),'/verification-child.mjs'),
+      ...mount(fileURLToPath(new URL('./verification-supervisor.py',import.meta.url)),'/verification-supervisor.py'),
+      '--entrypoint','/usr/local/bin/node'];
   }
   async function inspect(s) {
     const data = await json(['inspect',s.name]);
@@ -142,6 +169,7 @@ export function createLinuxBackend(config, profile = null) {
     const c = data[0];
     if (c.Name !== '/' + s.name || c.Config?.Labels?.['nibfin.execution'] !== s.name || c.Image !== image
         || !c.State || typeof c.State.Running !== 'boolean' || !Number.isInteger(c.State.ExitCode)) throw Error();
+    await network.verifyRole(c);
     return c;
   }
   async function missing(s) {
@@ -181,7 +209,7 @@ export function createLinuxBackend(config, profile = null) {
   return Object.freeze({
     diagnostic:()=>diagnostic,
     async readiness() {
-      ready = false;
+      ready = false;workPhase=true;
       try {
         if (retired || process.platform !== 'linux' || process.arch !== 'x64') { diagnostic='unsupported-host'; return readinessResult(); }
         diagnostic='unsafe-mount'; const auth = physical(); loginFile(auth);
@@ -208,6 +236,9 @@ export function createLinuxBackend(config, profile = null) {
             } catch { if (!await missing(old)) return readinessResult(); }
           }
         }
+        diagnostic='egress-enforcement-unavailable';
+        if (!network) return readinessResult();
+        await network.ensure();
         diagnostic='probe-failed';
         const s = await reserve(name=>[...base(name,auth),image,'/entry.mjs','probe'],'probe');
         if (s.failed) return readinessResult();
@@ -223,15 +254,26 @@ export function createLinuxBackend(config, profile = null) {
         if (p.version !== (profile?.version ?? selectedProfile.codex) || p.node !== selectedProfile.node || p.guest !== true
             || p.platform !== 'linux' || p.arch !== 'x64') return readinessResult();
         diagnostic='login-unavailable'; if (p.login !== true) return readinessResult();
+        diagnostic='verification-supervisor-unavailable';if(p.verificationSupervisor!==true)return readinessResult();
+        diagnostic='network-unprobed';
+        const destinations=[...endpointProfiles[agent],...(egress.node?endpointProfiles['dependency-download']:[])];
+        if(!Array.isArray(p.network)||p.network.length!==destinations.length||destinations.some(h=>!p.network.some(n=>n.hostname===h&&n.kind==='verified'))) {
+          const denied=p.network?.find(n=>n.kind!=='verified');
+          if(denied&&['policy-denial','dns','proxy','tls','timeout'].includes(denied.kind))diagnostic='network-'+denied.kind+(destinations.includes(denied.hostname)?':'+denied.hostname+':runner.v1.model-network':'');
+          return readinessResult();
+        }
         if ([...containers.values()].some(c=>c.kind === 'probe' && !c.absent)) { diagnostic='cleanup-unresolved'; return readinessResult(); }
         ready = true; diagnostic='ready';
       } catch { /* Fixed diagnostic above; never expose raw process or filesystem errors. */ }
+      finally {workPhase=false;}
       return readinessResult();
     },
     async start(v) {
+      workPhase=true;
       try {
       if (!ready || retired || states.has(v.execution)) fail('not-ready');
       ready = false;
+      await network.ensure();
       const auth = physical(), e = v.executionIdentity, secrets = loginFile(auth);
       if (v.environment !== environment.id || v.instance !== instanceId || v.agent !== agent
           || e.id !== v.execution || e.request !== v.request || skillForRole(e.role) !== e.skill
@@ -242,7 +284,7 @@ export function createLinuxBackend(config, profile = null) {
       const dir = join(scratch,randomUUID()); mkdirSync(dir,{recursive:true,mode:0o700});
       const input = join(dir,'input'); mkdirSync(input,{mode:0o700});
       writeFileSync(join(input,'instructions.md'),v.instructions.content,{flag:'wx',mode:0o400});
-      const context = JSON.parse(canonicalJSON(task(e)));
+      const context = JSON.parse(canonicalJSON(task(e)));rejectSecrets({instructions:v.instructions,context},secrets);
       if (typeof context.prompt !== 'string' || !context.prompt.trim() || !context.inputs) fail('task');
       const properties = {version:{type:'integer',enum:[1]},outcome:{type:'string',enum:outcomesForRole(e.role)},
         failureClass:{type:'string',enum:['none','implementation_defect','shape_defect','authority_gap','external_failure']},
@@ -254,21 +296,26 @@ export function createLinuxBackend(config, profile = null) {
       if (profile?.prepare) profile.prepare(input,v.instructions.content,schema,v.workspace.access);
       const prompt = context.prompt;
       if (Buffer.byteLength(prompt) > 524288 || Buffer.byteLength(JSON.stringify(context.inputs)) > 262144) fail('input-bound');
-      writeFileSync(join(input,'request.json'),JSON.stringify({access:v.workspace.access,prompt,timeout,
+      const remaining=Math.min(timeout,deadlineAt-reserveMs-Date.now());if(remaining<=0)fail('budget-exhausted');
+      writeFileSync(join(input,'request.json'),JSON.stringify({access:v.workspace.access,prompt,timeout:remaining,
+        deadlineAt:deadlineAt-reserveMs,...(recovery?{recovery}:{}),
         context:{version:1,stage:e.role,execution:e,binding:v.binding,inputs:context.inputs}}),{flag:'wx',mode:0o400});
-      const s = await reserve(name=>[...base(name,auth),...mount(instance.workspace,'/work',e.role === 'deliver'),
+      mkdirSync(verificationRoot,{recursive:true,mode:0o700});
+      const verificationStat=lstatSync(verificationRoot);if(!verificationStat.isDirectory()||verificationStat.isSymbolicLink())fail('verification-root');
+      verificationPin=`${verificationStat.dev}:${verificationStat.ino}`;
+      const s = await reserve(name=>[...base(name,auth),...mount(verificationRoot,'/verification',true),...mount(instance.workspace,'/work',e.role === 'deliver'),
         ...mount(input,'/input'),image,'/entry.mjs','execute'],'role',s=>{
           Object.assign(s,{request:v.request,dir,secrets}); states.set(v.execution,s); });
       if (s.failed) throw Error('codex:start-unresolved');
       s.launched = true;
       // Attach is a tracked promise, not a detached host process. Timeout kills only the CLI;
       // container inspection and stop are still required before reuse/cleanup.
-      s.pending = command(['start','--attach',s.name],timeout+5000).then(r=>{s.output=r;s.pending=null;});
+      s.pending = command(['start','--attach',s.name],Math.min(timeout+5000,deadlineAt-Date.now())).then(r=>{s.output=r;s.pending=null;});
       return {status:'started'};
       } catch {
         if (states.has(v.execution)) throw Error('codex:start-unresolved');
         return {status:'rejected'};
-      }
+      } finally {workPhase=false;}
     },
     async collect(v) {
       const s=query(v); let c;
@@ -286,7 +333,7 @@ export function createLinuxBackend(config, profile = null) {
         } catch { /* Never forward raw CLI output. */ }
       }
       if (!s.failed && s.output?.ok && c.State.ExitCode === 0) { try {
-        const parsed=JSON.parse(s.output.output), pending=[parsed];
+        const parsed=JSON.parse(s.output.output), pending=[parsed];rejectSecrets(parsed,s.secrets);
         while (pending.length) {
           const value=pending.pop();
           if (typeof value === 'string' && s.secrets.some(secret=>value.includes(secret))) throw Error('credential-output');
@@ -296,6 +343,47 @@ export function createLinuxBackend(config, profile = null) {
       } catch {} }
       return {status:'complete',exitCode:s.failed || !s.output?.ok ? 1 : c.State.ExitCode,evidence};
     },
+    assertVerificationInput,
+    async verificationProcess(execution, commandInput) {
+      const {signal:ignoredSignal,...inputEvidence}=commandInput;
+      assertVerificationInput(execution,inputEvidence);
+      const s=states.get(execution);
+      if(!s||s.verificationUnresolved||s.verificationBusy||!egress?.node)fail('verification-unavailable');
+      s.verificationBusy=true;
+      let cancelled=false,cancellation=null;
+      const abort=()=>{if(cancelled)return;cancelled=true;cancellation=command(['stop','--time','2',s.name],10000);};
+      commandInput.signal?.addEventListener('abort',abort,{once:true});
+      if(commandInput.signal?.aborted)abort();
+      try {
+        if(cancelled){await cancellation;return {status:'cancelled',exitCode:null,signal:null,log:''};}
+        const c=await inspect(s);if(!c.State.Running)fail('verification-not-running');
+        physical();
+        const translate=value=>{
+          if(typeof value!=='string')return value;
+          if(value===verificationRoot||value.startsWith(verificationRoot+'/'))return '/verification'+value.slice(verificationRoot.length);
+          if(value===instance.workspace||value.startsWith(instance.workspace+'/'))return '/work'+value.slice(instance.workspace.length);
+          return value;
+        };
+        const input={file:commandInput.file,args:commandInput.args.map(translate),cwd:translate(commandInput.cwd),
+          timeoutMs:Math.min(commandInput.timeoutMs,deadlineAt-reserveMs-Date.now()),
+          env:Object.fromEntries(Object.entries(commandInput.env).map(([k,v])=>[k,translate(v)]))};
+        if(!input.cwd.startsWith('/verification/')||resolve(input.cwd)!==input.cwd||input.timeoutMs<=0)fail('verification-input');
+        // Proxy configuration is selected by the transport, not a checkout/npmrc.
+        Object.assign(input.env,network.environment,{NODE_USE_ENV_PROXY:'1'});
+        const response=await command(['exec','--user','0:0',s.name,'/usr/local/bin/node','/verification-child.mjs',JSON.stringify(input)],input.timeoutMs+5000,2097152);
+        if(cancelled) {
+          await cancellation;const ended=await inspect(s);
+          if(ended.State.Running){s.verificationUnresolved=true;return {status:'unresolved',exitCode:null,signal:null,log:''};}
+          return {status:'cancelled',exitCode:null,signal:null,log:''};
+        }
+        if(!response.ok){s.verificationUnresolved=true;return {status:'unresolved',exitCode:null,signal:null,log:''};}
+        const result=JSON.parse(response.output);
+        if(result.status==='unresolved')s.verificationUnresolved=true;
+        result.log=redactRuntimeText(result.log,[...s.secrets,...loginFile(physical())]);return result;
+      }catch{s.verificationUnresolved=true;return {status:'unresolved',exitCode:null,signal:null,log:''};}
+      finally{commandInput.signal?.removeEventListener('abort',abort);if(cancellation)await cancellation;s.verificationBusy=false;}
+    },
+    verificationRoot:()=>verificationRoot,
     async stop(v) {
       const s=query(v);
       try { await inspect(s); } catch { return {status:'unknown'}; }
@@ -310,6 +398,7 @@ export function createLinuxBackend(config, profile = null) {
     async cleanup(v) {
       if (!same(v.resources,resources) || v.environment !== environment.id || v.instance !== instanceId) fail('cleanup');
       for (const s of containers.values()) if (!await remove(s)) return {status:'unresolved',residuals:resources};
+      if (network && (await network.cleanup()).status !== 'completed') return {status:'unresolved',residuals:resources};
       try {
         physical(); deleting=true;
         for (const p of resources) rmSync(p,{recursive:true,force:true});

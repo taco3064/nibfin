@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "platform": "linux",
+  "arch": "x64",
+  "account": {"user": "nibfin", "uid": 1000, "githubUserId": "42"},
+  "path": "/usr/local/bin:/usr/bin:/bin",
+  "interpreter": "/usr/local/bin/node",
+  "work": "/var/lib/nibfin/work",
+  "scratch": "/var/lib/nibfin/scratch",
+  "cache": "/var/lib/nibfin/cache"
+}

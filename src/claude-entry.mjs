@@ -1,4 +1,6 @@
+import {probeVerificationSupervisor} from './verification-child.mjs';
 // Trusted container entrypoint; never imports checkout modules or configuration.
+import {probeGateway,executeSession,capacityError,rejectSecrets} from './agent-session.mjs';
 import {spawnSync} from 'node:child_process';
 import {readFileSync, existsSync, openSync, fstatSync, readSync, closeSync, constants} from 'node:fs';
 import {randomUUID} from 'node:crypto';
@@ -20,7 +22,7 @@ export function readClaudeFile(path) {
   } finally {closeSync(fd);}
 }
 export function claudeEnvironment(key) {
-  return {PATH:'/usr/local/bin:/usr/bin:/bin',HOME:'/tmp/home',CLAUDE_CONFIG_DIR:'/tmp/home/.claude',
+  return {HTTP_PROXY:'http://nibfin-egress:8080',HTTPS_PROXY:'http://nibfin-egress:8080',NODE_USE_ENV_PROXY:'1',NO_PROXY:'',PATH:'/usr/local/bin:/usr/bin:/bin',HOME:'/tmp/home',CLAUDE_CONFIG_DIR:'/tmp/home/.claude',
     ANTHROPIC_API_KEY:key,DISABLE_AUTOUPDATER:'1',CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC:'1'};
 }
 export function claudeInvocation(request,schema,key) {
@@ -30,14 +32,16 @@ export function claudeInvocation(request,schema,key) {
     '--system-prompt-file','/input/instructions.md','--tools',tools,'--allowedTools',tools,
     '--disallowedTools','mcp__*','--permission-mode','dontAsk','--setting-sources','',
     '--settings','{"disableAllHooks":true}','--strict-mcp-config','--mcp-config','{"mcpServers":{}}',
-    '--no-session-persistence','--session-id',randomUUID()],options:{env:claudeEnvironment(key),
+    ...(request.recovery?[]:['--no-session-persistence']),
+    ...(request.session?['--resume',request.session]:['--session-id',request.initialSession??randomUUID()]),
+    ...(request.model?['--model',request.model]:[])],options:{env:claudeEnvironment(key),
       input:request.prompt,encoding:'utf8',stdio:['pipe','pipe','pipe'],timeout:request.timeout,
       killSignal:'SIGKILL',maxBuffer:1048576}};
 }
 // Scan the entire decoded envelope, including discarded metadata and property names.
 export function claudeResult(output,context,secrets) {
   if(typeof output!=='string' || Buffer.byteLength(output)>1048576)throw Error('claude:output');
-  const envelope=JSON.parse(output), pending=[envelope];
+  const envelope=JSON.parse(output), pending=[envelope];rejectSecrets(envelope,secrets);
   while(pending.length) {
     const v=pending.pop();
     if(typeof v==='string' && secrets.some(s=>v.includes(s)))throw Error('claude:credential-output');
@@ -70,14 +74,18 @@ function authenticationFailure(r) {
     .test(String(r.stdout ?? '') + String(r.stderr ?? ''));
 }
 export function executeClaude(request,schema,key,run=spawnSync) {
-  const c=claudeInvocation(request,schema,key), r=run(c.file,c.args,c.options);
-  if(r.error || r.status!==0) {
-    return {diagnostic:authenticationFailure(r)?'login-rejected':'provider-failure'};
-  }
-  try {return {evidence:claudeResult(r.stdout,request.context,[key])};}
-  catch {return {diagnostic:authenticationFailure(r)?'login-rejected':'invalid-result'};}
+  const initialSession=randomUUID();
+  return executeSession({request:{...request,initialSession},adapter:'claude',version,run,
+    invoke:r=>claudeInvocation(r,schema,key),
+    inspect:r=>{
+      if(authenticationFailure(r))return {authentication:true};
+      const e=JSON.parse(r.stdout);rejectSecrets(e,[key]);
+      if(e.session_id!==initialSession)throw Error();
+      return {session:e.session_id,success:e.type==='result'&&e.subtype==='success'&&e.is_error===false,
+        capacity:capacityError('claude',e),authentication:authenticationFailure(r)};
+    },decode:output=>claudeResult(output,request.context,[key])});
 }
-export function runClaudeEntry() {
+export async function runClaudeEntry() {
   try {
     const login=JSON.parse(readClaudeFile('/login.json'));
     if(login.auth_mode!=='anthropic-api-key' || typeof login.api_key!=='string' || !login.api_key)throw Error();
@@ -85,6 +93,7 @@ export function runClaudeEntry() {
     if(process.argv[2]==='probe') {
       const p=probeClaude(env), os=readFileSync('/etc/os-release','utf8');
       process.stdout.write(JSON.stringify({...p,node:process.version,platform:process.platform,arch:process.arch,
+        verificationSupervisor:probeVerificationSupervisor(),network:await probeGateway([...["api.anthropic.com"],...(process.env.NIBFIN_NODE_WORKLOAD==='1'?['registry.npmjs.org']:[])]),
         guest:/^ID=debian$/m.test(os) && /^VERSION_ID="12"$/m.test(os)}));
     } else {
       const request=JSON.parse(readClaudeFile('/input/request.json'));

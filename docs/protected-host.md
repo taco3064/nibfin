@@ -311,3 +311,10 @@ source/request bindings; no delivery Issue/Grant is fabricated. See
 configuration, exact references, status meanings and safe recovery. Legacy explicit
 registration callbacks remain compatible. Source/schema changes require fresh
 bundle, host and executable deployment approvals before installation.
+
+
+The maintained [role host](role-host.md) can now be supplied through the reviewed
+`roles` executable binding for execute/compute. It binds existing Core role owners
+to authenticated profiles, lifecycle, enforced network transport and bounded
+verification. Existing capability-only composition remains available; it does not
+by itself establish that a deployment supplied the new runtime obligations.

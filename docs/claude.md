@@ -44,6 +44,7 @@ outside execution; cleanup preserves shared login and sibling instances.
 ```js
 const backend = createLinuxClaudeBackend({
   root: '/srv/nibfin/member-environment', image: approvedImageId,
+  egress: {image: approvedImageId, node: true},
   socket: '/run/user/1000/docker.sock', environment, instanceId: 'one',
   task: execution => ({prompt: authorizedTask(execution), inputs: stageInputs(execution)})
 });
@@ -83,12 +84,14 @@ configuration are conservatively rejected before execution, including nested
 copies. This profile does not silently execute their hooks/plugins or rely on
 prompt instructions to suppress them. Containers retain the existing read-only
 root, dropped capabilities, no-new-privileges, resource limits and role bind
-access. Agent networking remains bridge networking for provider access. Core's
+access. Agent networking uses the enforced isolated internal gateway described in [role host](role-host.md). Core's
 commit hooks remain separate, credential-free and network-disabled.
 
 The entrypoint requires a zero CLI exit and a JSON result envelope with
 `type: result`, `subtype: success`, `is_error: false` and object
-`structured_output`. Text results and CLI session metadata cannot substitute for
+`structured_output`. Its `session_id` must equal the fresh UUID requested by the
+entrypoint, including executions without recovery; foreign or absent session IDs
+fail before any current-role evidence is produced. Text results and CLI session metadata cannot substitute for
 role evidence. The trusted entrypoint binds only the payload to protected
 execution/binding/inputs; existing Core validators enforce role/schema/outcome,
 freshness and replay checks. Missing, malformed, truncated, oversized and error
@@ -162,3 +165,5 @@ Official interface references inspected 2026-10-25:
 [authentication](https://code.claude.com/docs/en/authentication),
 [permissions](https://code.claude.com/docs/en/permissions).
 These references establish interface expectations, not executed compatibility.
+
+The maintained [protected role host](role-host.md) adds explicit absolute deadlines, bounded capacity recovery, the selected enforced gateway and one custody-backed verification lane with fresh Node preparation. Existing deployments must approve the new sources and add the required egress configuration. Native/model support remains Unverified.

@@ -40,6 +40,7 @@ login and sibling instance resources.
 import {createLinuxGeminiBackend, createAgentLifecycle} from '@nibfin/core';
 const backend = createLinuxGeminiBackend({
   root: '/srv/nibfin/member-environment', image: approvedImageId,
+  egress: {image: approvedImageId, node: true},
   socket: '/run/user/1000/docker.sock', environment, instanceId: 'one',
   task: execution => ({prompt: authorizedTask(execution), inputs: stageInputs(execution)})
 });
@@ -89,7 +90,7 @@ MCP, delegation and mode-changing tools remain denied. This uses official policy
 enforcement, not mutable planning mode. Read-only roles also receive a read-only
 workspace bind. The root filesystem is read-only, capabilities are dropped,
 no-new-privileges is set and CPU/memory/process/output limits remain enforced.
-Provider access uses the existing bridge network; Core commit hooks are separate
+Provider access uses the enforced isolated internal gateway described in [role host](role-host.md); Core commit hooks are separate
 and must run without credentials or network.
 
 ## Results, diagnostics and reconciliation
@@ -185,3 +186,7 @@ The published `@google/gemini-cli@0.65.0` source tarball (npm shasum
 settings keys, environment paths, flags, auth type and policy names. It was not
 installed or invoked and is not a Candidate artifact. Dependency versions in
 this repository were not changed.
+
+The maintained [protected role host](role-host.md) adds explicit absolute deadlines, bounded capacity recovery, the selected enforced gateway and one custody-backed verification lane with fresh Node preparation. Existing deployments must approve the new sources and add the required egress configuration. Native/model support remains Unverified.
+
+Terminal JSON must include a valid UUID `session_id`, including when recovery is disabled. After capacity recovery establishes a session, each resumed terminal response must name that exact UUID; absent, malformed or changed identifiers cannot produce Core evidence.

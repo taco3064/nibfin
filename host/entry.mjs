@@ -36,7 +36,8 @@ export function validateHostOptions(options, mode) {
  */
 export function configure({core,mode,context,deployment}={}) {
   try {
-    fields(deployment,['options','capabilities'],['identity','custody','registration']);
+    fields(deployment,['options','capabilities'],['identity','custody','registration','roles']);
+    const roleHost=deployment.roles ? (need(['execute','compute'].includes(mode) && typeof core?.createProtectedRoleHost==='function'),core.createProtectedRoleHost(deployment.roles)) : null;
     const options=validateHostOptions(deployment.options,mode), capabilities=deployment.capabilities;
     need(typeof core?.createWorkflowEntry==='function' && typeof core?.createCore==='function'
       && typeof core?.createEventRelay==='function' && typeof core?.createRegistrationHost==='function');
@@ -103,7 +104,7 @@ export function configure({core,mode,context,deployment}={}) {
         }
         need(config?.selector && typeof config.selector.select==='function');
         const select=config.selector.select.bind(config.selector);
-        return {...result,config:{...config,selector:{select:async (input,settings)=>{
+        return {...result,config:{...config,...(roleHost?{owners:roleHost.owners(config.owners)}:{}),selector:{select:async (input,settings)=>{
           need(input.conditions?.groupId===options.groupId);
           return select(input,settings);
         }}}};

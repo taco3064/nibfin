@@ -329,3 +329,16 @@ test('deterministic installation includes all maintained host inputs and disting
   assert.deepEqual(one,two);for(const path of core.protectedHostFiles)assert(one.inventory.some(i=>i.path===path));
   assert.notDeepEqual(core.workflowInstallation({...input,hostCommit:'c'.repeat(40)}),one);
 });
+
+test('approved registration and role bindings retain separate hosted/member mode boundaries',async()=>{
+  const context={repository:'example/public',repositoryId:'42',run:{id:'100',attempt:'1'}};
+  for(const [mode,key,foreign] of [['registration','registration','roles'],['execute','roles','registration']]) {
+    const text=JSON.stringify({[mode]:options(context,mode)});
+    const load=source=>core.loadProtectedDeployment({source,options:text,
+      approval:{sourceSha256:digest(source),optionsSha256:digest(text)},validate:validateHostOptions,mode});
+    const source=`export const capabilities={${mode}:{}};export const ${key}={${mode}:{marker:'${key}'}};`;
+    const deployment=await load(source);
+    assert.equal(deployment[key].marker,key);assert.equal(deployment[foreign],undefined);
+    await assert.rejects(load(`export const capabilities={${mode}:{}};export const ${foreign}={${mode}:{}};`),/protected-host:configuration/);
+  }
+});

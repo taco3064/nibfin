@@ -1,8 +1,11 @@
 name: Kairo public dispatch
 on:
+  issues:
+    types: [opened, edited, labeled, unlabeled, reopened, closed, milestoned, demilestoned]
   workflow_dispatch:
+  # Recovery/renewal fallback; Issue updates are the primary wake-up.
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '17 * * * *'
 permissions:
   contents: read
 jobs:
@@ -21,15 +24,24 @@ jobs:
         run: |
           node <<'NODE'
           const { createHmac, randomBytes } = require('node:crypto');
-          const { writeFileSync, appendFileSync } = require('node:fs');
+          const { readFileSync, writeFileSync, appendFileSync } = require('node:fs');
           const e = process.env;
           if (!e.KAIRO_RUNNER_KEY) { console.log('BLOCKED: no runner binding; no dispatch created.'); process.exit(0); }
           let key;
           try { key = JSON.parse(e.KAIRO_RUNNER_KEY); } catch { throw new Error('Invalid runner key encoding'); }
           const b = key.binding;
           if (!b || b.repository !== e.GITHUB_REPOSITORY || b.repositoryId !== e.REPOSITORY_ID || b.ownerId !== e.OWNER_ID || e.ACTOR_ID !== e.OWNER_ID || !/^[a-f0-9]{64}$/.test(key.secret || '')) throw new Error('Runner binding mismatch');
+          const eventName = e.GITHUB_EVENT_NAME;
+          if (!['issues', 'workflow_dispatch', 'schedule'].includes(eventName)) throw new Error('Unsupported wake-up event');
+          let eventAction = '', issueId = null, issueNumber = null;
+          if (eventName === 'issues') {
+            const event = JSON.parse(readFileSync(e.GITHUB_EVENT_PATH, 'utf8'));
+            const actions = ['opened', 'edited', 'labeled', 'unlabeled', 'reopened', 'closed', 'milestoned', 'demilestoned'];
+            if (!actions.includes(event.action) || String(event.repository?.id) !== b.repositoryId || String(event.repository?.owner?.id) !== b.ownerId || String(event.sender?.id) !== b.ownerId || String(event.issue?.user?.id) !== b.ownerId || event.issue?.pull_request || !/^[A-Za-z0-9_-]+$/.test(event.issue?.node_id || '') || !Number.isSafeInteger(event.issue?.number) || event.issue.number < 1) { console.log('BLOCKED: untrusted Issue update; no dispatch created.'); process.exit(0); }
+            eventAction = event.action; issueId = event.issue.node_id; issueNumber = event.issue.number;
+          }
           const issuedAt = Date.now();
-          const payload = { schemaVersion: 1, operation: 'reevaluate', repository: b.repository, repositoryId: b.repositoryId, runnerId: b.runnerId, bindingId: b.bindingId, runId: e.GITHUB_RUN_ID, runAttempt: Number(e.GITHUB_RUN_ATTEMPT), nonce: randomBytes(16).toString('hex'), issuedAt, expiresAt: issuedAt + 86400000 };
+          const payload = { schemaVersion: 2, operation: 'reevaluate', repository: b.repository, repositoryId: b.repositoryId, runnerId: b.runnerId, bindingId: b.bindingId, runId: e.GITHUB_RUN_ID, runAttempt: Number(e.GITHUB_RUN_ATTEMPT), nonce: randomBytes(16).toString('hex'), issuedAt, expiresAt: issuedAt + 86400000, eventName, eventAction, issueId, issueNumber };
           const canonical = JSON.stringify(payload, Object.keys(payload).sort());
           const signature = createHmac('sha256', Buffer.from(key.secret, 'hex')).update(canonical).digest('hex');
           writeFileSync('dispatch.json', JSON.stringify({ payload, signature }));

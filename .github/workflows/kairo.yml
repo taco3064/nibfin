@@ -3,9 +3,6 @@ on:
   issues:
     types: [opened, edited, labeled, unlabeled, reopened, closed, milestoned, demilestoned]
   workflow_dispatch:
-  # Recovery/renewal fallback; Issue updates are the primary wake-up.
-  schedule:
-    - cron: '17 * * * *'
 permissions:
   contents: read
 jobs:

@@ -78,14 +78,12 @@ OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
 THE AUTHORS AND COPYRIGHT HOLDERS ARE NOT LIABLE FOR ANY CLAIM, DAMAGES, OR
 OTHER LIABILITY ARISING FROM THE SOFTWARE OR ITS USE.
 
-9. Earlier licenses and reserved rights
-This license does not revoke, narrow, or replace permissions already granted
-for earlier copies or material under MIT or another license. For the nibfin
-repository specifically, previously MIT-licensed material remains available
-under MIT; see LICENSE-MIT-LEGACY. The restrictions here apply only to material
-newly licensed under this license and not already available under a prior
-license granting the relevant rights.
-All rights not expressly granted are reserved.
+9. Reserved rights and independent legal rights
+All rights not expressly granted are reserved. This file offers no alternative
+license or dual-licensing option.
+Nothing in this license purports to extinguish rights validly acquired under
+applicable law or a separate valid license, or determines whether any earlier
+notice constituted a valid grant.
 
 This is a custom source-available license, not an OSI-approved open-source
 license. The English text in this file is authoritative; README summaries

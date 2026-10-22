@@ -1,21 +1,92 @@
-MIT License
+Nibfin Noncommercial Unmodified Use License
+Version 1.0 — 2026-10-22
+SPDX-License-Identifier: LicenseRef-Nibfin-Noncommercial-NoDerivatives-1.0
 
-Copyright (c) 2026 Taco Chang
+Copyright (c) 2026 Taco Chang (GitHub: taco3064).
+All rights reserved except as expressly granted below.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Scope and acceptance
+"Software" means the copyrightable source code, documentation, and assets in
+this repository that the copyright holder makes available under this license.
+Separately licensed third-party material and previously granted licenses are
+governed by their own terms. By exercising permission granted by this license,
+you agree to its conditions.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+2. Permitted noncommercial use
+You may view and download the Software, make copies reasonably necessary to
+install, build, execute, and back up the unmodified Software, and use it solely
+for noncommercial purposes, without a fee for this copyright license.
+Retain all copyright, license, and attribution notices in those copies.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+You may supply settings, environment variables, credentials, input files, and
+external configuration through the Software's documented interfaces.
+Compilation and other mechanical installation steps required to run the
+unmodified source are permitted. These permissions do not authorize editing
+the Software's source, documentation, or assets.
+
+"Noncommercial" means use that is not primarily intended for or directed
+toward commercial advantage or monetary compensation. Use in a business's
+operations, development of commercial products, paid work for clients,
+resale, and providing a paid or commercially supported hosted service require
+the copyright holder's separate prior written permission.
+
+3. Restrictions
+Except as permitted in section 2 or 4, applicable law, or a separate written
+agreement with the copyright holder, you may not:
+(a) modify, adapt, translate, or create derivative works of the Software;
+(b) redistribute, publish copies of, sublicense, sell, rent, or otherwise
+    supply the Software, including unmodified copies or compiled versions,
+    to third parties; or
+(c) use the Software for commercial purposes.
+
+Share links to the official repository or official downloads instead of
+redistributing copies. A public repository is not a grant of additional rights.
+
+4. GitHub and legal exceptions
+Nothing in this license restricts rights necessarily granted to GitHub or its
+users under the GitHub Terms of Service, including viewing and forking a public
+repository within GitHub. A platform fork does not independently grant rights
+to modify, redistribute elsewhere, or commercially use the Software.
+Nothing here limits rights that applicable law makes non-waivable.
+
+5. Your projects and output
+This license does not claim ownership of your independently created code,
+repositories, data, configuration, or output merely because you use the
+Software to process or develop them. Such material is not subject to this
+license unless it contains or adapts copyrightable material from the Software.
+Independently created integrations that only use documented interfaces and
+do not copy or adapt the Software are not prohibited derivative works merely
+because they interoperate with it.
+
+6. Other permissions
+Commercial use, modifications, derivative works, and redistribution require
+separate prior written permission from the copyright holder. Request permission
+through the official repository's Discussions, if enabled, or an Issue:
+https://github.com/taco3064
+No trademark rights or patent license are granted by this license.
+
+7. Termination
+Permissions under this license terminate if you fail to comply with its terms.
+Upon termination, stop exercising those permissions and remove copies held
+under this license, except copies required by law. Termination does not revoke
+rights independently held under a different valid license.
+
+8. Disclaimer and limitation of liability
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE SOFTWARE IS PROVIDED
+"AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+THE AUTHORS AND COPYRIGHT HOLDERS ARE NOT LIABLE FOR ANY CLAIM, DAMAGES, OR
+OTHER LIABILITY ARISING FROM THE SOFTWARE OR ITS USE.
+
+9. Earlier licenses and reserved rights
+This license does not revoke, narrow, or replace permissions already granted
+for earlier copies or material under MIT or another license. For the nibfin
+repository specifically, previously MIT-licensed material remains available
+under MIT; see LICENSE-MIT-LEGACY. The restrictions here apply only to material
+newly licensed under this license and not already available under a prior
+license granting the relevant rights.
+All rights not expressly granted are reserved.
+
+This is a custom source-available license, not an OSI-approved open-source
+license. The English text in this file is authoritative; README summaries
+are explanatory only.

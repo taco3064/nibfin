@@ -31,14 +31,11 @@ OSI-approved open-source project. See [LICENSE](LICENSE) for the binding terms.
 For additional permissions, contact the maintainer through this repository's
 Discussions (if enabled) or an Issue. The English LICENSE text governs.
 
-### Previously MIT-licensed material / 先前的 MIT 授權
+### License correction / 授權更正
 
-This repository previously used MIT. Permissions already granted under MIT
-remain valid and are not revoked by this change. Previously MIT-licensed
-material remains usable under those terms; see [LICENSE-MIT-LEGACY](LICENSE-MIT-LEGACY).
-The new restrictions apply only to newly licensed material not already granted
-under MIT or another applicable license.
+The maintainer identified the earlier MIT notice as a configuration error.
+It has been replaced with the custom license above. The project is not
+currently offered under MIT or as a dual-licensed project.
 
-本專案先前採用 MIT；已授出的 MIT 權利不會因本次變更而被收回。
-先前以 MIT 授權的內容仍可依 MIT 使用、修改及散布。
-新限制僅適用於未曾依 MIT 或其他適用授權授權的新內容。
+維護者確認先前的 MIT 標示為設定錯誤，現已更正為上述自訂授權；
+本專案目前不提供 MIT 或雙重授權選項。

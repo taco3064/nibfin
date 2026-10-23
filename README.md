@@ -39,6 +39,12 @@ The [registration exchange research](docs/decisions/registration-exchange.md)
 adds an offline encrypted-token experiment and rejection cases. It does not
 provide production automatic registration or live GitHub security evidence.
 
+The [public-path threat research](docs/decisions/public-path.md) provides
+bounded credential-access probes, relay rejection cases and deployment/ingress
+constraints. Production public-path reliance remains blocked; these experiments
+do not certify a native-code sandbox or live GitHub event support. Reproduce with
+`node experiments/public-path/run.mjs`; preserve `out/public-path/evidence.json`.
+
 ## Public-facing language
 
 All public-facing information maintained by this project must be written in English. This applies across `taco3064/nibfin`, `taco3064/nibfin-action`, and `taco3064/gh-nibfin`, including repository descriptions, READMEs, documentation and the website, UI text, CLI help and user-facing output/errors, Action/workflow descriptions, examples, release notes, and maintainer-authored issue/PR titles, descriptions, and comments.

@@ -6,7 +6,8 @@ execution or merge permission.
 
 This checkout implements a development bootstrap and bounded adapter interfaces,
 including fresh requirement-source and approved-snapshot verification and an
-explicit version-3 protected role, instruction and evidence contract. A version-1
+explicit version-5 protected role, instruction and evidence contract, plus
+version-4 single-stage invocation with signed Owner authorization. A version-1
 trusted Agent host interface adds environment/registration separation, isolated
 workspace reconstruction and cleanup observations. Its bounded local test host
 is not a production Agent sandbox. The Notion

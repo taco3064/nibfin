@@ -52,7 +52,7 @@ export function validateLogin(o, expected) {
 function assignment(a) {
   version(a, ['executionId', 'workspaceId', 'environmentId', 'instanceId', 'class', 'binding', 'references']);
   check(['executionId', 'workspaceId', 'environmentId', 'instanceId'].every(k => id(a[k])));
-  check(['agent', 'hook'].includes(a.class)); validateProtectedRequest({ schemaVersion: 3, binding: a.binding, previous: [] });
+  check(['agent', 'hook'].includes(a.class)); validateProtectedRequest({ schemaVersion: 5, binding: a.binding, previous: [] });
   check(Array.isArray(a.references) && a.references.length > 0);
   const paths = new Set();
   for (const r of a.references) {
@@ -142,7 +142,7 @@ export function createAgentAdapter(host) {
         check(result.status === 'succeeded' && Array.isArray(result.references) && result.references.length > 0 && result.references.every(id));
         return result;
       }
-      // Preserve ALL schema-3 gates. Callers supply verification, never a sandbox executor.
+      // Preserve ALL schema-5 gates. Callers supply verification, never a sandbox executor.
       check(protectedAdapters && typeof protectedAdapters.verify === 'function');
       let references = [];
       const output = await invokeProtected(protectedAdapters.request, { ...protectedAdapters,

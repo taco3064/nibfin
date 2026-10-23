@@ -1,3 +1,4 @@
+import { fixtureAuthorization } from './fixtures/authority.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { invoke, digest, validateRequest } from '../src/index.mjs';
@@ -5,7 +6,7 @@ import { initial, h, requirementAdapters } from './fixtures/request.mjs';
 import { runOneStage } from '../examples/action.mjs';
 function adapters(proof = { permission: 'verified' }) {
   const calls = [];
-  return { calls, requirements: requirementAdapters(), verify: async () => proof,
+  return { calls, authorization: fixtureAuthorization(initial()).host, requirements: requirementAdapters(), verify: async () => proof,
     execute: async r => { calls.push(r); return { status: 'succeeded' }; } };
 }
 async function successor(stage = 'shape-validator') {
@@ -129,7 +130,7 @@ test('verification exception and execution uncertainty block without retry', asy
   let calls = 0;
   assert.equal((await invoke(initial(), { verify: async () => { throw Error('private detail'); }, execute: async () => calls++ })).status, 'blocked');
   assert.equal(calls, 0);
-  const result = await invoke(initial(), { requirements: requirementAdapters(), verify: async () => ({ permission: 'verified' }),
+  const result = await invoke(initial(), { authorization: fixtureAuthorization(initial()).host, requirements: requirementAdapters(), verify: async () => ({ permission: 'verified' }),
     execute: async () => { calls++; throw Error('private detail'); } });
   assert.equal(result.status, 'blocked');
   assert.equal(calls, 1);

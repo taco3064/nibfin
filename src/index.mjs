@@ -133,3 +133,6 @@ export { roles, failureClasses, skillForRole, instructionApproval, resolveInstru
   invokeProtected } from './protected.mjs';
 
 export { validateEnvironments, validateLogin, validateCleanup, createAgentAdapter } from './agent.mjs';
+
+export { prepareWorkspace, captureCandidate, reconstructCandidate, verifyCandidate,
+  candidateEvidence, compareCandidateEvidence } from './workspace.mjs';

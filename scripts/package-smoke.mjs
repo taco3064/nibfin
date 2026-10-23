@@ -17,12 +17,12 @@ try {
   const allowed = path => ['package.json', 'README.md', 'LICENSE'].includes(path) ||
     /^(src|examples|docs)\//.test(path);
   assert(paths.every(allowed), `Unexpected package files: ${paths}`);
-  const required = ['package.json', 'README.md', 'LICENSE', 'src/identity.mjs', 'src/index.mjs', 'src/requirements.mjs', 'src/authority.mjs',
+  const required = ['package.json', 'README.md', 'LICENSE', 'src/identity.mjs', 'src/index.mjs', 'src/requirements.mjs', 'src/authority.mjs', 'src/workspace.mjs',
     'examples/action.mjs', 'examples/cli.mjs'];
   for (const path of required) assert(paths.includes(path), `Missing ${path}`);
   // Compute expected identity from reviewed source bytes independently of package code.
   const entries = [];
-  for (const path of ['LICENSE', 'package.json', 'src/identity.mjs', 'src/index.mjs', 'src/requirements.mjs', 'src/authority.mjs', 'src/protected.mjs', 'src/agent.mjs', 'src/instructions/shape.md', 'src/instructions/deliver.md', 'src/instructions/accept.md']) {
+  for (const path of ['LICENSE', 'package.json', 'src/identity.mjs', 'src/index.mjs', 'src/requirements.mjs', 'src/authority.mjs', 'src/protected.mjs', 'src/agent.mjs', 'src/workspace.mjs', 'src/instructions/shape.md', 'src/instructions/deliver.md', 'src/instructions/accept.md']) {
     assert((await lstat(path)).isFile());
     entries.push([path, (await readFile(path)).toString('base64')]);
   }
@@ -38,7 +38,8 @@ try {
 import assert from 'node:assert/strict';
 import { digest, prepareGrant, signGrant, verifyGrant, authorizeOperation, grantDraftDigest } from '@nibfin/core';
 import { identity } from '@nibfin/core/identity';
-import { createAgentAdapter, validateEnvironments, invokeProtected, resolveInstructions } from '@nibfin/core';
+import { prepareWorkspace, captureCandidate, reconstructCandidate, verifyCandidate,
+  candidateEvidence, compareCandidateEvidence, createAgentAdapter, validateEnvironments, invokeProtected, resolveInstructions } from '@nibfin/core';
 import { readFile, writeFile } from 'node:fs/promises';
 import { createHash, generateKeyPairSync } from 'node:crypto';
 import { runOneStage } from './node_modules/@nibfin/core/examples/action.mjs';
@@ -106,6 +107,9 @@ protectedRequest.binding.previousDigest = digest(protectedRequest.previous);
 protectedProof.assignment = structuredClone(protectedRequest.binding);
 const protectedResult = { ...${JSON.stringify(roleResult(protectedFixture.request.binding))}, binding: protectedRequest.binding };
 assert.equal(typeof createAgentAdapter, 'function');
+for (const api of [prepareWorkspace, captureCandidate, reconstructCandidate, verifyCandidate, candidateEvidence, compareCandidateEvidence]) assert.equal(typeof api, 'function');
+await assert.rejects(prepareWorkspace(protectedRequest, {}));
+assert.equal(compareCandidateEvidence({}, {}).valid, false);
 assert.throws(() => validateEnvironments([], []));
 for (const [role, skill] of Object.entries({ shape: 'shape', 'shape-validator': 'shape',
   'shape-diagnosis': 'shape', 'shaper-review': 'shape', deliver: 'deliver', accept: 'accept' })) {
@@ -132,7 +136,7 @@ async function independentIdentity() {
   return createHash('sha256').update(JSON.stringify(pairs)).digest('hex');
 }
 assert.equal(await independentIdentity(), expected.contentDigest);
-for (const path of identityPaths.filter(p => ['src/protected.mjs', 'src/agent.mjs', 'src/requirements.mjs', 'src/authority.mjs'].includes(p) || p.startsWith('src/instructions/'))) {
+for (const path of identityPaths.filter(p => ['src/protected.mjs', 'src/agent.mjs', 'src/workspace.mjs', 'src/requirements.mjs', 'src/authority.mjs'].includes(p) || p.startsWith('src/instructions/'))) {
   const file = 'node_modules/@nibfin/core/' + path;
   const original = await readFile(file);
   try {

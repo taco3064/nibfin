@@ -1,5 +1,32 @@
 # nibfin
-A self-hosted GitHub Actions orchestrator for AI-driven software delivery, enforcing complete issue shaping, sequential delivery, independent acceptance, and verified merges.
+Nibfin is developing GitHub Issues-based AI software delivery with per-Issue
+lifecycles scheduled by live native dependencies. Independent work can run in
+parallel within Owner-authorized limits. Assignees, labels and events never grant
+execution or merge permission.
+
+This checkout implements a development bootstrap and bounded adapter interfaces.
+The complete delivery engine, trusted Runner routing, Actions relay, recovery and
+public installation releases remain planned. No product E2E or Agent/platform
+support is claimed.
+
+## Development
+
+Use Node.js 22.23.3 and npm 10.9.9. No external packages or credentials are needed.
+
+```sh
+npm ci --offline
+npm run build
+npm run check
+npm test
+npm run experiment
+npm run verify-package
+```
+
+See [interface and local installation contracts](docs/interfaces.md) and
+[shared configuration ownership](docs/decisions/bootstrap.md). The experiment
+writes disposable temporary output and removes it. The local package smoke test
+checks an installed consumer outside this checkout; it does not publish a release.
+The future documentation website is reserved for website/ and is not scaffolded.
 
 ## Public-facing language
 

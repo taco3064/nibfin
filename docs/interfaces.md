@@ -10,8 +10,8 @@ No external repository implementation has been inspected or modified.
 ## Request and result
 
 `invoke(request, trustedAdapters)` is asynchronous and requests one stage only.
-There is no network client, polling, scheduling, mutation API, automatic next
-stage or retry in this package. The trusted executor must settle its promise
+The invocation layer has no network client, polling, scheduling, lifecycle
+mutation API, automatic next stage or retry. The trusted executor must settle its promise
 when that stage completes or fails; cancellation and resource limits belong to
 its isolated Core host. A hung adapter is not completion evidence.
 
@@ -128,7 +128,8 @@ independently reviewed, pinned source/artifact record, never the installed
 package's own claim. The content algorithm is SHA-256 of JSON.stringify of an
 ordered array of `[path, base64(exact file bytes)]` pairs, in this order:
 LICENSE, package.json, src/identity.mjs, src/index.mjs, src/requirements.mjs,
-src/authority.mjs, src/protected.mjs, src/agent.mjs, src/instructions/shape.md,
+src/authority.mjs, src/protected.mjs, src/agent.mjs, src/workspace.mjs,
+src/instructions/shape.md,
 src/instructions/deliver.md,
 src/instructions/accept.md. Those regular files are
 the complete Core runtime identity surface. The smoke script independently
@@ -769,3 +770,162 @@ this library never waives them or performs deployment/Reopen/dispatch itself.
 
 See [Protected role instruction packages](role-instructions.md) for role inputs,
 outputs, Candidate obligations, incident boundaries and local verification limits.
+
+## Candidate workspace API, version 1
+
+The root export supplies `prepareWorkspace(request, host)`,
+`captureCandidate(request, host, workspace)`,
+`reconstructCandidate(request, host, candidate, expectedDigest)`,
+`verifyCandidate(request, host, workspace, candidate, expectedDigest)`,
+`candidateEvidence(candidate)` and `compareCandidateEvidence(receipt, candidate)`.
+This is an additive record format; invocation schemas 4/5 and the Agent host's
+UTF-8 string materializer are unchanged. Legacy or partial Candidate records are
+rejected rather than implicitly upgraded. These APIs are local building blocks,
+not a second lifecycle, transport or persistence service.
+
+Call these APIs from trusted Core inside the existing protected Deliver execution
+boundary. They do not grant a reviewer write permission or replace
+`invokeProtected`/Agent isolation, independent prior-result verification, live
+native dependencies, Runner-set trust or deployment eligibility. Capture verifies
+schema-5 Deliver identity, signed authority, requirements and authorized paths;
+repair also requires the separately signed `repair` operation and matching cycles.
+Core must retain all other operation-specific gates before invoking the library.
+
+The trusted host injects `authorization` (the existing signed authorization host),
+`requirements` (the existing requirement adapters) and asynchronous
+`observe(request)`. Each observation is independently refreshed and returns exactly:
+
+```js
+{
+  assignment,       // exact current protected request binding, not Agent text
+  base,             // current expected Base commit SHA, independently verified
+  root, sourceRoot, // absolute dedicated destination and trusted local source
+  workspaceId,      // unique exclusive workspace lease identity
+  obligations: { artifacts: [{ path, purpose }], hooks: [{ path, event }] },
+  effectiveHooks: [{ path, event }]
+}
+```
+
+The host owns repository/Issue provenance, live Base resolution, current approved
+Shape inventory, independently inspected effective hook configuration and the
+exclusive workspace lease. It must reserve an absent destination below protected,
+non-symlink ancestors, protect Git metadata from Agent writes, prevent concurrent
+writers/directory relocation and never
+accept these observations from the Candidate or Agent. Observations are requested
+again at completion boundaries; missing observations, disagreement, revoked or
+expired Grants and Base advancement throw. Preparation returns a workspace record
+with schema version, root, lease identity, Base, semantic binding, obligations and
+filesystem device/inode and Git metadata/configuration identities. Replacing that
+directory or redirecting its Git metadata fails verification. The host must keep
+the returned workspace handle in protected Core state rather than trust an
+Agent-supplied replacement handle.
+Partial failed workspaces are retained for Core reconciliation; callers must not
+reuse or remove them until exclusive ownership and cleanup are established.
+
+Version 1 requires Linux descriptor-relative `/proc/self/fd` access, `O_NOFOLLOW`,
+local Git supporting SHA-1 object repositories and the pinned Node/npm toolchain.
+Other filesystem/object-format environments are unsupported and fail explicitly.
+No network, credentials, repository clone, install, commit, branch update, hook
+execution or external service is needed. Git subprocesses receive no inherited
+credential/configuration environment; hooks, fsmonitor, external diff and text
+conversion are disabled. Hook orchestration remains a separate mandatory gate in
+its credential-free, network-disabled sandbox, both before Accept and commit.
+
+### Capture boundary and portable identity
+
+Preparation imports the trusted Base's reachable commit/tree/blob objects into a
+new repository and materializes regular files with executable modes. It creates
+no Candidate commit or branch ref. Capture uses the complete current working
+files for every tracked path plus Git's non-ignored untracked files. Working bytes
+supersede staged bytes; deleting a working file deletes it in the Candidate even
+if an older staged copy exists. Capture rejects unresolved index stages, symlink
+index entries, submodules, filesystem symlinks (including ignored ones), FIFOs and
+other unsupported file kinds. Ignored files enter the Candidate only through
+explicit mandatory artifact/hook obligations or explicit Git tracking, not as
+arbitrary build caches.
+All captured files must use unambiguous printable ASCII relative paths without
+traversal, backslashes, Git metadata segments or absolute forms. Changed deletion
+and both rename paths are checked against signed directory boundaries. Renames
+are represented deterministically as deletion plus addition (`--no-renames`).
+
+Reads pin each ancestor directory and open the leaf with `O_NOFOLLOW`, so a
+replacement symlink cannot redirect an already checked path. File metadata and
+complete output are checked again to detect changes during capture. Git Tree
+creation hashes the captured byte snapshots, not a second path read. Capture
+updates only this dedicated repository's index to the captured Tree; consumers
+must not use its index as a separate staging-intent channel. Binary diff uses
+`--binary --full-index --no-ext-diff --no-textconv --no-renames` against Base.
+Empty output still requires explicit `binaryDiff: ''` and `changedPaths: []`.
+
+A Candidate is `{record, candidateDigest, provenance}`. The record has exactly
+`schemaVersion: 1`, `encoding: 'base64'`, `binding`, `base`, `tree`, `binaryDiff`,
+`diffDigest`, `changedPaths`, `obligations`, `files`, `artifacts`, `hooks` and
+`baseObjects`. Files are `{path, mode, bytes, contentDigest}`; artifacts add
+`purpose`, hooks add `event`. Artifact obligations, files and changed paths are
+sorted by ASCII path; Base objects are sorted by object ID. Hook obligations and
+hook-source snapshots preserve the approved execution order exactly, including
+multiple hooks for the same event. Effective hook configuration must match that
+order. Reordering hooks changes Candidate identity even when all bytes and the
+Git Tree remain unchanged; existing evidence must be invalidated. Previously
+captured records cannot establish that a sorted inventory preserved execution
+order: verify against fresh approved/effective inventories and recapture whenever
+the order differs; never sort an old record to reuse its evidence. Duplicate/conflicting
+obligation destinations are rejected, including artifact/hook overlap. A tracked
+obligation must agree exactly with its Tree file. Hook events are `pre-commit`,
+`prepare-commit-msg` or `commit-msg`; omission/mismatch with effective hooks fails.
+Required ignored bytes and every hook source are mandatory, independently hashed
+and identity-bearing even when the Git Tree does not change.
+
+All byte strings use canonical padded base64, round-trip checked before decoding.
+`contentDigest` and `diffDigest` hash the encoded string using Core
+`digest(value)`: SHA-256 of `JSON.stringify(value)`. `candidateDigest` hashes the
+entire record with that same convention. Property order is the order above, and
+nested trusted bindings retain Core's supplied JSON property order. Persist exact
+JSON field order; reordering properties changes the identity and is not an
+implicit migration. Git object identities separately hash Git's object header
+and raw bytes. Base objects are `{oid, type, bytes}`, containing the complete
+reachable Base graph, including existing historical commit objects. No new
+Candidate commit is created. Object hashes, types and uniqueness are checked on
+import; missing objects or invalid Git graph/output fail reconstruction.
+
+The semantic binding includes repository, Issue, signed authority, approved
+requirements, Scope, Shape, delivery/repair/incident cycles and digests of effective
+policy and execution pins. Workspace root, filesystem identity, request/session
+and Run/Attempt are not portable output identity. `provenance` records workspace
+lease and Actions source separately, allowing a new Run to materialize identical
+output with fresh execution provenance. Capture returns a recursively frozen
+snapshot, not live file references.
+
+### Cross-Run reconstruction and evidence invalidation
+
+Store the Candidate's exact JSON in protected immutable storage. N57 owns durable
+retrieval and transfer. Reconstruction takes only this record, a separately
+trusted expected Candidate digest and a fresh host observation; `sourceRoot` may
+refer to an unavailable historical source because the record carries the Base
+objects. It reserves a new workspace, validates exact record/encoding/inventory
+fields, imports checked objects, writes lossless snapshots with exclusive
+no-follow opens, recomputes Git Tree/diff/paths and recaptures the entire record.
+The supplied digest must match at every boundary. It cannot authenticate itself
+by supplying its own expected digest; the independent host/caller must obtain the
+expectation from trusted Core state. Candidate JSON may be transported through
+the UTF-8 Agent materializer as an envelope; raw binary must never be coerced to
+a JavaScript UTF-8 string. Reconstruction validates base64 before use.
+
+`verifyCandidate` recaptures current output against a fresh Base/assignment and
+returns `{schemaVersion: 1, candidateDigest, base, binding}` only on an exact match
+with the independently expected digest. `candidateEvidence` extracts that same
+binding from internally consistent JSON; extraction alone is not authentication
+or a successful gate. `compareCandidateEvidence` returns
+`{valid, requiresFreshEvidence}` and fails closed for malformed or mismatched
+receipts. It does not manufacture hook, Accept, CI or review success. Consumers
+store this binding inside separately authenticated gate receipts and compare it
+to the freshly verified current Candidate. Changing any output, artifact, hook,
+Base, Shape, signed policy/execution identity or cycle invalidates old evidence.
+A newly signed post-merge repair uses current Base and new cycle/incident binding;
+historical merged records remain identifiable and cannot serve as pending repair
+output. Missing diff/path evidence is rejected for ordinary and repair records.
+
+All failures throw and block the current operation. They do not retry unknown
+writes, infer permission, remove dependencies, bypass hooks or publish lifecycle
+state. The local real-Git fixtures in `test/workspace.test.mjs` verify these
+contracts; they are not hosted CI, a production sandbox or live Actions E2E proof.

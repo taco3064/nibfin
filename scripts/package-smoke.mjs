@@ -107,6 +107,14 @@ protectedProof.assignment = structuredClone(protectedRequest.binding);
 const protectedResult = { ...${JSON.stringify(roleResult(protectedFixture.request.binding))}, binding: protectedRequest.binding };
 assert.equal(typeof createAgentAdapter, 'function');
 assert.throws(() => validateEnvironments([], []));
+for (const [role, skill] of Object.entries({ shape: 'shape', 'shape-validator': 'shape',
+  'shape-diagnosis': 'shape', 'shaper-review': 'shape', deliver: 'deliver', accept: 'accept' })) {
+  const i = resolveInstructions(role, protectedProof.configuration, protectedProof.instructionContext);
+  assert.equal(i.skill, skill);
+  assert.equal(i.content, await readFile('node_modules/@nibfin/core/src/instructions/' + skill + '.md', 'utf8'));
+  assert.equal(i.contentDigest, digest(i.content));
+  assert.match(i.selectionDigest, /^[a-f0-9]{64}$/);
+}
 const selected = resolveInstructions('accept', protectedProof.configuration, protectedProof.instructionContext);
 assert.equal(selected.contentDigest, protectedRequest.binding.instructionDigest);
 assert.equal((await invokeProtected(protectedRequest)).status, 'blocked');

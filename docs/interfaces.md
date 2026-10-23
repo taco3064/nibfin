@@ -764,3 +764,8 @@ Reopen and failure logs cannot supply missing repair context. Protected cycle
 and incident bindings must also correlate. Incident attribution, deployment
 health exceptions, transport and operation execution remain separate Core gates;
 this library never waives them or performs deployment/Reopen/dispatch itself.
+
+## Complete role instructions
+
+See [Protected role instruction packages](role-instructions.md) for role inputs,
+outputs, Candidate obligations, incident boundaries and local verification limits.

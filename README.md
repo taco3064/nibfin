@@ -87,3 +87,11 @@ Discussions (if enabled) or an Issue. The English LICENSE text governs.
 The maintainer identified the earlier MIT notice as a configuration error.
 It has been replaced with the custom license above. The project is not
 currently offered under MIT or as a dual-licensed project.
+
+## Gemini CLI research
+
+The [Gemini CLI feasibility study](docs/research/gemini-cli.md) and
+[future verification plan](docs/research/gemini-cli-test-plan.md) document official
+sources, proposed Host boundaries and unexecuted cases. This research provides
+no Gemini executor, formal support or Runner eligibility; all unexecuted
+configurations remain Unverified.

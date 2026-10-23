@@ -35,6 +35,10 @@ writes disposable temporary output and removes it. The local package smoke test
 checks an installed consumer outside this checkout; it does not publish a release.
 The future documentation website is reserved for website/ and is not scaffolded.
 
+The [registration exchange research](docs/decisions/registration-exchange.md)
+adds an offline encrypted-token experiment and rejection cases. It does not
+provide production automatic registration or live GitHub security evidence.
+
 ## Public-facing language
 
 All public-facing information maintained by this project must be written in English. This applies across `taco3064/nibfin`, `taco3064/nibfin-action`, and `taco3064/gh-nibfin`, including repository descriptions, READMEs, documentation and the website, UI text, CLI help and user-facing output/errors, Action/workflow descriptions, examples, release notes, and maintainer-authored issue/PR titles, descriptions, and comments.

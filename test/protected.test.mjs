@@ -37,10 +37,10 @@ test('instruction selection replaces shared configuration and default resets bui
   const f = fixture();
   const builtin = resolveInstructions('shape', f.proof.configuration, f.proof.instructionContext);
   assert.equal(builtin.source, 'builtin');
-  assert.equal(select(f, 'shared', 'override', 'shared').content, 'shared');
+  assert.equal(select(f, 'shared', 'override', 'SHARED_CUSTOM_SENTINEL').content, 'SHARED_CUSTOM_SENTINEL');
   const extended = select(f, 'repository', 'extend', 'repository');
   assert.equal(extended.content, `${builtin.content}\nrepository`);
-  assert(!extended.content.includes('shared'));
+  assert(!extended.content.includes('SHARED_CUSTOM_SENTINEL'));
   assert.equal(select(f, 'repository', 'override', 'replacement').content, 'replacement');
   assert.equal(select(f, 'repository', 'default').content, builtin.content);
   assert.equal(digest('content'), digest(JSON.parse('"content"')));

@@ -128,10 +128,10 @@ independently reviewed, pinned source/artifact record, never the installed
 package's own claim. The content algorithm is SHA-256 of JSON.stringify of an
 ordered array of `[path, base64(exact file bytes)]` pairs, in this order:
 LICENSE, package.json, src/identity.mjs, src/index.mjs, src/requirements.mjs,
-src/authority.mjs, src/protected.mjs, src/agent.mjs, src/workspace.mjs,
+src/authority.mjs, src/protected.mjs, src/agent.mjs, src/workspace.mjs, src/obligations.mjs,
 src/instructions/shape.md,
 src/instructions/deliver.md,
-src/instructions/accept.md. Those regular files are
+src/instructions/accept.md, src/scope.mjs, src/instructions/scope.md. Those regular files are
 the complete Core runtime identity surface. The smoke script independently
 computes it from source with Node crypto before installing, then checks installed
 bytes through `checkInstalledCore({name, version, contentDigest})`. Name/version
@@ -771,14 +771,14 @@ this library never waives them or performs deployment/Reopen/dispatch itself.
 See [Protected role instruction packages](role-instructions.md) for role inputs,
 outputs, Candidate obligations, incident boundaries and local verification limits.
 
-## Candidate workspace API, version 1
+## Candidate workspace API, version 2
 
 The root export supplies `prepareWorkspace(request, host)`,
 `captureCandidate(request, host, workspace)`,
 `reconstructCandidate(request, host, candidate, expectedDigest)`,
 `verifyCandidate(request, host, workspace, candidate, expectedDigest)`,
 `candidateEvidence(candidate)` and `compareCandidateEvidence(receipt, candidate)`.
-This is an additive record format; invocation schemas 4/5 and the Agent host's
+This record version replaces Candidate/workspace version 1; invocation schemas 4/5 and the Agent host's
 UTF-8 string materializer are unchanged. Legacy or partial Candidate records are
 rejected rather than implicitly upgraded. These APIs are local building blocks,
 not a second lifecycle, transport or persistence service.
@@ -792,8 +792,8 @@ repair also requires the separately signed `repair` operation and matching cycle
 Core must retain all other operation-specific gates before invoking the library.
 
 The trusted host injects `authorization` (the existing signed authorization host),
-`requirements` (the existing requirement adapters) and asynchronous
-`observe(request)`. Each observation is independently refreshed and returns exactly:
+`requirements` (the existing requirement adapters), `resolveObligations(binding)`,
+`observeHookConfiguration(binding)` and asynchronous `observe(request)`. Each observation is independently refreshed and returns exactly:
 
 ```js
 {
@@ -814,7 +814,8 @@ writers/directory relocation and never
 accept these observations from the Candidate or Agent. Observations are requested
 again at completion boundaries; missing observations, disagreement, revoked or
 expired Grants and Base advancement throw. Preparation returns a workspace record
-with schema version, root, lease identity, Base, semantic binding, obligations and
+with schema version, root, lease identity, Base, semantic binding, obligations,
+`obligationEvidence` and
 filesystem device/inode and Git metadata/configuration identities. Replacing that
 directory or redirecting its Git metadata fails verification. The host must keep
 the returned workspace handle in protected Core state rather than trust an
@@ -822,7 +823,7 @@ Agent-supplied replacement handle.
 Partial failed workspaces are retained for Core reconciliation; callers must not
 reuse or remove them until exclusive ownership and cleanup are established.
 
-Version 1 requires Linux descriptor-relative `/proc/self/fd` access, `O_NOFOLLOW`,
+Version 2 requires Linux descriptor-relative `/proc/self/fd` access, `O_NOFOLLOW`,
 local Git supporting SHA-1 object repositories and the pinned Node/npm toolchain.
 Other filesystem/object-format environments are unsupported and fail explicitly.
 No network, credentials, repository clone, install, commit, branch update, hook
@@ -830,6 +831,123 @@ execution or external service is needed. Git subprocesses receive no inherited
 credential/configuration environment; hooks, fsmonitor, external diff and text
 conversion are disabled. Hook orchestration remains a separate mandatory gate in
 its credential-free, network-disabled sandbox, both before Accept and commit.
+
+### Approved inventory and trusted configuration handoff
+
+The root export supplies `parseCandidateInventory(body)` and
+`validateCandidateObligations(evidence, expected, configuration)`. The parser is
+pure and does not establish approval or permission. It returns normalized
+`{artifacts, hooks}`. Artifacts are sorted by path; hooks retain execution order.
+The validator returns `{obligations, evidence}` as detached JSON data or throws
+an actionable `Candidate:` error. `expected` contains independently obtained
+`shapeDigest` and `scopeDigest`, never values selected by a transfer bundle.
+
+Fence grammar is line-oriented: zero to three leading spaces, at least three
+backticks or tildes, and the exact, case-sensitive info word `kairo-candidate`
+(with optional surrounding horizontal whitespace). Close with the same marker
+and at least the opening length, with no info word. CRLF and LF are supported;
+the Shape digest still binds the exact original string. Other fenced examples
+are skipped as literal content, including nested inventory-looking examples
+inside a longer outer fence. Four-space indented and inline text are not
+inventory fences. Unclosed fences and inventory info suffixes reject rather than
+silently changing which block is authoritative. Exactly one inventory must remain.
+JSON must contain exactly the `artifacts` and `hooks` arrays; repeated JSON member
+names, unknown fields, duplicate/prefix-conflicting paths, invalid entry types,
+blank purposes and unsupported events reject. Entries have exactly `{path,
+purpose}` or `{path, event}` and use the existing safe Candidate path rules.
+
+Before approval, the independent Shape validator must receive the complete
+parsed inventory, exact Shape body, frozen Scope text/identity, configuration
+observations and proposed empty-applicability explanations. It must compare
+semantic obligations with Scope and all applicable setup; a parser or digest
+cannot decide whether product evidence is sufficient. It must independently
+verify a different author execution identity and retain an authenticated result
+in protected Core state. The trusted host's `resolveObligations(binding)` resolves
+that current approved result, checks its authenticity and publication against the
+expected Issue/Shape/Scope, and returns exactly:
+
+```js
+{
+  schemaVersion: 1,
+  body,                 // exact approved Shape, including prose explanations
+  configuration,        // validated configuration observation below
+  validation: {
+    approved: true, authorId, validatorId, // authenticated execution identities
+    shapeDigest, scopeDigest,
+    configurationDigest, // digest(configuration)
+    inventoryDigest,     // digest(parseCandidateInventory(body))
+    emptyReasons: { artifacts: null, hooks: null }
+  }
+}
+```
+
+Each empty array requires its corresponding `emptyReasons` value to be a
+nonempty exact quote of explanatory prose outside fenced code in `body`. For a
+nonempty array the value must be `null`. The independent validator's approval
+means each quoted explanation was found applicable against frozen Scope and
+configuration, not merely that the string was present. No fixed English sentence
+or heading is required. Removing prose, stripping validation, changing its Scope
+reference or modifying either inventory invalidates the handoff.
+
+The separate trusted `observeHookConfiguration(binding)` refreshes the current
+repository/setup inspection, independently of the author or transported record.
+It returns exactly the following configuration record, which must match the
+approved configuration byte-for-byte under Core digest semantics:
+
+```js
+{
+  complete: true,
+  inspected: ['git', 'repository', 'husky', 'workspace'],
+  sources: [{ path, bytes, contentDigest }],
+  hooks: [{ path, event }], // complete ordered effective original sources
+  prerequisites: [{ kind, description, supported: true }]
+}
+```
+
+The host must inspect actual applicable Git hook settings, repository-managed
+setup, package scripts/Husky and workspace provisioning, including inherited
+configuration relevant to this assignment. It must not echo the inventory as its
+configuration observation. `sources` retain canonical base64 and content digests
+of inspected safe configuration inputs. A logical safe path such as
+`git-hook-settings.json` may represent a sanitized, deterministic export of the
+relevant Git settings; do not snapshot credentials or arbitrary Git configuration.
+Sources are evidence, not additional extraction destinations or write authority.
+An empty `sources` list is valid only when the trusted inspection independently
+establishes absence of all relevant configuration sources. Inspection categories
+are exhaustive requirements, not optional feature flags. Hook-empty claims cannot
+mask configured hooks; omitted/extra paths, different events or different order
+reject. Unknown shell setup or unresolved configuration must block with an
+inspection diagnostic; there is no generic shell/Husky installer in this API.
+The real-filesystem fixtures demonstrate declarative repository-managed and
+Husky/workspace inspection adapters, not universal support for arbitrary setup.
+
+Prerequisite kinds are `installation`, `signing`, `credential`, `network`,
+`external-effect` and `tool`. Every required prerequisite must be listed by the
+trusted observer. Unsupported prerequisites block with their kind and description;
+credential, network and external-effect requirements always block this isolated
+hook contract, even when a caller marks them supported. A supported installation,
+signing or tool prerequisite requires independently verified availability in the
+credential-free, network-disabled hook environment. Missing evidence must never
+be represented by dropping a prerequisite or hook. These records do not run hooks
+or replace the two isolated execution passes and receipts.
+
+Both host methods are mandatory at every workspace boundary. Neither Candidate
+JSON nor repository configuration can supply the trusted methods, authenticate an
+approval, add a permitted path or weaken existing authorization. The old
+`observe().obligations` and `effectiveHooks` fields remain required for explicit
+correspondence, but must also agree with the parsed, independently approved
+inventory and refreshed configuration. Missing methods or version-1 records fail
+closed. Migration requires revalidation of the exact current Shape against Scope
+and configuration, then recapture as version 2 with fresh downstream evidence;
+there is no implicit conversion or acceptance of a caller-added approval flag.
+
+The entire exact Shape body, configuration and validation live in
+`record.obligationEvidence` and the protected workspace handle. This retains empty
+explanations and the single inventory across JSON serialization without inventing
+another body-hash convention: `shapeDigest` is Core `digest(body)`, including
+`JSON.stringify` for strings. Capture, verification and reconstruction share the
+same parser/validator. Configuration or applicability changes invalidate identity
+even when the Git Tree and snapshot bytes remain unchanged.
 
 ### Capture boundary and portable identity
 
@@ -858,8 +976,8 @@ must not use its index as a separate staging-intent channel. Binary diff uses
 Empty output still requires explicit `binaryDiff: ''` and `changedPaths: []`.
 
 A Candidate is `{record, candidateDigest, provenance}`. The record has exactly
-`schemaVersion: 1`, `encoding: 'base64'`, `binding`, `base`, `tree`, `binaryDiff`,
-`diffDigest`, `changedPaths`, `obligations`, `files`, `artifacts`, `hooks` and
+`schemaVersion: 2`, `encoding: 'base64'`, `binding`, `base`, `tree`, `binaryDiff`,
+`diffDigest`, `changedPaths`, `obligations`, `obligationEvidence`, `files`, `artifacts`, `hooks` and
 `baseObjects`. Files are `{path, mode, bytes, contentDigest}`; artifacts add
 `purpose`, hooks add `event`. Artifact obligations, files and changed paths are
 sorted by ASCII path; Base objects are sorted by object ID. Hook obligations and
@@ -900,7 +1018,8 @@ snapshot, not live file references.
 
 Store the Candidate's exact JSON in protected immutable storage. N57 owns durable
 retrieval and transfer. Reconstruction takes only this record, a separately
-trusted expected Candidate digest and a fresh host observation; `sourceRoot` may
+trusted expected Candidate digest, independently expected Shape/Scope binding,
+fresh approved obligation resolution and configuration observation; `sourceRoot` may
 refer to an unavailable historical source because the record carries the Base
 objects. It reserves a new workspace, validates exact record/encoding/inventory
 fields, imports checked objects, writes lossless snapshots with exclusive

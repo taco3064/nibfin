@@ -139,3 +139,5 @@ export { prepareWorkspace, captureCandidate, reconstructCandidate, verifyCandida
 
 export { scopeInstructions, publicationPlanDigest, verifyScopePlan, verifyScopeHandoff,
   auditScope } from './scope.mjs';
+
+export { parseCandidateInventory, validateCandidateObligations } from './obligations.mjs';

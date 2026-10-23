@@ -5,7 +5,8 @@ parallel within Owner-authorized limits. Assignees, labels and events never gran
 execution or merge permission.
 
 This checkout implements a development bootstrap and bounded adapter interfaces,
-including fresh requirement-source and approved-snapshot verification. The Notion
+including fresh requirement-source and approved-snapshot verification and an
+explicit version-3 protected role, instruction and evidence contract. The Notion
 integration seam is tested with synthetic data; live synchronization is unverified.
 The complete delivery engine, trusted Runner routing, Actions relay, recovery and
 public installation releases remain planned. No product E2E or Agent/platform

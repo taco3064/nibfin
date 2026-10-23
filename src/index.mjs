@@ -123,3 +123,8 @@ export async function invoke(request, adapters = {}) {
     return result('blocked', 'Execution failed or completion is unknown; Core reconciliation is required.');
   }
 }
+
+// Protected schema 3 is explicit; existing schema 2 is never implicitly promoted.
+export { roles, failureClasses, skillForRole, instructionApproval, resolveInstructions,
+  validateBinding, validateProtectedRequest, validateRoleResult, validateLifecycle,
+  invokeProtected } from './protected.mjs';

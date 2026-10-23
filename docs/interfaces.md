@@ -126,7 +126,9 @@ A trusted installer must compute or obtain its expected Core identity from an
 independently reviewed, pinned source/artifact record, never the installed
 package's own claim. The content algorithm is SHA-256 of JSON.stringify of an
 ordered array of `[path, base64(exact file bytes)]` pairs, in this order:
-LICENSE, package.json, src/identity.mjs, src/index.mjs, src/requirements.mjs. Those regular files are
+LICENSE, package.json, src/identity.mjs, src/index.mjs, src/requirements.mjs,
+src/protected.mjs, src/instructions/shape.md, src/instructions/deliver.md,
+src/instructions/accept.md. Those regular files are
 the complete Core runtime identity surface. The smoke script independently
 computes it from source with Node crypto before installing, then checks installed
 bytes through `checkInstalledCore({name, version, contentDigest})`. Name/version
@@ -222,3 +224,178 @@ handoff record, Notion transport, credential, or live Provider E2E was inspected
 or shipped. Actual Notion support requires a trusted provider reader satisfying
 the protocol above and separately verified live evidence. Unreadable current
 authority blocks even with a previously approved offline snapshot.
+
+## Protected interface version 3
+
+The same package now exports `invokeProtected(request, trustedAdapters)` and
+`validateProtectedRequest`, `validateBinding`, `validateRoleResult`,
+`validateLifecycle`, `roles`, `failureClasses`, `skillForRole`,
+`resolveInstructions` and `instructionApproval`. The normative owner is this
+Core package. Action/CLI hosts consume these exports; no external repository
+integration or real Actions execution is claimed. The current baseline schema-2 invocation and requirement-source gates
+remain supported. Protected schema 3 requires explicit construction from
+authenticated host observations; schema-1/2 results are not valid protected
+schema-3 evidence. There is
+no automatic migration. Unsupported versions fail explicitly at either boundary.
+
+All objects below have exactly their listed keys; optional fields are identified
+explicitly. No permission assertion is accepted in requests or role results.
+Strings are nonempty unless otherwise specified. Hashes are lowercase SHA-256
+hex; positive integers are safe integers greater than zero. `digest(value)` is
+SHA-256 of UTF-8 `JSON.stringify(value)`, including JSON quoting for strings.
+Equality uses that serialization and its property ordering. Preserve original
+objects/order; this is not canonical JSON, authentication, or a signature.
+
+### Requests and execution bindings
+
+Request: `{schemaVersion: 3, binding: Binding, previous: Reference[]}`.
+Reference: `{binding: Binding, digest: Hash}` where digest covers the complete
+prior RoleResult, preserving original order. Duplicate result IDs are rejected.
+A Binding has all of the following fields; none may be omitted:
+
+| Fields | Required value |
+| --- | --- |
+| requestId, resultId, sessionId | Distinct host-assigned request, result and execution-session identities, each a string |
+| role, skill | See the role table below; request claims must equal trusted assignment |
+| repository | `{id: String, name: "owner/repository"}` |
+| issue | `{id: String, number: PositiveInteger, repositoryId: repository.id}` |
+| requirements | `{productSecurity, delivery}` references using the shared requirement-source schema above |
+| authority | `{grantId: String, digest: Hash}` |
+| scopeDigest, instructionDigest, instructionSelectionDigest | Hashes of original Scope, effective instructions and full selection identity |
+| previousDigest | Hash of the complete ordered request.previous reference array |
+| shapeDigest, candidateDigest | Hash or explicit null when inapplicable |
+| deliveryCycle, repairCycle, incidentId | String or explicit null when inapplicable |
+| source | `{repositoryId: String, workflow: String, workflowDigest: Hash, runId: String, attempt: PositiveInteger}` |
+| versions | `{core: Hash, runtime: Hash, adapter: Hash, skill: Hash}` |
+
+Shape is mandatory for every role except Shape author; a successful Deliver
+candidate result requires Candidate identity, and Candidate is mandatory
+for Accept/final review. Delivery cycle is mandatory for Deliver/Accept/final
+review. Repair requires delivery cycle; incident requires repair cycle. Target
+repository and Actions source repository are distinct. Every current, prior and
+lifecycle source requires an explicit trusted source/target relationship, even
+when their IDs are equal. A predecessor Run need not equal the current Run.
+
+| Execution role | Protected Skill | Successful outcome | Required role evidence |
+| --- | --- | --- | --- |
+| shape | shape | proposal | None inherently; trusted operation may require more |
+| shape-validator | shape | approved | shape |
+| shape-diagnosis | shape | not-confirmed (none), confirmed (shape_defect) | shape |
+| shaper-review | shape | approved | shape, shape-validator, deliver, accept |
+| deliver | deliver | candidate | shape-validator |
+| accept | accept | accepted | deliver |
+
+These minimum role-evidence requirements are not an operational lifecycle or
+permission table. The trusted host must include all operation-specific prior
+gates (including publication and hooks) and all relevant author/reviewer
+sessions. Validator, diagnosis, Accept and final review reject reuse of any
+supplied predecessor session. Core must provide stable authenticated session
+identities and cannot omit relevant historical participants to claim independence.
+Scope, deployment, completion and recovery are not privileged agent roles.
+
+### Trusted verification and instructions
+
+`verify(clone(request))` must return exactly `{permission, assignment,
+configuration, instructionContext, relationships, prior, lifecycle,
+lifecyclePolicy, conflicts}`. This is trusted adapter output, never event input.
+Both requirement sources are freshly verified through the existing
+`adapters.requirements` reader/storage/approval interface before execution, using
+the target and authority in Binding. Missing or stale requirement evidence blocks
+every protected role, including customized instructions.
+Permission must equal `verified` after fresh Grant, native dependencies, Runner
+trust, isolation and all applicable gates. `assignment` is the full expected
+Binding, compared to the claim. Missing/invalid permission blocks execution.
+
+`configuration` is `{repository: SkillEntries, shared: SkillEntries,
+approved: Hash[]}`. SkillEntries maps protected Skill names to approved entries
+`{mode, content}`. Content is a string (empty permitted); mode is `default`,
+`extend` or `override`. Default requires empty custom content. Repository entry
+presence replaces shared; absent repository falls back to shared, then built-in.
+Malformed/unapproved selected entries fail closed. Default returns built-in
+content; extend returns built-in + newline + custom; override returns custom.
+Arbitrary files in participating repositories are never discovered or loaded.
+
+`instructionContext` is exactly `{repository, authority, versions, requirements}` from the
+assignment. Approval is `digest({context, source, skill, mode, content})` in that
+order, computed by `instructionApproval(context, source, skill, entry)`.
+Sources are `repository`, `shared`, `builtin`. Every selected nonbuilt-in entry,
+including default, must have that digest in trusted `approved`. Editing bytes,
+mode, source or context requires renewed approval. Resolver output is exactly
+`{skill, source, mode, approvalDigest, content, contentDigest, selectionDigest}`; contentDigest
+hashes the effective string. SelectionDigest hashes
+`{skill, source, mode, approvalDigest, contentDigest}` in that order, and must
+equal binding.instructionSelectionDigest. Thus equal effective bytes cannot
+hide a mode or source change. Built-in files ship under `src/instructions/` and
+are pinned by installation identity. Customization changes instructions only.
+
+`relationships` is an array of `{sourceRepositoryId, targetRepositoryId}`.
+`prior` is an authenticated operation-specific inventory of
+`{reference, result, authenticity, completion, conflicts}`. The request's
+previous array must equal its references exactly. Authenticity must be `verified`;
+complete RoleResult digest/binding/outcome is checked. Target, Issue, authority,
+Scope, requirement-source bindings and applicable cycles/artifacts must correlate. Null inapplicable Shape
+cycles do not forbid reference by a later Deliver cycle; prior Deliver/Accept/
+final-review cycles must match exactly, including null. Component/instruction and
+source identities are checked against each predecessor's own authenticated
+Binding, rather than incorrectly forcing prior role/source versions to current.
+Completion is `authenticated-result` or `same-workflow-needs`; the latter also
+requires identical source (workflow, version, Run and Attempt). Trusted host
+policy must establish fixed native needs without bypass conditions. Source/OIDC,
+login, partial logs and claimed status alone are rejected completion mechanisms.
+There is no universal immediate Jobs REST API requirement.
+
+### Role results and lifecycle references
+
+`execute(clone(request), clone(resolvedInstructions))` runs once after all
+checks. It returns exactly `{schemaVersion: 3, binding, outcome, failureClass,
+references: String[], conflicts: Conflict[]}`. The Binding must equal the trusted
+assignment. Success outcomes in the table use classification `none`, including a diagnosis
+that does not confirm a Shape defect, except
+confirmed diagnosis uses `shape_defect`. Every role can return `concern` with
+any non-none classification; validator/Accept/final review can also return
+`rejected` with any non-none classification. Classifications are exactly `none`,
+`implementation_defect`, `shape_defect`, `authority_gap`, `external_failure`.
+Unknown/contradictory combinations and permission fields fail. Success requires
+nonempty artifact/evidence references. References are locators, not permission.
+
+Only confirmed diagnosis carries nonempty conflicts. A Conflict is exactly
+`{scopeHash, shapeHash, scopeQuote, shapeQuote, explanation, evidenceReference}`;
+hashes must equal original Scope/current Shape, other values are strings, and
+the complete array must equal independently authenticated `proof.conflicts`.
+The verifier must authenticate exact quoted clauses, not merely repeat an
+allegation. All other results require empty conflicts. Classification never
+selects another operation, restores Scope or dispatches work.
+
+`lifecycle` is an array of `{evidence, expected, authenticity: 'verified'}`.
+Evidence must exactly equal its independently authenticated expected record and
+correlate to current repository/Issue/cycles/incident. The record has exactly
+`{kind, repositoryId, issueId, deliveryCycle, repairCycle, incidentId, mergeSha,
+version, environment, source, state, references, reason}`. Source uses the schema
+above; mergeSha is 40 or 64 lowercase hex characters; version/environment are
+strings. Repair/incident may be explicit null. References are string arrays.
+
+| Kind | States |
+| --- | --- |
+| deployment | healthy, failed, not-applicable |
+| completion | valid, invalidated, unknown |
+| recovery | open-failure, closed-incident |
+
+Recovery requires repair and incident identities. Non-not-applicable records
+require nonempty references and null reason. Not-applicable requires a nonempty
+reason exactly matching trusted `lifecyclePolicy.deploymentNotApplicableReason`.
+If `lifecyclePolicy.requireValidCompletion` is true, unknown/invalidated completion
+blocks. The trusted host must supply every required lifecycle record and current
+expected version, Merge, Environment, Run/Attempt and invalidation state. Empty
+inventory means the host verified no lifecycle proof applies, never absent proof
+masquerading as not-applicable. `conflicts` and lifecyclePolicy are trusted inputs;
+untrusted recovery comments/events/logs cannot populate them as authority.
+
+Malformed requests return `{schemaVersion: 3, status: 'rejected', error}`. Missing
+adapters, verification failures, exceptions or invalid executor output return
+`{schemaVersion: 3, status: 'blocked', error}` with safe English diagnostics.
+Confirmed role execution returns `{schemaVersion: 3, status: 'succeeded', result}`,
+including a completed concern/rejection as data. Transport success is not role
+approval, permission, successful prior evidence, or delivery completion. No retry,
+persistence, network, dispatch, privileged write or state transition is performed.
+The host owns replay protection, authentication, isolated execution and fresh
+independent evidence; deterministic tests do not establish production security.

@@ -1,4 +1,4 @@
-# Bootstrap interface version 2
+# Bootstrap interface version 4
 
 This local, unreleased package owns the interface. Action and workflow wrappers
 consume `invoke` from `@nibfin/core`; CLI installation code consumes
@@ -16,7 +16,7 @@ when that stage completes or fails; cancellation and resource limits belong to
 its isolated Core host. A hung adapter is not completion evidence.
 
 Requests are plain JSON objects. Unknown top-level fields are rejected. Version
-2 requires `schemaVersion: 2`, nonempty `requestId`, `stage`, `repository`
+4 requires `schemaVersion: 4`, nonempty `requestId`, `stage`, `repository`
 (`id`, `name` as owner/repository), `issue` (`id`, positive integer `number`,
 `repositoryId` matching repository.id), `authority` (`grantId`, `digest`), and
 `scopeDigest`. Stable IDs and request IDs are strings; digests are lowercase
@@ -66,7 +66,8 @@ The interface compares digest, result/request/stage IDs, repository/Issue,
 source Run/Attempt, authority, Scope and succeeded status. Deliver compares
 Shape; Accept also compares candidate. Structural validity alone is insufficient.
 
-Fresh requirement verification described below is also mandatory.
+Concrete signed authorization through `adapters.authorization` (below) and
+fresh requirement verification are both mandatory before every execution.
 
 `execute` receives a separate clone and is called exactly once after verification.
 It returns `{status: 'succeeded'}` only for confirmed completion of that stage.
@@ -78,7 +79,7 @@ production success adapter; deterministic adapters exist only in tests and the
 explicit synthetic experiment. Requests and results must contain no credentials.
 Prerequisite installation and authenticated transport confer no execution grant.
 
-Results have `schemaVersion: 2` and one of `rejected`, `blocked`, `succeeded`.
+Results have `schemaVersion: 4` and one of `rejected`, `blocked`, `succeeded`.
 Malformed requests return rejected plus an English error and no execution.
 Well-formed results carry `resultId` (requestId + ':result'), requestId, stage,
 repository, issue, authority, Scope, supplied Shape/candidate/source, and
@@ -96,7 +97,7 @@ Fixed trusted same-workflow `needs` can enforce local job ordering. Across Runs,
 verify source and persistent successful results independently. Event payloads,
 labels, local gh login, OIDC/source identity and partial job output cannot prove
 success. This bootstrap does not validate real Actions provenance or claim C-15
-E2E. Grant, Runner trust, distributed coordination, relay, recovery, deployment,
+E2E. Production key custody, Runner trust, distributed coordination, relay, recovery, deployment,
 CI, review, merge and completion remain planned product implementation work.
 P1 work items come exclusively from GitHub Issues.
 
@@ -127,7 +128,8 @@ independently reviewed, pinned source/artifact record, never the installed
 package's own claim. The content algorithm is SHA-256 of JSON.stringify of an
 ordered array of `[path, base64(exact file bytes)]` pairs, in this order:
 LICENSE, package.json, src/identity.mjs, src/index.mjs, src/requirements.mjs,
-src/protected.mjs, src/agent.mjs, src/instructions/shape.md, src/instructions/deliver.md,
+src/authority.mjs, src/protected.mjs, src/agent.mjs, src/instructions/shape.md,
+src/instructions/deliver.md,
 src/instructions/accept.md. Those regular files are
 the complete Core runtime identity surface. The smoke script independently
 computes it from source with Node crypto before installing, then checks installed
@@ -148,10 +150,11 @@ and obtain applicable renewed authorization before such a transition.
 
 ## Requirement sources and snapshots (version 1)
 
-Request/result schema 2 is an incompatible, unreleased replacement for schema 1.
+Request/result schema 4 replaces schemas 1/2; protected schema 5 replaces schema 3.
+Legacy requests/results are rejected, never promoted to signed authority.
 Old requests are rejected; no execution path bypasses requirement verification.
 The owning interface remains @nibfin/core. Maintained Action examples, synthetic
-experiment and installed-consumer tests use schema 2 together. External Action
+experiment and installed-consumer tests use schema 4 together. External Action
 and CLI repositories were not inspected; their integrations must migrate before
 using this interface. Package version 0.1.0 remains an unreleased bootstrap.
 
@@ -205,8 +208,8 @@ Owner approval for that exact context/source/version/content, Grant and target;
 it must reject stale, revoked, unauthenticated or inapplicable approval records.
 It selects approval history from protected authenticated storage; the request
 cannot submit its own approval or verifier. A timestamp, URL, hash or snapshot
-is insufficient authorization. The complete signing system remains outside this
-bounded interface. Production has no default success verifier or reader.
+is insufficient authorization. The concrete signing boundary below intersects
+with these approvals. Production has no default success verifier or reader.
 
 Success carries the approved references, never source content or raw provider
 errors. Core persists the result and authenticated approval history. Successor
@@ -225,17 +228,17 @@ or shipped. Actual Notion support requires a trusted provider reader satisfying
 the protocol above and separately verified live evidence. Unreadable current
 authority blocks even with a previously approved offline snapshot.
 
-## Protected interface version 3
+## Protected interface version 5
 
 The same package now exports `invokeProtected(request, trustedAdapters)` and
 `validateProtectedRequest`, `validateBinding`, `validateRoleResult`,
 `validateLifecycle`, `roles`, `failureClasses`, `skillForRole`,
 `resolveInstructions` and `instructionApproval`. The normative owner is this
 Core package. Action/CLI hosts consume these exports; no external repository
-integration or real Actions execution is claimed. The current baseline schema-2 invocation and requirement-source gates
-remain supported. Protected schema 3 requires explicit construction from
-authenticated host observations; schema-1/2 results are not valid protected
-schema-3 evidence. There is
+integration or real Actions execution is claimed. The current baseline schema-4 invocation and requirement-source gates
+remain supported. Protected schema 5 requires explicit construction from
+authenticated host observations; schema-1/2/3/4 results are not valid protected
+schema-5 evidence. There is
 no automatic migration. Unsupported versions fail explicitly at either boundary.
 
 All objects below have exactly their listed keys; optional fields are identified
@@ -248,7 +251,7 @@ objects/order; this is not canonical JSON, authentication, or a signature.
 
 ### Requests and execution bindings
 
-Request: `{schemaVersion: 3, binding: Binding, previous: Reference[]}`.
+Request: `{schemaVersion: 5, binding: Binding, previous: Reference[]}`.
 Reference: `{binding: Binding, digest: Hash}` where digest covers the complete
 prior RoleResult, preserving original order. Duplicate result IDs are rejected.
 A Binding has all of the following fields; none may be omitted:
@@ -347,7 +350,7 @@ There is no universal immediate Jobs REST API requirement.
 ### Role results and lifecycle references
 
 `execute(clone(request), clone(resolvedInstructions))` runs once after all
-checks. It returns exactly `{schemaVersion: 3, binding, outcome, failureClass,
+checks. It returns exactly `{schemaVersion: 5, binding, outcome, failureClass,
 references: String[], conflicts: Conflict[]}`. The Binding must equal the trusted
 assignment. Success outcomes in the table use classification `none`, including a diagnosis
 that does not confirm a Shape defect, except
@@ -390,10 +393,10 @@ inventory means the host verified no lifecycle proof applies, never absent proof
 masquerading as not-applicable. `conflicts` and lifecyclePolicy are trusted inputs;
 untrusted recovery comments/events/logs cannot populate them as authority.
 
-Malformed requests return `{schemaVersion: 3, status: 'rejected', error}`. Missing
+Malformed requests return `{schemaVersion: 5, status: 'rejected', error}`. Missing
 adapters, verification failures, exceptions or invalid executor output return
-`{schemaVersion: 3, status: 'blocked', error}` with safe English diagnostics.
-Confirmed role execution returns `{schemaVersion: 3, status: 'succeeded', result}`,
+`{schemaVersion: 5, status: 'blocked', error}` with safe English diagnostics.
+Confirmed role execution returns `{schemaVersion: 5, status: 'succeeded', result}`,
 including a completed concern/rejection as data. Transport success is not role
 approval, permission, successful prior evidence, or delivery completion. No retry,
 persistence, network, dispatch, privileged write or state transition is performed.
@@ -403,8 +406,8 @@ independent evidence; deterministic tests do not establish production security.
 ## Agent host interface version 1
 
 `src/agent.mjs`, exported from `@nibfin/core`, owns the version-1 Agent host
-interface. It composes protected schema 3; schemas 2 and 3 remain unchanged and
-explicitly supported. There is no default production host, checkout-discovered
+interface. It composes protected schema 5 and rejects legacy schemas 2 and 3.
+There is no default production host, checkout-discovered
 plugin, Agent/OS support claim, registration transport or additional lifecycle.
 Action/runtime hosts consume this interface; onboarding callers can consume the
 standalone environment and login validators. No external consumer repository was
@@ -470,7 +473,7 @@ cannot be established by structural validation alone.
 `adapter.prepare(assignment, expectedLogin)` returns an opaque, process-local
 handle. Assignment is exactly `{schemaVersion: 1, executionId, workspaceId,
 environmentId, instanceId, class, binding, references}`. Class is `agent` or
-`hook`; Binding is the existing complete schema-3 Binding, including role, Skill,
+`hook`; Binding is the existing complete schema-5 Binding, including role, Skill,
 repository/Issue, source Run/Attempt and component/instruction identities. Hooks
 are a separate execution class and never become a protected Skill. Input
 references are a nonempty array of exactly `{schemaVersion: 1, id, kind, digest,
@@ -535,14 +538,14 @@ runId, attempt}`. Assignment digest binds the complete input; operation is the
 protected role or `hook`. Additional keys depend on the method.
 
 `adapter.execute(handle, protectedAdapters)` consumes a handle once. For Agents,
-protectedAdapters contains `request`, `verify`, and `requirements` as documented
-for schema 3. The adapter supplies its own executor to `invokeProtected` and
-preserves every instruction, requirements, permission, prior-evidence,
+protectedAdapters contains `request`, `authorization`, `verify`, and `requirements` as documented
+for schema 5. The adapter supplies its own executor to `invokeProtected` and
+preserves every signed authorization, instruction, requirements, permission, prior-evidence,
 independence and RoleResult gate. The request Binding must equal the prepared
 Binding. `host.execute(assignment, resolvedInstructions)` returns correlation
-plus `result` (unchanged schema-3 RoleResult) and nonempty identifier `references`.
+plus `result` (unchanged schema-5 RoleResult) and nonempty identifier `references`.
 Returned adapter output has correlation plus `status`, `references` and
-`protected` containing the schema-3 transport response. Top-level `references`
+`protected` containing the schema-5 transport response. Top-level `references`
 retain the validated trusted host execution evidence for that exact assignment;
 `protected.result.references` retain the distinct RoleResult evidence unchanged.
 Host references are empty if no valid correlated host execution record was
@@ -605,3 +608,159 @@ tampering. Root build/check/test/experiment/verify-package establish local sourc
 and package behavior only, never hosted CI, Acceptance, production isolation,
 GitHub/Actions E2E or publication. No additional non-tree candidate artifacts or
 commit hooks are introduced.
+
+## Owner authorization (Grant payload version 1)
+
+Core exports `prepareGrant`, `signGrant`, `verifyGrant`, `authorizeOperation`,
+`validateGrant`, `serializeGrant` and `grantDraftDigest`. These are library
+operations, not additional `gh nibfin` commands. Both invocation interfaces
+require concrete authentication in addition to their existing permission,
+requirement-source and evidence gates. External consumers must explicitly
+migrate to schemas 4/5 and supply trusted authorization configuration; there
+is no fallback for old references, missing adapters or unsigned drafts. This
+remains unreleased, locally tested functionality, with no live GitHub/Actions,
+provider transport, deployment, incident attribution or key-custody E2E claim.
+
+A payload has exactly these fields, all mandatory:
+
+| Field | Contract |
+| --- | --- |
+| schemaVersion | 1 |
+| grantId, recordId, ownerKeyId, revocationId | Distinct-purpose record/key/revocation identities; nonempty printable ASCII identifiers, no spaces or wildcards |
+| members | Nonempty fixed array of Member objects; duplicate stable Issue IDs, repo/number pairs and conflicting repository ID/name mappings fail |
+| validFrom, expiresAt | Exact UTC ISO strings as produced by Date.toISOString(); start inclusive, expiration exclusive |
+| policy | `{ci: {mode, requiredChecks, trustedAppIds, workflowDigest}, merge: {baseBranch, method, protectionDigest}}` |
+| execution | `{core, runtime, agent, skills: {shape, deliver, accept}}`; first three values are immutable hashes |
+| maxParallel | Positive safe integer concurrency ceiling |
+| repair | Explicit null for ordinary work, or Repair below |
+
+Member is exactly `{repository: {id, name}, issue: {id, number, repositoryId},
+scopeDigest, dependencies, requirements, paths, operations}`. Repository name is
+owner/repository; Issue number is a positive safe integer; stable IDs are strings.
+`scopeDigest` hashes the exact frozen original body using `digest(body)`.
+`requirements` reuses the approved productSecurity/delivery references above.
+`dependencies` is the exact observed native upstream ID array, possibly empty,
+without duplicates. Ordering is frozen data, never product priority. Membership
+and dependencies cannot be expanded by discovery, labels, events or Runtime.
+
+Paths are nonempty arrays of relative file or directory bounds. An actual path
+must equal a bound or begin with bound + `/`; `src` does not authorize `src-other`.
+Reject absolute paths, empty/dot/dot-dot segments, backslashes, percent encoding,
+colons, wildcards, query/fragment syntax and whitespace. Host filesystem checks
+must additionally reject symlinks and resolve actual authorized write paths;
+lexical authorization alone cannot establish filesystem isolation. Actual paths
+may be empty for operations with no repository-file effects, only after the
+trusted host independently determines that fact. There is no implied root bound.
+
+Operations are explicit nonempty unique arrays drawn from shape, validate-shape,
+diagnose-shape, shaper-review, deliver, accept, publish-shape, pre-accept-hooks,
+post-accept-hooks, commit-pr, merge, verify-deployment, close, mark-delivered,
+handoff, recovery-comment, reopen, repair and invalidate-shape. These are permission
+names, not added roles or an implementation of those lifecycle operations.
+CI mode is github-repository or signed-workflow; check names and trusted App IDs
+are nonempty unique string arrays. CI workflowDigest and merge protectionDigest
+are hashes of the host's approved policy observations. Merge method is rebase,
+squash or merge, with explicit baseBranch. Unsupported/missing policy fields fail.
+Each Skill entry is `{version: Hash, customization: {mode, contentDigest: Hash}}`.
+Mode is default, extend or override; contentDigest binds effective instruction
+content, including built-in instructions for default. Only the three fixed Skills
+are accepted. These bindings cannot waive independent execution or other gates.
+
+`serializeGrant(payload)` validates JSON-only data and recursively sorts object
+keys, preserving array order, with compact JSON.stringify encoding. Numbers must
+be safe integers; unsupported versions, keys, values and ambiguous path/time
+representations fail. `grantDraftDigest(payload)` is `digest(serializeGrant(payload))`:
+Core's string-digest rule includes JSON quoting of the serialized string. This is
+a review identity, not execution authority. Body hashes still use `digest(body)`.
+
+`prepareGrant(proposedPayload, host)` clones inputs and calls only
+`host.readPolicy([{repository, issue}, ...])`,
+`host.readWorkSet([{repository, issue}, ...])` and the existing fresh
+`host.requirements` read/storage/approval interfaces. readPolicy must independently
+read current approved host policy and execution pins, returning exactly
+`{policy, execution, maxParallel}`. Policy/execution must match and proposed
+concurrency must not exceed this positive configured ceiling. Missing or conflicting
+policy observations block preparation. readWorkSet must independently
+read stable GitHub identities, exact original bodies and current native edges
+completely and consistently, returning `{complete: true, members: [{repository,
+issue, originalBody, dependencies, requirements}, ...]}`. Missing/inconsistent
+observations or unapproved snapshots block. Snapshot approval receives authority
+`{grantId, digest: grantDraftDigest(payload)}` for this preparation context; host
+approval history must distinguish draft preparation from execution. Result is
+`{payload, draftDigest, unauthorized: IssueId[], summary}`. The English summary
+exposes the entire bounded payload and discovered unauthorized IDs; it grants
+nothing. Preparation performs no signing, execution or privileged GitHub write.
+Original body content is not returned in the summary.
+
+`signGrant(draft, signingHost)` is a separate explicit operation. The host's
+`readApproval({grantId, draftDigest, ownerKeyId})` must independently authenticate
+Owner approval of that exact draft, returning exactly those identities plus
+`{approved: true, approvalId}`. There is no default approval callback. The library
+recomputes the draft identity, clones callback data and rejects changed content.
+`signingKey(ownerKeyId)` supplies an Ed25519 private KeyObject on the trusted
+signing host only. `ownerKey(ownerKeyId)` independently resolves the pinned trusted
+public key; signatures must verify against it, so the submitted payload cannot
+establish its own trust. Keep this signing host separate from Agent/workspace,
+reviewer, hook and untrusted checkout processes. Never put private material in
+requests, outputs, logs, artifacts or repository files. Tests generate ephemeral
+fixture keys in memory; this package provides no production key store.
+
+The signed bytes are UTF-8 compact recursively key-sorted JSON of
+`{domain: 'nibfin-owner-grant-v1', payload, approvalId}`. The algorithm is Ed25519,
+with canonical unpadded base64url encoding of the 64-byte signature. Result is
+exactly `{payload, approvalId, signature}`. Its authority reference is
+`{grantId: payload.grantId, digest: digest(result)}`, preserving result property
+order. The approval ID and key ID are covered by the signature. No submitted
+public-key field, unsigned approval string or well-shaped reference is trusted.
+
+`verifyGrant(grant, host, authority)` authenticates that exact Grant and reference,
+uses `host.now()` (safe integer UTC epoch milliseconds) and calls fresh
+`host.revocation({authority, revocationId})`. Revocation returns exactly
+`{authority, revocationId, revoked: false}` only after a current independently
+trusted lookup. Missing, stale, conflicting, inaccessible or revoked observations
+must throw or deny. Hosts must never implement unavailable reads as non-revocation
+or reuse an old success. The library checks every invocation with no cached
+permission. Trust/approval/revocation records must remain protected and traceable
+to exact identities. Provider exceptions are replaced by safe English errors.
+
+`authorizeOperation(grant, context, host, authority)` also verifies current
+validity/revocation. Context is exactly `{repository, issue, scopeDigest,
+dependencies, requirements, paths, operation, policy, execution, maxParallel,
+repair}`. Actual target and original Scope, native edge observations, snapshots,
+policy, execution and repair must match the signed bounds; paths/operation must
+be permitted and requested concurrency cannot exceed the signed ceiling.
+Shape is deliberately separate from Scope and not frozen in this payload:
+changed Shape requires fresh publication/predecessor/Candidate evidence, while
+a changed original Scope or snapshot requires applicable renewed authorization.
+
+For invocation, `adapters.authorization` supplies `resolve(authority)`,
+`observe(clone(request))`, `ownerKey`, `now` and `revocation`. resolve reads the
+exact signed envelope from protected storage. observe independently assembles
+actual operation context from current trusted host state, never request-selected
+code or event assertions. Target/Scope/snapshots must correlate to the request;
+operation must equal its stage/role (shape-validator maps to validate-shape,
+shape-diagnosis to diagnose-shape). Protected binding versions core/runtime map
+to execution.core/runtime; adapter maps to the pinned execution.agent adapter
+identity, and skill maps to that Skill's version. Protected resolved instruction
+mode and effective content must match signed customization. Use the already
+verified context snapshot for that check, rather than observing it twice.
+Successful authentication never replaces fresh native dependency, Runner-set,
+permissions, isolation, requirements, hooks, independent Accept, exact-head CI,
+review, merge or completion checks supplied through the existing interfaces.
+Unknown execution outcomes remain blocked without retry.
+
+Repair is exactly `{incidentId, repositoryId, issueId, environment, version,
+commit, deliveryCycle, repairCycle, originalAuthority}`. Strings are explicit;
+commit is 40/64 lowercase hex. A repair Grant is separately approved and signed,
+with a distinct Grant/record identity, validity and revocation. It targets exactly one member.
+originalAuthority must resolve to an authentic ordinary Grant under trusted keys;
+its historical membership, repository/Issue, original Scope and requirement
+bindings must contain that target. This lineage check authenticates original
+membership, not current permission from the historical Grant. Fresh permission
+comes solely from the new repair Grant, including its bounded paths/operations.
+Ordinary Grants cannot carry repair, reopen or recovery-comment permissions.
+Old ordinary authority, another cycle/incident/environment/version, comments,
+Reopen and failure logs cannot supply missing repair context. Protected cycle
+and incident bindings must also correlate. Incident attribution, deployment
+health exceptions, transport and operation execution remain separate Core gates;
+this library never waives them or performs deployment/Reopen/dispatch itself.

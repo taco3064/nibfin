@@ -6,6 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { initial, requirementAdapters, snapshot } from '../test/fixtures/request.mjs';
 import { fixture, roleResult } from '../test/fixtures/protected.mjs';
+import { fixtureAuthorization, contextFor } from '../test/fixtures/authority.mjs';
 const directory = await mkdtemp(join(tmpdir(), 'nibfin-consumer-'));
 const run = (args, cwd) => execFileSync('npm', args, {
   cwd, encoding: 'utf8', env: { ...process.env, npm_config_offline: 'true', npm_config_ignore_scripts: 'true' }
@@ -16,12 +17,12 @@ try {
   const allowed = path => ['package.json', 'README.md', 'LICENSE'].includes(path) ||
     /^(src|examples|docs)\//.test(path);
   assert(paths.every(allowed), `Unexpected package files: ${paths}`);
-  const required = ['package.json', 'README.md', 'LICENSE', 'src/identity.mjs', 'src/index.mjs', 'src/requirements.mjs',
+  const required = ['package.json', 'README.md', 'LICENSE', 'src/identity.mjs', 'src/index.mjs', 'src/requirements.mjs', 'src/authority.mjs',
     'examples/action.mjs', 'examples/cli.mjs'];
   for (const path of required) assert(paths.includes(path), `Missing ${path}`);
   // Compute expected identity from reviewed source bytes independently of package code.
   const entries = [];
-  for (const path of ['LICENSE', 'package.json', 'src/identity.mjs', 'src/index.mjs', 'src/requirements.mjs', 'src/protected.mjs', 'src/agent.mjs', 'src/instructions/shape.md', 'src/instructions/deliver.md', 'src/instructions/accept.md']) {
+  for (const path of ['LICENSE', 'package.json', 'src/identity.mjs', 'src/index.mjs', 'src/requirements.mjs', 'src/authority.mjs', 'src/protected.mjs', 'src/agent.mjs', 'src/instructions/shape.md', 'src/instructions/deliver.md', 'src/instructions/accept.md']) {
     assert((await lstat(path)).isFile());
     entries.push([path, (await readFile(path)).toString('base64')]);
   }
@@ -31,13 +32,15 @@ try {
   await writeFile(join(directory, 'package.json'), '{"private":true,"type":"module"}\n');
   run(['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund', join(directory, packed.filename)], directory);
   const protectedFixture = fixture('accept');
+  const ordinaryPayload = fixtureAuthorization(initial()).grant.payload;
+  const protectedAuthorization = fixtureAuthorization(protectedFixture.request.binding);
   await writeFile(join(directory, 'smoke.mjs'), `
 import assert from 'node:assert/strict';
-import { digest } from '@nibfin/core';
+import { digest, prepareGrant, signGrant, verifyGrant, authorizeOperation, grantDraftDigest } from '@nibfin/core';
 import { identity } from '@nibfin/core/identity';
 import { createAgentAdapter, validateEnvironments, invokeProtected, resolveInstructions } from '@nibfin/core';
 import { readFile, writeFile } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
+import { createHash, generateKeyPairSync } from 'node:crypto';
 import { runOneStage } from './node_modules/@nibfin/core/examples/action.mjs';
 import { checkInstalledCore } from './node_modules/@nibfin/core/examples/cli.mjs';
 const expected = ${JSON.stringify(expected)};
@@ -46,13 +49,38 @@ assert.deepEqual(await checkInstalledCore(expected), expected);
 for (const change of [{ version: 'wrong' }, { contentDigest: '0'.repeat(64) }]) {
   await assert.rejects(checkInstalledCore({ ...expected, ...change }), /identity mismatch/);
 }
-const request = ${JSON.stringify(initial())};
-assert.equal((await runOneStage(request)).status, 'blocked');
+const keys = generateKeyPairSync('ed25519'), records = new Map();
+const host = { ownerKey: async () => keys.publicKey, signingKey: async () => keys.privateKey,
+  now: () => Date.parse('2026-10-23T12:00:00.000Z'),
+  readApproval: async expected => ({ ...expected, approved: true, approvalId: 'installed-approval' }),
+  revocation: async expected => ({ ...expected, revoked: false }), resolve: async a => records.get(a.digest),
+  observe: async r => contextFor(records.get((r.binding ?? r).authority.digest),
+    ({ 'shape-validator': 'validate-shape', 'shape-diagnosis': 'diagnose-shape' })[r.binding?.role ?? r.stage] ?? r.binding?.role ?? r.stage) };
+const contextFor = ${contextFor.toString()};
+async function signed(payload) {
+  const g = await signGrant({ payload, draftDigest: grantDraftDigest(payload), unauthorized: [], summary: 'Installed fixture' }, host);
+  records.set(digest(g), g); return g;
+}
 const snapshot = ${snapshot.toString()};
 const requirementAdapters = ${requirementAdapters.toString()};
+const proposed = ${JSON.stringify(ordinaryPayload)};
+proposed.members[0].scopeDigest = digest('Installed original Scope');
+const prepared = await prepareGrant(proposed, { requirements: requirementAdapters(),
+  readPolicy: async () => ({ policy: proposed.policy, execution: proposed.execution, maxParallel: 2 }),
+  readWorkSet: async () => ({ complete: true, members: proposed.members.map(m => ({
+    repository: m.repository, issue: m.issue, originalBody: 'Installed original Scope',
+    dependencies: m.dependencies, requirements: m.requirements })) }) });
+const ordinary = await signGrant(prepared, host);
+records.set(digest(ordinary), ordinary);
+const request = ${JSON.stringify(initial())};
+request.authority = { grantId: ordinary.payload.grantId, digest: digest(ordinary) };
+request.scopeDigest = prepared.payload.members[0].scopeDigest;
+await verifyGrant(ordinary, host, request.authority);
+await authorizeOperation(ordinary, contextFor(ordinary), host, request.authority);
+assert.equal((await runOneStage(request)).status, 'blocked');
 let executions = 0;
 const result = await runOneStage(request, {
-  requirements: requirementAdapters(),
+  authorization: host, requirements: requirementAdapters(),
   verify: async () => ({ permission: 'verified' }),
   execute: async () => { executions++; return { status: 'succeeded' }; }
 });
@@ -61,18 +89,33 @@ assert.equal(result.requestId, request.requestId);
 assert.equal(executions, 1);
 const protectedRequest = ${JSON.stringify(protectedFixture.request)};
 const protectedProof = ${JSON.stringify(protectedFixture.proof)};
-const protectedResult = ${JSON.stringify(roleResult(protectedFixture.request.binding))};
+const original = await signed(${JSON.stringify(protectedAuthorization.parents[0].payload)});
+const repairPayload = ${JSON.stringify(protectedAuthorization.grant.payload)};
+repairPayload.repair.originalAuthority = { grantId: original.payload.grantId, digest: digest(original) };
+const repair = await signed(repairPayload);
+const repairAuthority = { grantId: repair.payload.grantId, digest: digest(repair) };
+protectedProof.instructionContext.authority = repairAuthority;
+for (const b of [protectedRequest.binding, ...protectedProof.prior.map(p => p.result.binding)]) {
+  b.authority = repairAuthority;
+  const i = resolveInstructions(b.role, protectedProof.configuration, protectedProof.instructionContext);
+  b.instructionDigest = i.contentDigest; b.instructionSelectionDigest = i.selectionDigest;
+}
+for (const p of protectedProof.prior) { p.reference.binding = structuredClone(p.result.binding); p.reference.digest = digest(p.result); }
+protectedRequest.previous = protectedProof.prior.map(p => p.reference);
+protectedRequest.binding.previousDigest = digest(protectedRequest.previous);
+protectedProof.assignment = structuredClone(protectedRequest.binding);
+const protectedResult = { ...${JSON.stringify(roleResult(protectedFixture.request.binding))}, binding: protectedRequest.binding };
 assert.equal(typeof createAgentAdapter, 'function');
 assert.throws(() => validateEnvironments([], []));
 const selected = resolveInstructions('accept', protectedProof.configuration, protectedProof.instructionContext);
 assert.equal(selected.contentDigest, protectedRequest.binding.instructionDigest);
 assert.equal((await invokeProtected(protectedRequest)).status, 'blocked');
 assert.equal((await invokeProtected(protectedRequest, {
-  requirements: requirementAdapters(), verify: async () => protectedProof, execute: async () => protectedResult
+  authorization: host, requirements: requirementAdapters(), verify: async () => protectedProof, execute: async () => protectedResult
 })).status, 'succeeded');
 protectedRequest.binding.sessionId = 'substituted';
 assert.equal((await invokeProtected(protectedRequest, {
-  requirements: requirementAdapters(), verify: async () => protectedProof, execute: async () => protectedResult
+  authorization: host, requirements: requirementAdapters(), verify: async () => protectedProof, execute: async () => protectedResult
 })).status, 'blocked');
 const identityPaths = ${JSON.stringify(entries.map(e => e[0]))};
 async function independentIdentity() {
@@ -81,7 +124,7 @@ async function independentIdentity() {
   return createHash('sha256').update(JSON.stringify(pairs)).digest('hex');
 }
 assert.equal(await independentIdentity(), expected.contentDigest);
-for (const path of identityPaths.filter(p => ['src/protected.mjs', 'src/agent.mjs', 'src/requirements.mjs'].includes(p) || p.startsWith('src/instructions/'))) {
+for (const path of identityPaths.filter(p => ['src/protected.mjs', 'src/agent.mjs', 'src/requirements.mjs', 'src/authority.mjs'].includes(p) || p.startsWith('src/instructions/'))) {
   const file = 'node_modules/@nibfin/core/' + path;
   const original = await readFile(file);
   try {
@@ -91,7 +134,7 @@ for (const path of identityPaths.filter(p => ['src/protected.mjs', 'src/agent.mj
   } finally { await writeFile(file, original); }
 }
 assert.equal(await independentIdentity(), expected.contentDigest);
-console.log('External installed v2/v3 consumers, instruction selection, rejection and tamper checks passed.');
+console.log('External installed v4/v5 signed consumers, instruction selection, rejection and tamper checks passed.');
 `);
   console.log(execFileSync(process.execPath, ['smoke.mjs'], { cwd: directory, encoding: 'utf8' }).trim());
   console.log(JSON.stringify({ packageFiles: paths, expectedIdentity: expected }));

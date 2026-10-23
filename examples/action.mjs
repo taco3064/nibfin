@@ -1,5 +1,6 @@
 import { invoke } from '@nibfin/core';
-// Schema 2 requires separate productSecurity and delivery references.
+// Schema 4 requires separate productSecurity and delivery references.
+// trustedAdapters.authorization resolves signed Grants and observes actual operation bounds.
 // trustedAdapters.requirements supplies host-selected readers, storage and approval verification.
 // Called by trusted Core integration after prerequisite/authentication checks.
 // No adapter path, token or permission assertion comes from workflow/event inputs.

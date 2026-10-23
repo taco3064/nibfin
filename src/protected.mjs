@@ -1,3 +1,4 @@
+import { authorizeRequest } from './authority.mjs';
 import { validateRequirements, verifyRequirements } from './requirements.mjs';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -80,7 +81,7 @@ export function validateBinding(b) {
 }
 export function validateProtectedRequest(r) {
   fields(r, ['schemaVersion', 'binding', 'previous']);
-  check(r.schemaVersion === 3, 'Unsupported protected schema version.');
+  check(r.schemaVersion === 5, 'Unsupported protected schema version.');
   validateBinding(r.binding);
   check(Array.isArray(r.previous), 'Prior references must be an array.');
   for (const p of r.previous) {
@@ -93,7 +94,7 @@ const successes = Object.freeze({ shape: 'proposal', 'shape-validator': 'approve
   accept: 'accepted', 'shape-diagnosis': 'not-confirmed', 'shaper-review': 'approved' });
 export function validateRoleResult(r, expected, conflicts = []) {
   fields(r, ['schemaVersion', 'binding', 'outcome', 'failureClass', 'references', 'conflicts']);
-  check(r.schemaVersion === 3, 'Unsupported role result version.');
+  check(r.schemaVersion === 5, 'Unsupported role result version.');
   validateBinding(r.binding); check(same(r.binding, expected), 'Result assignment mismatch.');
   check(failureClasses.includes(r.failureClass) && Array.isArray(r.references) && r.references.every(text) &&
     Array.isArray(r.conflicts), 'Invalid result classification or evidence references.');
@@ -147,11 +148,12 @@ function permittedSource(binding, relationships) {
 export async function invokeProtected(request, adapters = {}) {
   let r;
   try { r = structuredClone(request); validateProtectedRequest(r); }
-  catch { return { schemaVersion: 3, status: 'rejected', error: 'Invalid protected request.' }; }
-  const blocked = () => ({ schemaVersion: 3, status: 'blocked', error: 'Protected execution or evidence is unverified; Core reconciliation is required.' });
+  catch { return { schemaVersion: 5, status: 'rejected', error: 'Invalid protected request.' }; }
+  const blocked = () => ({ schemaVersion: 5, status: 'blocked', error: 'Protected execution or evidence is unverified; Core reconciliation is required.' });
   if (typeof adapters.verify !== 'function' || typeof adapters.execute !== 'function') return blocked();
   let instructions, proof;
   try {
+    const authorization = await authorizeRequest(r, adapters.authorization, true);
     proof = structuredClone(await adapters.verify(structuredClone(r)));
     fields(proof, ['permission', 'assignment', 'configuration', 'instructionContext', 'relationships',
       'prior', 'lifecycle', 'lifecyclePolicy', 'conflicts']);
@@ -167,6 +169,9 @@ export async function invokeProtected(request, adapters = {}) {
     check(same(proof.instructionContext, { repository: b.repository, authority: b.authority, versions: b.versions, requirements: b.requirements }), 'Instruction context mismatch.');
     await verifyRequirements({ requirements: b.requirements, authority: b.authority, repository: b.repository, issue: b.issue }, adapters.requirements);
     instructions = resolveInstructions(b.role, proof.configuration, proof.instructionContext);
+    const signedContext = authorization.context;
+    check(signedContext.execution.skills[b.skill].customization.mode === instructions.mode &&
+      signedContext.execution.skills[b.skill].customization.contentDigest === instructions.contentDigest, 'Signed customization mismatch.');
     check(instructions.contentDigest === b.instructionDigest && instructions.selectionDigest === b.instructionSelectionDigest, 'Instruction identity mismatch.');
     permittedSource(b, proof.relationships);
     check(Array.isArray(proof.prior) && same(r.previous, proof.prior.map(p => p.reference)), 'Required prior inventory mismatch.');
@@ -211,6 +216,6 @@ export async function invokeProtected(request, adapters = {}) {
   try {
     const result = structuredClone(await adapters.execute(structuredClone(r), structuredClone(instructions)));
     validateRoleResult(result, r.binding, proof.conflicts);
-    return { schemaVersion: 3, status: 'succeeded', result };
+    return { schemaVersion: 5, status: 'succeeded', result };
   } catch { return blocked(); }
 }

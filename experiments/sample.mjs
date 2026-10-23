@@ -1,3 +1,4 @@
+import { fixtureAuthorization } from '../test/fixtures/authority.mjs';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,6 +8,7 @@ const directory = await mkdtemp(join(tmpdir(), 'nibfin-experiment-'));
 try {
   // Synthetic experiment adapter has no production export or credential access.
   const result = await invoke(initial(), {
+    authorization: fixtureAuthorization(initial()).host,
     requirements: requirementAdapters(),
     verify: async () => ({ permission: 'verified' }),
     execute: async () => ({ status: 'succeeded' })

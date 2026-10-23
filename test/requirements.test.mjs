@@ -1,3 +1,4 @@
+import { fixtureAuthorization } from './fixtures/authority.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { invoke, digest, captureSnapshot, validateReference, validateSnapshot } from '../src/index.mjs';
@@ -6,7 +7,7 @@ function setup() {
   const requirements = requirementAdapters();
   const request = initial();
   let calls = 0;
-  const adapters = { requirements, verify: async () => ({ permission: 'verified' }),
+  const adapters = { authorization: fixtureAuthorization(request).host, requirements, verify: async () => ({ permission: 'verified' }),
     execute: async () => { calls++; return { status: 'succeeded' }; } };
   return { request, requirements, adapters, calls: () => calls };
 }
@@ -103,6 +104,7 @@ test('A history remains identifiable; B requires matching renewed approval and c
   x.requirements.verifyApproval = async approval => approval.reference.revision === 'A';
   assert.equal((await invoke(x.request, x.adapters)).status, 'blocked');
   x.requirements.verifyApproval = async () => true;
+  const renewed = fixtureAuthorization(x.request); x.request.authority = renewed.authority; x.adapters.authorization = renewed.host;
   const result = await invoke(x.request, x.adapters);
   assert.equal(result.status, 'succeeded');
   assert.equal(a.requirements.delivery.revision, 'A');

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFile, lstat } from 'node:fs/promises';
 const root = new URL('../', import.meta.url);
-export const identityPaths = Object.freeze(['LICENSE', 'package.json', 'src/identity.mjs', 'src/index.mjs', 'src/requirements.mjs', 'src/protected.mjs', 'src/instructions/shape.md', 'src/instructions/deliver.md', 'src/instructions/accept.md']);
+export const identityPaths = Object.freeze(['LICENSE', 'package.json', 'src/identity.mjs', 'src/index.mjs', 'src/requirements.mjs', 'src/protected.mjs', 'src/agent.mjs', 'src/instructions/shape.md', 'src/instructions/deliver.md', 'src/instructions/accept.md']);
 export async function identity() {
   const entries = [];
   for (const path of identityPaths) {

@@ -21,7 +21,7 @@ try {
   for (const path of required) assert(paths.includes(path), `Missing ${path}`);
   // Compute expected identity from reviewed source bytes independently of package code.
   const entries = [];
-  for (const path of ['LICENSE', 'package.json', 'src/identity.mjs', 'src/index.mjs', 'src/requirements.mjs', 'src/protected.mjs', 'src/instructions/shape.md', 'src/instructions/deliver.md', 'src/instructions/accept.md']) {
+  for (const path of ['LICENSE', 'package.json', 'src/identity.mjs', 'src/index.mjs', 'src/requirements.mjs', 'src/protected.mjs', 'src/agent.mjs', 'src/instructions/shape.md', 'src/instructions/deliver.md', 'src/instructions/accept.md']) {
     assert((await lstat(path)).isFile());
     entries.push([path, (await readFile(path)).toString('base64')]);
   }
@@ -35,7 +35,7 @@ try {
 import assert from 'node:assert/strict';
 import { digest } from '@nibfin/core';
 import { identity } from '@nibfin/core/identity';
-import { invokeProtected, resolveInstructions } from '@nibfin/core';
+import { createAgentAdapter, validateEnvironments, invokeProtected, resolveInstructions } from '@nibfin/core';
 import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { runOneStage } from './node_modules/@nibfin/core/examples/action.mjs';
@@ -62,6 +62,8 @@ assert.equal(executions, 1);
 const protectedRequest = ${JSON.stringify(protectedFixture.request)};
 const protectedProof = ${JSON.stringify(protectedFixture.proof)};
 const protectedResult = ${JSON.stringify(roleResult(protectedFixture.request.binding))};
+assert.equal(typeof createAgentAdapter, 'function');
+assert.throws(() => validateEnvironments([], []));
 const selected = resolveInstructions('accept', protectedProof.configuration, protectedProof.instructionContext);
 assert.equal(selected.contentDigest, protectedRequest.binding.instructionDigest);
 assert.equal((await invokeProtected(protectedRequest)).status, 'blocked');
@@ -79,7 +81,7 @@ async function independentIdentity() {
   return createHash('sha256').update(JSON.stringify(pairs)).digest('hex');
 }
 assert.equal(await independentIdentity(), expected.contentDigest);
-for (const path of identityPaths.filter(p => ['src/protected.mjs', 'src/requirements.mjs'].includes(p) || p.startsWith('src/instructions/'))) {
+for (const path of identityPaths.filter(p => ['src/protected.mjs', 'src/agent.mjs', 'src/requirements.mjs'].includes(p) || p.startsWith('src/instructions/'))) {
   const file = 'node_modules/@nibfin/core/' + path;
   const original = await readFile(file);
   try {

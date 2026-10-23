@@ -127,7 +127,7 @@ independently reviewed, pinned source/artifact record, never the installed
 package's own claim. The content algorithm is SHA-256 of JSON.stringify of an
 ordered array of `[path, base64(exact file bytes)]` pairs, in this order:
 LICENSE, package.json, src/identity.mjs, src/index.mjs, src/requirements.mjs,
-src/protected.mjs, src/instructions/shape.md, src/instructions/deliver.md,
+src/protected.mjs, src/agent.mjs, src/instructions/shape.md, src/instructions/deliver.md,
 src/instructions/accept.md. Those regular files are
 the complete Core runtime identity surface. The smoke script independently
 computes it from source with Node crypto before installing, then checks installed
@@ -399,3 +399,209 @@ approval, permission, successful prior evidence, or delivery completion. No retr
 persistence, network, dispatch, privileged write or state transition is performed.
 The host owns replay protection, authentication, isolated execution and fresh
 independent evidence; deterministic tests do not establish production security.
+
+## Agent host interface version 1
+
+`src/agent.mjs`, exported from `@nibfin/core`, owns the version-1 Agent host
+interface. It composes protected schema 3; schemas 2 and 3 remain unchanged and
+explicitly supported. There is no default production host, checkout-discovered
+plugin, Agent/OS support claim, registration transport or additional lifecycle.
+Action/runtime hosts consume this interface; onboarding callers can consume the
+standalone environment and login validators. No external consumer repository was
+inspected or changed. All records reject missing or unsupported fields/versions.
+Identity comparison uses the existing `digest(value)` JSON.stringify semantics,
+including property order. String content hashes JSON.stringify(string).
+
+### Environments, instances and phased login
+
+`validateEnvironments(environments, instances, previousEnvironments = [])`
+validates the entire observed local inventory. Environment records have exactly
+`{schemaVersion: 1, id, agent, credentialDomain}`. All identifiers are nonempty
+strings matching `[A-Za-z0-9][A-Za-z0-9:._/-]*`; these are logical identities,
+not permission to use them as filesystem paths. Environment IDs and Agent
+credential domains are unique. A previously observed environment must remain
+byte-identical, including its fixed Agent type and credential domain. Core must
+supply authenticated historical records, not a checkout's account of history.
+
+Instance records have exactly `{schemaVersion: 1, id, environmentId,
+agentCredentialDomain, githubIdentity, githubCredentialDomain, workspace,
+service, runnerId}`. The Agent domain must match the referenced environment.
+GitHub credential domains cannot equal any environment's Agent domain. Instance
+IDs, workspaces, services, GitHub credential domains, non-null GitHub identities
+and non-null Runner IDs must each be unique. `runnerId` and `githubIdentity` are
+both null for unregistered local instances, or both nonempty identifiers after
+registration. No Runner ID is invented by create or login. Registration must
+bind existing instances: create's count is the total local instance inventory
+(default 2, positive integer), not a per-repository multiplier. This interface
+validates observations; it neither creates instances nor implements count/CLI
+orchestration. Trusted hosts must independently establish actual separation,
+including ancestor/mount aliases and OS credential/service boundaries.
+
+`validateLogin(observation, expected)` validates a secret-free host observation:
+`{schemaVersion: 1, phase, operation, runId, attempt, account, userId, agent, gh,
+tokenEnvironment, httpStatus}`. Expected contains exactly `{phase, operation,
+runId, attempt, account, userId, caller}`. Caller is `local` or `github-hosted`.
+Phase is `create`, `register`, `standby` or `issue`; attempt is a positive integer.
+Operation, Run, OS/service account and stable GitHub user must match expectation.
+Agent and gh states are `available`, `unavailable` or `unknown`. Agent must be
+available; local callers also require available gh. Hosted callers use their own
+trusted authentication and need no member-local gh login. Token environment must
+be `absent`, and HTTP status must be null or 200. In particular GH_TOKEN or
+GITHUB_TOKEN cannot silently substitute for the actual service account's login.
+401/403, unknown identity and missing login block without login or retry.
+
+Create's login check requires no registration, while standby needs neither an
+Issue nor its Grant. Passing either validator grants no registration or execution
+permission. The Issue adapter separately requires a registered instance and fresh
+Core permission. Trusted host diagnostics must never include raw provider
+responses or credentials; safe status observations are retained by Core with
+operation/Run/Attempt correlation.
+
+### Assignment, immutable input and trusted host methods
+
+`createAgentAdapter(host)` takes trusted Core-injected functions only:
+`observe`, `predecessors`, `reconcile`, `materialize`, `seal`, `execute`, `stop`,
+and `cleanup`. These functions run outside the sandbox. Their return values
+must be freshly authenticated host observations, never Agent assertions with an
+added authenticity flag. Functions receive clones; no method is loaded from a
+repository, event, path or instruction. Host enforcement and evidence provenance
+cannot be established by structural validation alone.
+
+`adapter.prepare(assignment, expectedLogin)` returns an opaque, process-local
+handle. Assignment is exactly `{schemaVersion: 1, executionId, workspaceId,
+environmentId, instanceId, class, binding, references}`. Class is `agent` or
+`hook`; Binding is the existing complete schema-3 Binding, including role, Skill,
+repository/Issue, source Run/Attempt and component/instruction identities. Hooks
+are a separate execution class and never become a protected Skill. Input
+references are a nonempty array of exactly `{schemaVersion: 1, id, kind, digest,
+path, repositoryId, candidateDigest, runId, attempt}`. Kinds are `repository`,
+`candidate`, `artifact` or `hook`. Candidate, target repository and destination
+Run/Attempt must match Binding. The reference ID names an independently
+authenticated immutable object; a URL/path or digest alone is not authentication.
+No mutable-checkout fallback exists. Paths are portable relative destinations
+without empty, dot, parent, absolute, backslash or NUL components; overlapping
+and duplicate destinations fail. Required ignored artifacts belong in this
+inventory just like repository content. This version materializes exact UTF-8
+strings; a host needing binary/unsupported inputs must block rather than decode
+lossily or omit them. Storage, retention, transport and N57 are outside this seam.
+
+`observe(assignment)` returns exactly `{assignment, environments, instances,
+previousEnvironments, login, capabilities, exposures, permission}`. Assignment
+must match the separately authenticated complete expected assignment, including
+all required evidence. The inventories use the validators above. Permission must
+be `verified`, established by Core, never inferred from login. Agent login must
+match expected Issue phase and Binding Run/Attempt. Hooks have `login: null` and
+use `expectedLogin: null`; they need no Agent login or credentials.
+
+Capabilities has exactly `{filesystem, symlinks, credentials, network,
+termination}`. Filesystem must be `workspace-write` for Deliver Agent and
+`read-only` for every other protected role and Hooks. Symlinks, credentials and
+termination must be
+`deny`, `isolated` and `observable`. Network must be `denied` for Hooks; Agents
+may use `denied` or `restricted` with trusted Core-approved egress enforcement.
+These values represent
+actual host-enforced controls, not requested flags. Unsupported/unknown controls
+block, even with approved override instructions. Exposures is an empty array or
+`['agent-login']` for Agents; it must be empty for Hooks. Controller keys, signing
+keys, Core gh authentication and GitHub credentials cannot enter any sandbox.
+The host must enforce path/mount/symlink boundaries against concurrent changes,
+prevent cross-workspace access, restrict network and prevent credential leakage.
+
+`predecessors(assignment)` supplies all relevant previous executions as
+`{assignment, observation}` records from trusted durable Core state, including
+other registrations/Runs. `reconcile(record)` returns an independently obtained
+current cleanup observation for that predecessor. Unknown/failed termination or
+disposal blocks preparation. Every predecessor execution and workspace must
+differ from the new assignment. The adapter also refuses reuse within its own
+process, including after failed materialization or successful cleanup. These
+local reservations are not distributed exclusion. Core must retain all relevant
+predecessors and reconcile unknown preparations across process/host loss; a new
+adapter or Run does not clear their obligations.
+
+`materialize(assignment, reference)` retrieves authenticated immutable content
+and returns the exact string. The adapter checks its expected digest before
+sealing/exposure. The trusted materializer must stage privately and enforce safe
+destinations, verify identities before any exposure and never use surviving
+mutable data as fallback. `seal(assignment)` makes the complete verified input
+visible with actual role restrictions and returns the correlation record below
+plus `mode` and exact `references`. Missing/altered inputs or stale seals block.
+Partial preparation requires Core reconciliation; no callback is run or retried.
+
+### Execution, results, diagnostics and cleanup
+
+All host execution, seal and cleanup records share exactly this correlation
+prefix: `{schemaVersion: 1, executionId, workspaceId, assignmentDigest, operation,
+runId, attempt}`. Assignment digest binds the complete input; operation is the
+protected role or `hook`. Additional keys depend on the method.
+
+`adapter.execute(handle, protectedAdapters)` consumes a handle once. For Agents,
+protectedAdapters contains `request`, `verify`, and `requirements` as documented
+for schema 3. The adapter supplies its own executor to `invokeProtected` and
+preserves every instruction, requirements, permission, prior-evidence,
+independence and RoleResult gate. The request Binding must equal the prepared
+Binding. `host.execute(assignment, resolvedInstructions)` returns correlation
+plus `result` (unchanged schema-3 RoleResult) and nonempty identifier `references`.
+Returned adapter output has correlation plus `status`, `references` and
+`protected` containing the schema-3 transport response. Top-level `references`
+retain the validated trusted host execution evidence for that exact assignment;
+`protected.result.references` retain the distinct RoleResult evidence unchanged.
+Host references are empty if no valid correlated host execution record was
+obtained. They can accompany a blocked response when RoleResult validation fails;
+evidence presence never overrides protected status or result gates.
+Succeeded transport can still contain a role
+concern/rejection; callers must inspect RoleResult, never infer acceptance.
+
+For Hooks, host.execute receives null instructions and returns correlation plus
+`status: 'succeeded'` and nonempty identifier `references`. This is a bounded
+execution seam, not full hook orchestration, approval or a hook receipt protocol.
+Core still enforces isolated no-network/no-credential execution and both mandatory
+hook passes. A Hook callback cannot invoke Agent execution through this seam.
+
+Preparation errors have a fixed English message and a `diagnostic` with version,
+operation `prepare`, blocked status, syntactically valid input Run/Attempt or
+null, and bounded host-observed `httpStatus` (integer 100–599 or null). These input locators are diagnostic hints, not verified source proof.
+Execution exceptions return a generic correlated blocked record without raw host
+errors. No error triggers retry or implies termination/cleanup success.
+
+`adapter.cleanup(handle)` consumes the handle, requests `stop(assignment)` once
+per call, then independently observes `cleanup(assignment)`. Cleanup records
+contain correlation plus `{termination, disposal, references}`. Termination is
+`confirmed`, `running`, `failed` or `unknown`; disposal is `safe`, `failed`,
+`incomplete` or `unknown`. References are nonempty identifier arrays.
+`validateCleanup(observation, assignment)` returns `{safe, observation}`; safe
+requires confirmed termination AND safe disposal. Failed stop does not establish
+termination; only independently authenticated observation can resolve it.
+Unverifiable cleanup returns `{safe: false, observation: null}`. Core must persist
+these records and block replacement Writers, even on another Run/registration,
+until independently reconciled. Timeout and a new Run cannot clear uncertainty.
+
+### Verification and support limits
+
+`test/agent.test.mjs` applies common boundary checks to all six protected roles
+and Hooks through `test/fixtures/agent-host.mjs`. The tested backend is a local
+Node 22.23.3 JavaScript test host on this Linux execution container. Child-process
+filesystem probes use Node's experimental permission model: Reviewer writes,
+outside-workspace reads/writes and credential-file access are actually rejected;
+Deliver can write its approved workspace. Host path checks reject escapes and
+symlinks. An empty child environment and restricted VM evaluator exercise denied
+credential globals and network entry points without sending network traffic.
+The VM exposes no imports, process, fetch or sockets and disables dynamic code.
+
+This is NOT a secure general-purpose VM or native Agent sandbox. It does not
+prove kernel network isolation, malicious native-code resistance, mount-race
+safety, production credentials, arbitrary child processes or real Agent login.
+No concrete production backend or Agent/OS combination is advertised as supported.
+Other platforms/Agents need equivalent independently measured enforcement before
+support can be claimed; unavailable capabilities fail closed now.
+
+Successful test-host cleanup actually removes the workspace. Failure/running/
+unknown cleanup observations are synthetic fault injections, not live process
+termination experiments. The Run A/B fixture uses a synthetic immutable
+in-memory store and separate
+filesystem roots. It deletes the Writer root before reconstructing Reviewer
+content and required ignored artifacts; this is not N57 storage or Actions E2E.
+Package smoke checks installed exports and independently detects new module
+tampering. Root build/check/test/experiment/verify-package establish local source
+and package behavior only, never hosted CI, Acceptance, production isolation,
+GitHub/Actions E2E or publication. No additional non-tree candidate artifacts or
+commit hooks are introduced.

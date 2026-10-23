@@ -128,3 +128,5 @@ export async function invoke(request, adapters = {}) {
 export { roles, failureClasses, skillForRole, instructionApproval, resolveInstructions,
   validateBinding, validateProtectedRequest, validateRoleResult, validateLifecycle,
   invokeProtected } from './protected.mjs';
+
+export { validateEnvironments, validateLogin, validateCleanup, createAgentAdapter } from './agent.mjs';

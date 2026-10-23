@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { initial, requirementAdapters, snapshot } from '../test/fixtures/request.mjs';
+import { scopeFixture } from '../test/fixtures/scope.mjs';
 import { fixture, roleResult } from '../test/fixtures/protected.mjs';
 import { fixtureAuthorization, contextFor } from '../test/fixtures/authority.mjs';
 const directory = await mkdtemp(join(tmpdir(), 'nibfin-consumer-'));
@@ -22,7 +23,7 @@ try {
   for (const path of required) assert(paths.includes(path), `Missing ${path}`);
   // Compute expected identity from reviewed source bytes independently of package code.
   const entries = [];
-  for (const path of ['LICENSE', 'package.json', 'src/identity.mjs', 'src/index.mjs', 'src/requirements.mjs', 'src/authority.mjs', 'src/protected.mjs', 'src/agent.mjs', 'src/workspace.mjs', 'src/instructions/shape.md', 'src/instructions/deliver.md', 'src/instructions/accept.md']) {
+  for (const path of ['LICENSE', 'package.json', 'src/identity.mjs', 'src/index.mjs', 'src/requirements.mjs', 'src/authority.mjs', 'src/protected.mjs', 'src/agent.mjs', 'src/workspace.mjs', 'src/instructions/shape.md', 'src/instructions/deliver.md', 'src/instructions/accept.md', 'src/scope.mjs', 'src/instructions/scope.md']) {
     assert((await lstat(path)).isFile());
     entries.push([path, (await readFile(path)).toString('base64')]);
   }
@@ -31,6 +32,7 @@ try {
     contentDigest: createHash('sha256').update(JSON.stringify(entries)).digest('hex') };
   await writeFile(join(directory, 'package.json'), '{"private":true,"type":"module"}\n');
   run(['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund', join(directory, packed.filename)], directory);
+  const scopeExample = scopeFixture();
   const protectedFixture = fixture('accept');
   const ordinaryPayload = fixtureAuthorization(initial()).grant.payload;
   const protectedAuthorization = fixtureAuthorization(protectedFixture.request.binding);
@@ -45,6 +47,22 @@ import { createHash, generateKeyPairSync } from 'node:crypto';
 import { runOneStage } from './node_modules/@nibfin/core/examples/action.mjs';
 import { checkInstalledCore } from './node_modules/@nibfin/core/examples/cli.mjs';
 const expected = ${JSON.stringify(expected)};
+const scope = await import('@nibfin/core');
+assert.match(await scope.scopeInstructions(), /Official Scope Skill/);
+assert.equal(typeof scope.auditScope, 'function');
+assert.equal((await scope.verifyScopePlan({})).planValid, false);
+const scopePlan = ${JSON.stringify(scopeExample.plan)};
+const observedScope = ${JSON.stringify(scopeExample.observations)};
+const scopeHost = { verifyAuthority: async ({snapshot, requirements}) =>
+  digest(snapshot) === ${JSON.stringify((await import('../src/index.mjs')).digest(scopeExample.plan.authority))} &&
+  digest(requirements) === ${JSON.stringify((await import('../src/index.mjs')).digest(scopeExample.plan.requirements))} };
+assert.equal((await scope.verifyScopePlan(scopePlan, scopeHost)).planValid, true);
+let scopeWrites = 0;
+assert.equal((await scope.auditScope(scopePlan, scopeHost, {
+  readInventory: async repository => ({ complete: true, evidence: ['installed:inventory'], issues: observedScope.filter(o => o.repository === repository) }),
+  updateIssue: () => scopeWrites++
+})).status, 'consistent');
+assert.equal(scopeWrites, 0);
 assert.deepEqual(await identity(), expected);
 assert.deepEqual(await checkInstalledCore(expected), expected);
 for (const change of [{ version: 'wrong' }, { contentDigest: '0'.repeat(64) }]) {
@@ -136,7 +154,7 @@ async function independentIdentity() {
   return createHash('sha256').update(JSON.stringify(pairs)).digest('hex');
 }
 assert.equal(await independentIdentity(), expected.contentDigest);
-for (const path of identityPaths.filter(p => ['src/protected.mjs', 'src/agent.mjs', 'src/workspace.mjs', 'src/requirements.mjs', 'src/authority.mjs'].includes(p) || p.startsWith('src/instructions/'))) {
+for (const path of identityPaths.filter(p => ['src/protected.mjs', 'src/agent.mjs', 'src/workspace.mjs', 'src/requirements.mjs', 'src/authority.mjs', 'src/scope.mjs'].includes(p) || p.startsWith('src/instructions/'))) {
   const file = 'node_modules/@nibfin/core/' + path;
   const original = await readFile(file);
   try {

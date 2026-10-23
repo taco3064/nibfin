@@ -1,6 +1,6 @@
 # Protected role instruction packages
 
-The three files in `src/instructions/` ship with the local package and are included
+The three protected instruction files in `src/instructions/` ship with the local package and are included
 in installation identity. They are complete role instructions, not a second Core
 or a deployment backend. Scope Investigation is a read-only planning capability;
 it is not an accepted protected role or a formal Shape result.
@@ -66,3 +66,8 @@ customization, independent sessions, prior completion, conflicts and substitutio
 reconciles instruction identities and rejects tampering with every instruction
 source. These are local checks, not Agent obedience, live Actions, production
 sandbox, release, deployment or cross-repository E2E support claims.
+
+The separately maintained `scope.md` instructions provide the official pre-delivery
+Skill, covered by installation identity without becoming a protected role. See
+[Scope contracts](scope.md) for whole/partial Plan, approval handoff and read-only
+Audit interfaces and their local verification limits.

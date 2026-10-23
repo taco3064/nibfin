@@ -1,3 +1,4 @@
+import { validateInventory as inventory, validateCandidatePath as path, validateCandidateObligations } from './obligations.mjs';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { constants as C, openSync, closeSync, fstatSync, readFileSync, writeFileSync,
@@ -13,11 +14,6 @@ const oid = x => typeof x === 'string' && /^[a-f0-9]{40}$/.test(x);
 const hash = x => typeof x === 'string' && /^[a-f0-9]{64}$/.test(x);
 const fields = (x, keys) => check(x && Object.getPrototypeOf(x) === Object.prototype &&
   Object.keys(x).length === keys.length && keys.every(k => Object.hasOwn(x, k)), 'unsupported record fields');
-function path(p) {
-  check(typeof p === 'string' && /^[\x21-\x7e]+$/.test(p) && !/[\\:%?#]/.test(p) &&
-    !p.startsWith('/') && p.split('/').every(s => s && s !== '.' && s !== '..' && s.toLowerCase() !== '.git'), 'unsafe path');
-  return p;
-}
 function bytes(s) {
   check(typeof s === 'string' && s.length <= 128 * 1024 * 1024, 'missing or oversized byte evidence');
   const b = Buffer.from(s, 'base64'); check(b.toString('base64') === s, 'invalid base64 encoding'); return b;
@@ -60,20 +56,6 @@ function read(root, p, metadata = false) {
     } finally { closeSync(fd); }
   }, metadata);
 }
-function inventory(x) {
-  fields(x, ['artifacts', 'hooks']); check(Array.isArray(x.artifacts) && Array.isArray(x.hooks), 'missing obligations');
-  const used = [];
-  for (const [kind, list] of Object.entries(x)) for (const item of list) {
-    fields(item, kind === 'artifacts' ? ['path', 'purpose'] : ['path', 'event']); path(item.path);
-    check(typeof item.purpose === 'string' && item.purpose.length > 0 ||
-      kind === 'hooks' && ['pre-commit', 'prepare-commit-msg', 'commit-msg'].includes(item.event), 'invalid obligation');
-    check(!used.some(p => p === item.path || p.startsWith(`${item.path}/`) || item.path.startsWith(`${p}/`)), 'conflicting obligation destinations');
-    used.push(item.path);
-  }
-  return structuredClone({ artifacts: [...x.artifacts].sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0),
-    // Hook order is execution semantics, not a set to canonicalize by path.
-    hooks: [...x.hooks] });
-}
 function semantic(b, context) {
   return Object.fromEntries(['repository', 'issue', 'authority', 'requirements', 'scopeDigest', 'shapeDigest',
     'deliveryCycle', 'repairCycle', 'incidentId'].map(k => [k, structuredClone(b[k])])
@@ -88,7 +70,12 @@ async function boundary(request, host, workspace, paths = []) {
   fields(o, ['assignment', 'base', 'root', 'sourceRoot', 'workspaceId', 'obligations', 'effectiveHooks']);
   check(same(o.assignment, b) && oid(o.base) && typeof o.workspaceId === 'string' && o.workspaceId.length > 0 &&
     resolve(o.root) === o.root && resolve(o.sourceRoot) === o.sourceRoot && o.root !== o.sourceRoot, 'untrusted workspace observation');
-  const obligations = inventory(o.obligations);
+  check(typeof host.resolveObligations === 'function' && typeof host.observeHookConfiguration === 'function',
+    'approved Shape resolver and fresh hook configuration observer required');
+  const approved = validateCandidateObligations(await host.resolveObligations(structuredClone(b)), b,
+    await host.observeHookConfiguration(structuredClone(b)));
+  const obligations = approved.obligations, obligationEvidence = approved.evidence;
+  check(same(obligations, inventory(o.obligations)), 'approved inventory mismatch');
   check(same(obligations.hooks, inventory({ artifacts: [], hooks: o.effectiveHooks }).hooks), 'effective hook inventory mismatch');
   const grant = await host.authorization.resolve(b.authority);
   await authorizeOperation(grant, { ...authorization.context, paths }, host.authorization, b.authority);
@@ -97,10 +84,10 @@ async function boundary(request, host, workspace, paths = []) {
     await authorizeOperation(grant, { ...authorization.context, paths, operation: 'repair' }, host.authorization, b.authority);
   }
   const binding = semantic(b, authorization.context);
-  if (workspace) check(same(workspace, { schemaVersion: 1, root: o.root, workspaceId: o.workspaceId,
-    base: o.base, binding, obligations, filesystem: filesystem(o.root) }), 'workspace identity or fresh Base mismatch');
-  return { observation: o, binding, obligations, workspace: { schemaVersion: 1, root: o.root,
-    workspaceId: o.workspaceId, base: o.base, binding, obligations } };
+  if (workspace) check(same(workspace, { schemaVersion: 2, root: o.root, workspaceId: o.workspaceId,
+    base: o.base, binding, obligations, obligationEvidence, filesystem: filesystem(o.root) }), 'workspace identity or fresh Base mismatch');
+  return { observation: o, binding, obligations, obligationEvidence, workspace: { schemaVersion: 2, root: o.root,
+    workspaceId: o.workspaceId, base: o.base, binding, obligations, obligationEvidence } };
 }
 function entries(root, tree) {
   return git(root, ['ls-tree', '-rz', '--full-tree', tree]).toString('utf8').split('\0').filter(Boolean).map(line => {
@@ -226,19 +213,21 @@ export async function captureCandidate(request, host, workspace) {
   await boundary(request, host, workspace, allPaths);
   check(same(filesAt(root), files) && same(artifacts, obligations.artifacts.map(i => ({ ...i, ...read(root, i.path) }))) &&
     same(hooks, obligations.hooks.map(i => ({ ...i, ...read(root, i.path) }))), 'workspace changed during capture');
-  const record = { schemaVersion: 1, encoding: 'base64', binding: s.binding, base, ...changes,
-    obligations, files, artifacts, hooks, baseObjects: baseObjects(root, base) };
+  const record = { schemaVersion: 2, encoding: 'base64', binding: s.binding, base, ...changes,
+    obligations, obligationEvidence: s.obligationEvidence, files, artifacts, hooks, baseObjects: baseObjects(root, base) };
   return freeze({ record, candidateDigest: digest(record), provenance: { workspaceId: workspace.workspaceId, source: structuredClone(request.binding.source) } });
 }
 function validateCandidate(candidate, expected) {
   fields(candidate, ['record', 'candidateDigest', 'provenance']); const r = candidate.record;
   fields(r, ['schemaVersion', 'encoding', 'binding', 'base', 'tree', 'binaryDiff', 'diffDigest', 'changedPaths',
-    'obligations', 'files', 'artifacts', 'hooks', 'baseObjects']);
+    'obligations', 'obligationEvidence', 'files', 'artifacts', 'hooks', 'baseObjects']);
   check(hash(expected) && candidate.candidateDigest === expected && digest(r) === expected &&
-    r.schemaVersion === 1 && r.encoding === 'base64' && oid(r.base) && oid(r.tree), 'Candidate identity mismatch');
+    r.schemaVersion === 2 && r.encoding === 'base64' && oid(r.base) && oid(r.tree), 'Candidate identity mismatch');
   bytes(r.binaryDiff); check(r.diffDigest === digest(r.binaryDiff) && Array.isArray(r.changedPaths) &&
     same(r.changedPaths, [...new Set(r.changedPaths)].sort()), 'missing or inconsistent diff/path evidence');
   r.changedPaths.forEach(path); inventory(r.obligations);
+  const approved = validateCandidateObligations(r.obligationEvidence, r.binding, r.obligationEvidence?.configuration);
+  check(same(approved.obligations, r.obligations), 'record inventory provenance mismatch');
   check(Array.isArray(r.files) && Array.isArray(r.artifacts) && Array.isArray(r.hooks), 'missing snapshot inventory');
   let previous = '';
   for (const f of r.files) {
@@ -270,7 +259,8 @@ export async function reconstructCandidate(request, host, candidate, expectedDig
   request = structuredClone(request); candidate = structuredClone(candidate);
   validateCandidate(candidate, expectedDigest);
   const s = await boundary(request, host), r = candidate.record;
-  check(same(r.binding, s.binding) && r.base === s.observation.base && same(r.obligations, s.obligations), 'stale Candidate binding');
+  check(same(r.binding, s.binding) && r.base === s.observation.base && same(r.obligations, s.obligations) &&
+    same(r.obligationEvidence, s.obligationEvidence), 'stale Candidate binding');
   await boundary(request, host, null, [...r.changedPaths, ...r.artifacts.map(f => f.path), ...r.hooks.map(f => f.path)]);
   init(s.observation.root); importObjects(s.observation.root, r.baseObjects);
   check(gs(s.observation.root, ['rev-parse', '--verify', `${r.base}^{commit}`]) === r.base, 'missing Base commit');

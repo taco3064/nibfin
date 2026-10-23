@@ -1,3 +1,4 @@
+import { approval } from './fixtures/obligations.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, renameSync,
@@ -16,7 +17,7 @@ function setup(t, repair = false) {
   git(source, 'config', 'user.name', 'Fixture'); git(source, 'config', 'user.email', 'fixture@example.invalid');
   mkdirSync(join(source, 'src')); mkdirSync(join(source, 'docs'));
   for (const [p, text] of [['src/text', 'before\n'], ['src/delete', 'deleted\n'], ['src/rename', 'renamed\n'], ['src/mode', 'mode\n'],
-    ['docs/.gitignore', 'artifact\nhook\n']]) writeFileSync(join(source, p), text);
+    ['docs/.gitignore', 'artifact\nhook\ncache\npre-commit\nprepare-commit-msg\ncommit-msg\n']]) writeFileSync(join(source, p), text);
   git(source, 'add', '.'); git(source, 'commit', '-m', 'Fixture Base');
   let base = git(source, 'rev-parse', 'HEAD'), root = join(dir, 'run-a'), workspaceId = 'a';
   const f = fixture('deliver'), request = f.request;
@@ -29,11 +30,19 @@ function setup(t, repair = false) {
   request.binding.authority = auth.authority;
   const obligations = { artifacts: [{ path: 'docs/artifact', purpose: 'Required binary fixture' }],
     hooks: [{ path: 'docs/hook', event: 'pre-commit' }] };
+  let obligationEvidence;
+  function approve() {
+    obligationEvidence = approval(obligations, request.binding.scopeDigest);
+    request.binding.shapeDigest = digest(obligationEvidence.body);
+  }
+  approve();
   const observation = () => ({ assignment: structuredClone(request.binding), base, root, sourceRoot: source,
     workspaceId, obligations: structuredClone(obligations), effectiveHooks: structuredClone(obligations.hooks) });
-  const host = { authorization: auth.host, requirements: f.adapters.requirements, observe: async () => observation() };
+  const host = { observeHookConfiguration: async () => structuredClone(obligationEvidence.configuration),
+    resolveObligations: async () => structuredClone(obligationEvidence), authorization: auth.host, requirements: f.adapters.requirements, observe: async () => observation() };
   function extras() { writeFileSync(join(root, 'docs/artifact'), Buffer.from([0, 255, 128, 10])); writeFileSync(join(root, 'docs/hook'), '#!/bin/sh\nexit 0\n'); }
-  return { dir, source, request, host, auth, obligations, extras, observation,
+  return { dir, source, request, host, auth, obligations, extras, observation, approve,
+    get obligationEvidence() { return obligationEvidence; },
     get root() { return root; }, set root(p) { root = p; workspaceId = p; }, get base() { return base; },
     advance() { writeFileSync(join(source, 'src/advance'), 'new Base'); git(source, 'add', '.'); git(source, 'commit', '-m', 'Advance fixture Base'); base = git(source, 'rev-parse', 'HEAD'); } };
 }
@@ -86,7 +95,7 @@ test('AC1: current signed authority, observed assignment, workspace, Base and pa
   f.advance(); await assert.rejects(captureCandidate(f.request, f.host, w), /Base/);
 });
 test('AC2/AC5: independently expected identity, altered fields, explicit empty evidence and Base races', async t => {
-  const f = setup(t); f.obligations.artifacts = []; f.obligations.hooks = [];
+  const f = setup(t); f.obligations.artifacts = []; f.obligations.hooks = []; f.approve();
   const w = await prepareWorkspace(f.request, f.host), c = await captureCandidate(f.request, f.host, w);
   assert.equal(c.record.binaryDiff, ''); assert.deepEqual(c.record.changedPaths, []);
   const receipt = candidateEvidence(c);
@@ -113,7 +122,12 @@ test('AC2/AC5: independently expected identity, altered fields, explicit empty e
 test('AC3: mandatory ignored artifacts and effective hooks, inventories and source-only invalidation', async t => {
   const f = setup(t), w = await prepareWorkspace(f.request, f.host);
   await assert.rejects(captureCandidate(f.request, f.host, w), /ENOENT/); f.extras();
+  writeFileSync(join(f.root, 'docs/cache'), 'incidental ignored cache');
   const c = await captureCandidate(f.request, f.host, w);
+  assert(!c.record.files.some(x => x.path === 'docs/cache'));
+  assert(!c.record.artifacts.some(x => x.path === 'docs/cache'));
+  assert.equal(c.record.artifacts[0].contentDigest, digest(Buffer.from([0, 255, 128, 10]).toString('base64')));
+  assert.equal(c.record.artifacts[0].purpose, 'Required binary fixture');
   for (const p of ['docs/artifact', 'docs/hook']) {
     const original = readFileSync(join(f.root, p)); writeFileSync(join(f.root, p), 'changed');
     const changed = await captureCandidate(f.request, f.host, w);
@@ -126,7 +140,7 @@ test('AC3: mandatory ignored artifacts and effective hooks, inventories and sour
   await assert.rejects(captureCandidate(f.request, f.host, w), /hook inventory/); f.host.observe = originalObserve;
   for (const p of ['/absolute', '../escape', 'docs/../escape', 'docs\\escape', '.git/config', 'docs//ambiguous']) {
     const old = f.obligations.artifacts[0].path; f.obligations.artifacts[0].path = p;
-    await assert.rejects(captureCandidate(f.request, f.host, w), /unsafe path/); f.obligations.artifacts[0].path = old;
+    await assert.rejects(captureCandidate(f.request, f.host, w), /unsafe path|approved inventory mismatch/); f.obligations.artifacts[0].path = old;
   }
   f.obligations.artifacts.push({ path: 'docs/hook', purpose: 'conflict' });
   await assert.rejects(captureCandidate(f.request, f.host, w), /conflicting/); f.obligations.artifacts.pop();
@@ -245,8 +259,19 @@ test('AC1/AC3: Git metadata redirection and configuration substitution fail clos
   await assert.rejects(captureCandidate(f.request, f.host, w), /Git metadata/);
 });
 
-test('AC4: protected-store JSON reconstructs in a new Node process with no source workspace', async t => {
-  const f = setup(t), w = await prepareWorkspace(f.request, f.host); edits(f);
+for (const empty of [false, true]) test(`AC4: ${empty ? 'justified empty' : 'complete'} inventory reconstructs in an independent process without origin`, async t => {
+  const f = setup(t);
+  if (empty) { f.obligations.artifacts = []; f.obligations.hooks = []; }
+  else f.obligations.hooks = ['pre-commit', 'prepare-commit-msg', 'commit-msg'].map(event => ({ path: `docs/${event}`, event }));
+  f.approve();
+  const w = await prepareWorkspace(f.request, f.host);
+  if (!empty) {
+    edits(f);
+    for (const h of f.obligations.hooks) {
+      writeFileSync(join(f.root, h.path), Buffer.from([35, 33, 10, 0, 255]));
+      chmodSync(join(f.root, h.path), 0o755);
+    }
+  }
   const c = await captureCandidate(f.request, f.host, w);
   const publicKey = (await f.auth.host.ownerKey('owner-key')).export({ type: 'spki', format: 'pem' });
   rmSync(f.root, { recursive: true }); rmSync(f.source, { recursive: true });
@@ -255,11 +280,12 @@ test('AC4: protected-store JSON reconstructs in a new Node process with no sourc
   const transfer = join(f.dir, 'protected-store.json'), expected = join(f.dir, 'trusted-expectation.json');
   writeFileSync(transfer, JSON.stringify({ candidate: c, request: f.request, grant: f.auth.grant,
     observation: f.observation(), publicKey }));
-  writeFileSync(expected, JSON.stringify({ candidateDigest: c.candidateDigest, base: f.base }));
+  writeFileSync(expected, JSON.stringify({ candidateDigest: c.candidateDigest, base: f.base,
+    shapeDigest: f.request.binding.shapeDigest, obligationEvidence: f.obligationEvidence, configuration: await f.host.observeHookConfiguration() }));
   const script = join(f.dir, 'run-b.mjs');
   writeFileSync(script, `
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { createPublicKey } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { reconstructCandidate } from ${JSON.stringify(new URL('../src/index.mjs', import.meta.url).href)};
@@ -267,13 +293,20 @@ import { contextFor, clock } from ${JSON.stringify(new URL('./fixtures/authority
 import { requirementAdapters } from ${JSON.stringify(new URL('./fixtures/request.mjs', import.meta.url).href)};
 const d = JSON.parse(readFileSync(process.argv[2])), e = JSON.parse(readFileSync(process.argv[3]));
 assert.equal(d.observation.base, e.base);
-const host = { requirements: requirementAdapters(), observe: async () => d.observation,
+assert.equal(d.request.binding.shapeDigest, e.shapeDigest);
+const host = { observeHookConfiguration: async () => e.configuration, resolveObligations: async () => e.obligationEvidence, requirements: requirementAdapters(), observe: async () => d.observation,
   authorization: { ownerKey: async () => createPublicKey(d.publicKey), now: () => clock,
     revocation: async x => ({ ...x, revoked: false }), resolve: async () => d.grant,
     observe: async () => contextFor(d.grant, 'deliver') } };
 const result = await reconstructCandidate(d.request, host, d.candidate, e.candidateDigest);
 assert.deepEqual(result.record, d.candidate.record);
 assert.notDeepEqual(result.provenance, d.candidate.provenance);
+assert.deepEqual(result.record.obligationEvidence, e.obligationEvidence);
+for (const f of [...result.record.artifacts, ...result.record.hooks]) {
+  assert.deepEqual(readFileSync(d.observation.root + '/' + f.path), Buffer.from(f.bytes, 'base64'));
+  assert.equal(statSync(d.observation.root + '/' + f.path).mode & 0o111 ? '100755' : '100644', f.mode);
+}
+
 assert.equal(execFileSync('git', ['for-each-ref'], { cwd: d.observation.root, encoding: 'utf8' }), '');
 console.log(result.candidateDigest);
 `);
@@ -283,6 +316,7 @@ console.log(result.candidateDigest);
 test('AC3/AC5: hook execution order is preserved, configuration mismatches reject and reordered evidence expires', async t => {
   const f = setup(t);
   f.obligations.hooks = [{ path: 'docs/z', event: 'pre-commit' }, { path: 'docs/a', event: 'pre-commit' }];
+  f.approve();
   const observe = f.host.observe;
   const reversedConfiguration = async () => ({ ...f.observation(), effectiveHooks: [...f.obligations.hooks].reverse() });
   f.host.observe = reversedConfiguration;
@@ -300,9 +334,10 @@ test('AC3/AC5: hook execution order is preserved, configuration mismatches rejec
   await assert.rejects(verifyCandidate(f.request, f.host, w, c, c.candidateDigest), /hook inventory mismatch/);
   f.host.observe = observe;
   f.obligations.hooks.reverse();
-  await assert.rejects(verifyCandidate(f.request, f.host, w, c, c.candidateDigest), /workspace identity/);
+  await assert.rejects(verifyCandidate(f.request, f.host, w, c, c.candidateDigest), /approved inventory mismatch/);
   f.root = join(f.dir, 'reordered-reconstruction');
-  await assert.rejects(reconstructCandidate(f.request, f.host, c, c.candidateDigest), /stale Candidate binding/);
+  await assert.rejects(reconstructCandidate(f.request, f.host, c, c.candidateDigest), /approved inventory mismatch/);
+  f.approve();
   f.root = join(f.dir, 'reordered');
   const nextWorkspace = await prepareWorkspace(f.request, f.host); sources();
   const next = await captureCandidate(f.request, f.host, nextWorkspace);
@@ -315,4 +350,76 @@ test('AC3/AC5: hook execution order is preserved, configuration mismatches rejec
   const restored = await reconstructCandidate(f.request, f.host, next, next.candidateDigest);
   assert.deepEqual(restored.record.hooks.map(h => h.path), ['docs/a', 'docs/z']);
   assert.equal(restored.candidateDigest, next.candidateDigest);
+});
+
+test('AC4/AC5: independently approved obligations reject recomputed transport identities and stale receipts', async t => {
+  const f = setup(t), w = await prepareWorkspace(f.request, f.host); f.extras();
+  const c = await captureCandidate(f.request, f.host, w), receipt = candidateEvidence(c);
+  const attacks = [
+    r => { delete r.obligationEvidence; },
+    r => { r.obligationEvidence.validation.emptyReasons = {}; },
+    r => { r.obligationEvidence.body += '\nTampered applicability prose'; },
+    r => { r.obligations.artifacts = []; r.artifacts = []; },
+    r => { r.artifacts[0].path = '../escape'; r.obligations.artifacts[0].path = '../escape'; },
+    r => { r.obligations.artifacts.push(r.obligations.artifacts[0]); r.artifacts.push(r.artifacts[0]); },
+    r => { r.hooks[0].bytes = Buffer.from('changed original hook').toString('base64'); r.hooks[0].contentDigest = digest(r.hooks[0].bytes); },
+    r => { r.obligations.hooks[0].event = 'commit-msg'; r.hooks[0].event = 'commit-msg'; },
+    r => { r.schemaVersion = 1; }
+  ];
+  for (const [i, attack] of attacks.entries()) {
+    const bad = structuredClone(c); attack(bad.record); bad.candidateDigest = digest(bad.record);
+    assert.equal(compareCandidateEvidence(receipt, bad).valid, false);
+    f.root = join(f.dir, `transport-attack-${i}`);
+    // An attacker can recompute its outer digest; it cannot change trusted Shape
+    // and currently approved configuration supplied independently by the host.
+    await assert.rejects(reconstructCandidate(f.request, f.host, bad, c.candidateDigest));
+    // Even if an outer digest is mistakenly taken from transport, provenance
+    // attacks still disagree with the independently approved obligations. Byte
+    // changes require the independent expected Candidate identity above.
+    if (i !== 6) await assert.rejects(reconstructCandidate(f.request, f.host, bad, bad.candidateDigest));
+  }
+  const forged = structuredClone(c), r = forged.record;
+  r.obligations.artifacts[0].purpose = 'Attacker replacement'; r.artifacts[0].purpose = 'Attacker replacement';
+  r.obligationEvidence = approval(r.obligations, f.request.binding.scopeDigest);
+  r.binding.shapeDigest = digest(r.obligationEvidence.body);
+  forged.candidateDigest = digest(r);
+  f.root = join(f.dir, 'self-approved-transport');
+  await assert.rejects(reconstructCandidate(f.request, f.host, forged, forged.candidateDigest), /stale/);
+});
+
+test('AC5: applicability and configuration source changes require fresh Candidate and dependent evidence', async t => {
+  const f = setup(t); f.obligations.artifacts = []; f.obligations.hooks = []; f.approve();
+  const w = await prepareWorkspace(f.request, f.host), c = await captureCandidate(f.request, f.host, w);
+  const receipt = candidateEvidence(c), original = structuredClone(f.obligationEvidence);
+  const stripped = structuredClone(c);
+  stripped.record.obligationEvidence.body = stripped.record.obligationEvidence.body.replace(
+    stripped.record.obligationEvidence.validation.emptyReasons.artifacts, '');
+  stripped.record.obligationEvidence.validation.shapeDigest = digest(stripped.record.obligationEvidence.body);
+  stripped.record.binding.shapeDigest = digest(stripped.record.obligationEvidence.body);
+  stripped.candidateDigest = digest(stripped.record);
+  await assert.rejects(reconstructCandidate(f.request, f.host, stripped, stripped.candidateDigest), /applicability/);
+  const e = f.obligationEvidence;
+  const newReason = 'No extra artifacts apply because this Scope only changes tracked source and tests.';
+  e.body = e.body.replace(e.validation.emptyReasons.artifacts, newReason);
+  e.validation.emptyReasons.artifacts = newReason; e.validation.shapeDigest = digest(e.body);
+  f.request.binding.shapeDigest = digest(e.body);
+  await assert.rejects(verifyCandidate(f.request, f.host, w, c, c.candidateDigest), /workspace identity/);
+  f.root = join(f.dir, 'new-applicability');
+  const nextWorkspace = await prepareWorkspace(f.request, f.host), next = await captureCandidate(f.request, f.host, nextWorkspace);
+  assert.equal(next.record.tree, c.record.tree); assert.notEqual(next.candidateDigest, c.candidateDigest);
+  assert.equal(compareCandidateEvidence(receipt, next).valid, false);
+  const bytes = Buffer.from('{"hooksPath":null,"workspaceSetup":"revalidated"}').toString('base64');
+  e.configuration.sources.push({ path: 'git-hook-settings.json', bytes, contentDigest: digest(bytes) });
+  e.validation.configurationDigest = digest(e.configuration);
+  await assert.rejects(verifyCandidate(f.request, f.host, nextWorkspace, next, next.candidateDigest), /workspace identity/);
+  f.root = join(f.dir, 'new-configuration-evidence');
+  const sourceWorkspace = await prepareWorkspace(f.request, f.host);
+  const sourceCandidate = await captureCandidate(f.request, f.host, sourceWorkspace);
+  assert.equal(sourceCandidate.record.tree, next.record.tree);
+  assert.equal(sourceCandidate.record.binding.shapeDigest, next.record.binding.shapeDigest);
+  assert.equal(compareCandidateEvidence(candidateEvidence(next), sourceCandidate).valid, false);
+  f.host.observeHookConfiguration = async () => ({ ...original.configuration, complete: false });
+  await assert.rejects(verifyCandidate(f.request, f.host, sourceWorkspace, sourceCandidate, sourceCandidate.candidateDigest), /fresh hook configuration/);
+  delete f.host.resolveObligations;
+  await assert.rejects(captureCandidate(f.request, f.host, nextWorkspace));
 });

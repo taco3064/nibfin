@@ -12,8 +12,10 @@ trusted Agent host interface adds environment/registration separation, isolated
 workspace reconstruction and cleanup observations. Its bounded local test host
 is not a production Agent sandbox. The Notion
 integration seam is tested with synthetic data; live synchronization is unverified.
-A version-1 Candidate library adds signed-boundary Git workspace capture,
-lossless cross-Run reconstruction and evidence invalidation. Its real-Git tests
+A version-2 Candidate library binds the approved Shape inventory, explicit
+empty-applicability explanations and independently observed hook configuration
+to signed-boundary Git workspace capture, lossless cross-Run reconstruction and
+evidence invalidation. Its real-Git tests
 cover local Linux/SHA-1 fixtures; other platforms remain unsupported for this
 library. The complete delivery engine, trusted Runner routing, Actions relay, recovery and
 public installation releases remain planned. No product E2E or Agent/platform

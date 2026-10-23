@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { initial } from '../test/fixtures/request.mjs';
+import { initial, requirementAdapters, snapshot } from '../test/fixtures/request.mjs';
 const directory = await mkdtemp(join(tmpdir(), 'nibfin-consumer-'));
 const run = (args, cwd) => execFileSync('npm', args, {
   cwd, encoding: 'utf8', env: { ...process.env, npm_config_offline: 'true', npm_config_ignore_scripts: 'true' }
@@ -15,12 +15,12 @@ try {
   const allowed = path => ['package.json', 'README.md', 'LICENSE'].includes(path) ||
     /^(src|examples|docs)\//.test(path);
   assert(paths.every(allowed), `Unexpected package files: ${paths}`);
-  const required = ['package.json', 'README.md', 'LICENSE', 'src/identity.mjs', 'src/index.mjs',
+  const required = ['package.json', 'README.md', 'LICENSE', 'src/identity.mjs', 'src/index.mjs', 'src/requirements.mjs',
     'examples/action.mjs', 'examples/cli.mjs'];
   for (const path of required) assert(paths.includes(path), `Missing ${path}`);
   // Compute expected identity from reviewed source bytes independently of package code.
   const entries = [];
-  for (const path of ['LICENSE', 'package.json', 'src/identity.mjs', 'src/index.mjs']) {
+  for (const path of ['LICENSE', 'package.json', 'src/identity.mjs', 'src/index.mjs', 'src/requirements.mjs']) {
     assert((await lstat(path)).isFile());
     entries.push([path, (await readFile(path)).toString('base64')]);
   }
@@ -31,6 +31,8 @@ try {
   run(['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund', join(directory, packed.filename)], directory);
   await writeFile(join(directory, 'smoke.mjs'), `
 import assert from 'node:assert/strict';
+import { digest } from '@nibfin/core';
+import { writeFile, readFile } from 'node:fs/promises';
 import { identity } from '@nibfin/core/identity';
 import { runOneStage } from './node_modules/@nibfin/core/examples/action.mjs';
 import { checkInstalledCore } from './node_modules/@nibfin/core/examples/cli.mjs';
@@ -42,14 +44,20 @@ for (const change of [{ version: 'wrong' }, { contentDigest: '0'.repeat(64) }]) 
 }
 const request = ${JSON.stringify(initial())};
 assert.equal((await runOneStage(request)).status, 'blocked');
+const snapshot = ${snapshot.toString()};
+const requirementAdapters = ${requirementAdapters.toString()};
 let executions = 0;
 const result = await runOneStage(request, {
+  requirements: requirementAdapters(),
   verify: async () => ({ permission: 'verified' }),
   execute: async () => { executions++; return { status: 'succeeded' }; }
 });
 assert.equal(result.status, 'succeeded');
 assert.equal(result.requestId, request.requestId);
 assert.equal(executions, 1);
+const runtimePath = './node_modules/@nibfin/core/src/requirements.mjs';
+await writeFile(runtimePath, (await readFile(runtimePath, 'utf8')) + '\\n// altered\\n');
+await assert.rejects(checkInstalledCore(expected), /identity mismatch/);
 console.log('External installed consumer identity and rejection checks passed.');
 `);
   console.log(execFileSync(process.execPath, ['smoke.mjs'], { cwd: directory, encoding: 'utf8' }).trim());

@@ -1,6 +1,8 @@
+import { validateRequirements, verifyRequirements } from './requirements.mjs';
+export { validateSource, validateReference, validateSnapshot, captureSnapshot } from './requirements.mjs';
 import { createHash } from 'node:crypto';
 
-// Interface version 1 is deliberately smaller than a delivery runtime.
+// Interface version 2 is deliberately smaller than a delivery runtime.
 export const predecessors = Object.freeze({
   shape: null,
   'shape-validator': 'shape',
@@ -23,9 +25,9 @@ function source(x) {
 }
 export function validateRequest(r) {
   requireThat(exact(r, ['schemaVersion', 'requestId', 'stage', 'repository', 'issue',
-    'authority', 'scopeDigest', 'shapeDigest', 'candidateDigest', 'source', 'previous', 'components']),
+    'authority', 'scopeDigest', 'shapeDigest', 'candidateDigest', 'source', 'previous', 'components', 'requirements']),
   'Request must be an object with supported fields only.');
-  requireThat(r.schemaVersion === 1, 'Unsupported request schema version.');
+  requireThat(r.schemaVersion === 2, 'Unsupported request schema version.');
   requireThat(text(r.requestId) && text(r.stage) && Object.hasOwn(predecessors, r.stage), 'Invalid request identity or unsupported stage.');
   requireThat(exact(r.repository, ['id', 'name']) && text(r.repository.id) && text(r.repository.name) &&
     /^[^/\s]+\/[^/\s]+$/.test(r.repository.name), 'Invalid repository identity.');
@@ -34,6 +36,7 @@ export function validateRequest(r) {
     r.issue.repositoryId === r.repository.id, 'Invalid Issue or repository correlation.');
   requireThat(exact(r.authority, ['grantId', 'digest']) && text(r.authority.grantId) &&
     hash(r.authority.digest) && hash(r.scopeDigest), 'Authority and Scope references are required.');
+  validateRequirements(r.requirements);
   if (r.source !== undefined) {
     source(r.source);
     requireThat(r.source.repositoryId === r.repository.id, 'Actions source repository mismatch.');
@@ -65,10 +68,10 @@ export function validateRequest(r) {
 
 function matchEvidence(r, e) {
   const p = r.previous;
-  requireThat(object(e) && e.schemaVersion === 1 && e.resultId === p.resultId &&
+  requireThat(object(e) && e.schemaVersion === 2 && e.resultId === p.resultId &&
     digest(e) === p.digest && e.stage === p.stage && e.requestId === p.requestId &&
     same(e.repository, r.repository) && same(e.issue, r.issue) &&
-    same(e.source, p.source) && same(e.authority, r.authority) &&
+    same(e.requirements, r.requirements) && same(e.source, p.source) && same(e.authority, r.authority) &&
     e.scopeDigest === r.scopeDigest && e.status === 'succeeded',
   'Predecessor content, correlation or completion mismatch.');
   if (r.stage === 'accept') {
@@ -86,12 +89,12 @@ export async function invoke(request, adapters = {}) {
     r = structuredClone(request);
     validateRequest(r);
   } catch (error) {
-    return { schemaVersion: 1, status: 'rejected', error: error.message };
+    return { schemaVersion: 2, status: 'rejected', error: error.message };
   }
   const result = (status, error) => ({
-    schemaVersion: 1, resultId: `${r.requestId}:result`, requestId: r.requestId,
+    schemaVersion: 2, resultId: `${r.requestId}:result`, requestId: r.requestId,
     stage: r.stage, repository: r.repository, issue: r.issue, authority: r.authority,
-    scopeDigest: r.scopeDigest, ...(r.shapeDigest && { shapeDigest: r.shapeDigest }),
+    requirements: structuredClone(r.requirements), scopeDigest: r.scopeDigest, ...(r.shapeDigest && { shapeDigest: r.shapeDigest }),
     ...(r.candidateDigest && { candidateDigest: r.candidateDigest }),
     ...(r.source && { source: r.source }), components: r.components ?? null,
     status, ...(error && { error })
@@ -103,6 +106,7 @@ export async function invoke(request, adapters = {}) {
     // A separate clone prevents verifier mutation from changing execution inputs.
     const proof = await adapters.verify(structuredClone(r));
     requireThat(proof?.permission === 'verified', 'Fresh execution permission is unverified.');
+    await verifyRequirements(structuredClone(r), adapters.requirements);
     if (r.previous) {
       requireThat(proof.previousAuthenticity === 'verified', 'Predecessor authenticity is unverified.');
       matchEvidence(r, proof.previousResult);

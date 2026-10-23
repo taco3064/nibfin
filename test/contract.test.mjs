@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { invoke, digest, validateRequest } from '../src/index.mjs';
-import { initial, h } from './fixtures/request.mjs';
+import { initial, h, requirementAdapters } from './fixtures/request.mjs';
 import { runOneStage } from '../examples/action.mjs';
 function adapters(proof = { permission: 'verified' }) {
   const calls = [];
-  return { calls, verify: async () => proof,
+  return { calls, requirements: requirementAdapters(), verify: async () => proof,
     execute: async r => { calls.push(r); return { status: 'succeeded' }; } };
 }
 async function successor(stage = 'shape-validator') {
@@ -43,7 +43,7 @@ test('production defaults and partial adapters never report success', async () =
 });
 const malformed = [
   ['null', () => null], ['array', () => []],
-  ['schema', r => ({ ...r, schemaVersion: 2 })], ['stage', r => ({ ...r, stage: 'watch' })],
+  ['schema', r => ({ ...r, schemaVersion: 1 })], ['stage', r => ({ ...r, stage: 'watch' })],
   ['request identity', r => ({ ...r, requestId: '' })],
   ['issue repository', r => ({ ...r, issue: { ...r.issue, repositoryId: 'wrong' } })],
   ['issue number', r => ({ ...r, issue: { ...r.issue, number: 0 } })],
@@ -129,7 +129,7 @@ test('verification exception and execution uncertainty block without retry', asy
   let calls = 0;
   assert.equal((await invoke(initial(), { verify: async () => { throw Error('private detail'); }, execute: async () => calls++ })).status, 'blocked');
   assert.equal(calls, 0);
-  const result = await invoke(initial(), { verify: async () => ({ permission: 'verified' }),
+  const result = await invoke(initial(), { requirements: requirementAdapters(), verify: async () => ({ permission: 'verified' }),
     execute: async () => { calls++; throw Error('private detail'); } });
   assert.equal(result.status, 'blocked');
   assert.equal(calls, 1);

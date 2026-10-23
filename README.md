@@ -19,6 +19,12 @@ library. The complete delivery engine, trusted Runner routing, Actions relay, re
 public installation releases remain planned. No product E2E or Agent/platform
 support is claimed.
 
+The local package includes the official pre-delivery Scope Skill and deterministic
+whole/partial planning, publication preflight and read-only Audit interfaces. See
+[Scope contracts](docs/scope.md) for trusted host requirements and examples.
+These local interfaces do not publish Issues, implement journal recovery or grant
+formal delivery permission; live provider publication remains unverified.
+
 ## Development
 
 Use Node.js 22.23.3 and npm 10.9.9. No external packages or credentials are needed.

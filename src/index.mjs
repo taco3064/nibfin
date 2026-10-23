@@ -136,3 +136,6 @@ export { validateEnvironments, validateLogin, validateCleanup, createAgentAdapte
 
 export { prepareWorkspace, captureCandidate, reconstructCandidate, verifyCandidate,
   candidateEvidence, compareCandidateEvidence } from './workspace.mjs';
+
+export { scopeInstructions, publicationPlanDigest, verifyScopePlan, verifyScopeHandoff,
+  auditScope } from './scope.mjs';

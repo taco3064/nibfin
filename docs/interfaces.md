@@ -929,3 +929,11 @@ All failures throw and block the current operation. They do not retry unknown
 writes, infer permission, remove dependencies, bypass hooks or publish lifecycle
 state. The local real-Git fixtures in `test/workspace.test.mjs` verify these
 contracts; they are not hosted CI, a production sandbox or live Actions E2E proof.
+
+## Pre-delivery Scope interface
+
+The additive schema-1 planning/audit exports and their trusted host seams are
+specified in [Scope contracts](scope.md). They share this package's existing
+snapshot and digest conventions and installation identity. Scope and read-only
+Investigation remain outside protected Runtime roles and confer no execution
+permission. No existing request schema or protected-role vocabulary changes.

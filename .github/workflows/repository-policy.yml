@@ -2,7 +2,7 @@ name: Repository PR policy
 on:
   push:
     branches: [main]
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
         run: |
           node <<'NODE'
-          if (process.env.EVENT_NAME === 'pull_request' && process.env.PR_AUTHOR_ID !== process.env.OWNER_ID) {
+          if (process.env.EVENT_NAME === 'pull_request_target' && process.env.PR_AUTHOR_ID !== process.env.OWNER_ID) {
             console.error('Only the repository owner may submit a mergeable pull request.');
             process.exit(1);
           }

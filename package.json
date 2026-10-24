@@ -23,7 +23,9 @@
     "src/authority.mjs",
     "docs/authority.md",
     "src/authorization.mjs",
-    "docs/authorization.md"
+    "docs/authorization.md",
+    "src/lifecycle.mjs",
+    "docs/lifecycle.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

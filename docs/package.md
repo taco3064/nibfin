@@ -461,3 +461,5 @@ src/evidence.mjs are included in the exact archive boundary.
 The public `createAuthorizationBoundary` API composes fresh GitHub observations
 with signed Grant verification. See [authorization checkpoints](authorization.md)
 for trusted inputs, provider integration, freshness and failure semantics.
+
+The public Agent environment and lifecycle contract is documented in `docs/lifecycle.md`; both it and `src/lifecycle.mjs` are included in the archive.

@@ -47,20 +47,26 @@ npm run check
 npm run verify:archive
 ```
 
-No registry installation is needed. `check` discovers only `test/*.test.mjs`.
+The real custody SDK transport regression additionally requires the isolated test
+runtime described in [custody.md](custody.md); package installation and archive
+consumption remain dependency-free and offline. `check` discovers only `test/*.test.mjs`.
 It tests public imports, malformed inputs, real archive rejection, byte
 correspondence and disposable website coexistence. `verify:archive` uses offline
 `npm pack`, normalizes the output to `out/nibfin-core.tgz`, reads the actual gzip/tar
 payload and enforces the exact file allowlist in `tooling/archive.mjs`:
 `package.json`, `README.md`, `docs/package.md`, `src/index.mjs`,
 `src/grants.mjs`, `src/evidence.mjs`, `docs/evidence.md`, `src/provider.mjs`,
-`src/obligations.mjs`, `src/authority.mjs`, `docs/authority.md`.
+`src/obligations.mjs`, `src/authority.mjs`, `docs/authority.md`,
+`src/custody.mjs`, `src/custody-upload.mjs`, `src/custody-zip.mjs`, `docs/custody.md`,
+`src/authorization.mjs`, `docs/authorization.md`,
+`src/lifecycle.mjs`, `docs/lifecycle.md`.
 Every entry is mandatory and must match the producer bytes. Unexpected entries,
 duplicates, links, unsupported tar types, bad checksums and absent runtime files
 fail. Tests, tooling, controls, secrets, donor material, prototype commands,
 website output/dependencies and producer node_modules are excluded.
-Regenerate the archive after changing any packaged file; it is a mandatory
-ignored candidate artifact, not a cache. No build transformation is required.
+Regenerate the archive after changing any packaged file. Archive output used by
+these checks is disposable; required non-tree Candidate deliverables are governed
+by the current Issue Shape inventory. No build transformation is required.
 
 The same command installs that exact archive into a fresh external temporary
 consumer using `npm install --offline --ignore-scripts --no-audit --no-fund`.
@@ -463,3 +469,8 @@ with signed Grant verification. See [authorization checkpoints](authorization.md
 for trusted inputs, provider integration, freshness and failure semantics.
 
 The public Agent environment and lifecycle contract is documented in `docs/lifecycle.md`; both it and `src/lifecycle.mjs` are included in the archive.
+
+GitHub-backed artifact custody and the callable #121/#123 handoff are specified in
+[custody.md](custody.md). Offline archive consumers also perform an injected
+official-response publication/readback round trip, discard producer state and
+reject a changed Attempt. Live GitHub artifact custody remains separately tested.

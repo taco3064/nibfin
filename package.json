@@ -25,7 +25,11 @@
     "src/authorization.mjs",
     "docs/authorization.md",
     "src/lifecycle.mjs",
-    "docs/lifecycle.md"
+    "docs/lifecycle.md",
+    "src/custody-upload.mjs",
+    "src/custody.mjs",
+    "src/custody-zip.mjs",
+    "docs/custody.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

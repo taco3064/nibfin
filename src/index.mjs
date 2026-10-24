@@ -39,3 +39,6 @@ export {exportAuthority, importAuthority, authoritySnapshot, verifyAuthority, sy
 export {createAuthorizationBoundary} from './authorization.mjs';
 
 export {createAgentEnvironments, createAgentLifecycle} from './lifecycle.mjs';
+
+
+export {actionsArtifactUpload, prepareCustodyManifest, validateCustodyManifest, bindCustodyPublication, artifactArchiveTransport, createArtifactCustody, publishCustody} from './custody.mjs';

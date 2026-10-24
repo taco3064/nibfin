@@ -46,7 +46,7 @@ test('real archive, rejection policy and website isolation', () => {
     assert.throws(() => verifyArchive(changeEntry(archive, 'src/index.mjs', 'src/missing.mjs'), fixture), /Forbidden/);
     // A valid subset still fails the mandatory-entry check.
     const tar = gunzipSync(archive);
-    for (const required of ['src/index.mjs', 'src/grants.mjs', 'src/provider.mjs']) {
+    for (const required of ['src/index.mjs', 'src/grants.mjs', 'src/provider.mjs', 'src/obligations.mjs']) {
       let offset = 0;
       while (offset < tar.length) {
         const name = tar.subarray(offset, offset + 100).toString().replace(/\0.*$/s, '');

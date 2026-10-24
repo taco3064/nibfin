@@ -28,3 +28,4 @@ export function memberRunnerLabel(userId) {
 
 export {canonicalJSON, bodyDigest, prepareGrant, signGrant, verifyGrant} from './grants.mjs';
 export {createGithubProvider, localGhTransport, parseGithubJson, publicDiagnostic, githubApiVersion} from './provider.mjs';
+export {hookEvents, hookConfigurationAreas, safeObligationPath, parseCandidateObligations, validateHookObservation, reconcileCandidateObligations, validateCandidateFiles} from './obligations.mjs';

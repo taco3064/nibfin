@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process';
 import {grantFixture} from './grant-fixture.mjs';
 import {bodyDigest} from '../src/index.mjs';
 
-export const packageFiles = ['README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/provider.mjs'];
+export const packageFiles = ['README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/provider.mjs', 'src/obligations.mjs'];
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 // Read the actual tar payload without extracting attacker-controlled paths.
@@ -71,12 +71,17 @@ export function consumeArchive(archivePath) {
 import assert from 'node:assert/strict';
 import {realpathSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
-import {githubId, repositoryCoordinates, memberRunnerLabel, prepareGrant, signGrant, verifyGrant, createGithubProvider} from '@nibfin/core';
+import {githubId, repositoryCoordinates, memberRunnerLabel, prepareGrant, signGrant, verifyGrant, createGithubProvider, parseCandidateObligations, validateCandidateFiles} from '@nibfin/core';
 import {generateKeyPairSync} from 'node:crypto';
 assert.equal(githubId('9007199254740993'), '9007199254740993');
 assert.equal(repositoryCoordinates('Example-Org', 'Core').key, 'example-org/core');
 assert.equal(memberRunnerLabel('42'), 'nibfin-user-42');
 assert.throws(() => githubId('01'), TypeError);
+assert.equal(parseCandidateObligations('missing').ok, false);
+const obligationBody = ['Candidate hooks applicability: No configured hooks.', '\`\`\`kairo-candidate', JSON.stringify({artifacts:[{path:'package.json',purpose:'consumer'}],hooks:[]}), '\`\`\`'].join('\\n');
+const parsedObligations = parseCandidateObligations(obligationBody);
+assert.equal(parsedObligations.ok, true);
+assert.equal(validateCandidateFiles(parsedObligations.inventory, {root:process.cwd(), permittedPaths:['package.json']}).ok, true);
 const providerCalls = [];
 const providerContext = Object.freeze({operation:'close',target:'42'});
 const provider = createGithubProvider({authorize: r => r.context === providerContext && r.target === '42' && r.operation === 'close',

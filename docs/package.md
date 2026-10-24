@@ -457,3 +457,7 @@ The versioned role/result/evidence/completion and compatibility API is specified
 [evidence.md](evidence.md). Its pure comparisons preserve authentication,
 authorization and success as separate responsibilities. Both that document and
 src/evidence.mjs are included in the exact archive boundary.
+
+The public `createAuthorizationBoundary` API composes fresh GitHub observations
+with signed Grant verification. See [authorization checkpoints](authorization.md)
+for trusted inputs, provider integration, freshness and failure semantics.

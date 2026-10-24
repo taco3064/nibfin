@@ -36,3 +36,4 @@ export {protectedSkills, skillForRole, outcomesForRole, parseStageResult, valida
   verifyCompletion, validateCompatibility, compareCompatibility} from './evidence.mjs';
 
 export {exportAuthority, importAuthority, authoritySnapshot, verifyAuthority, synchronizeAuthority} from './authority.mjs';
+export {createAuthorizationBoundary} from './authorization.mjs';

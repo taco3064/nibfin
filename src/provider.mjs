@@ -138,9 +138,10 @@ export function createGithubProvider({transport, identity = 'local-stored-login'
       diagnostic.operation = options.operation;
       diagnostic.correlation = options.correlation;
       diagnostic.capability = requirement(method, path);
-      if (write && (typeof authorize !== 'function' || await authorize(Object.freeze({method, endpoint: path,
-        operation: options.operation, target: options.target, context: options.context})) !== true)) return failure('unauthorized');
       body = options.body === undefined ? undefined : JSON.stringify(options.body);
+      if (write && (typeof authorize !== 'function' || await authorize(Object.freeze({method, endpoint: path,
+        operation: options.operation, target: options.target, context: options.context, correlation: options.correlation,
+        signal: options.signal, body: body === undefined ? undefined : JSON.parse(body)})) !== true)) return failure('unauthorized');
     } catch { return failure('unsupported'); }
     started = now();
     const signal = AbortSignal.any([AbortSignal.timeout(budget), ...(options.signal ? [options.signal] : [])]);

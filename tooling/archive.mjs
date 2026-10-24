@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process';
 import {grantFixture} from './grant-fixture.mjs';
 import {bodyDigest} from '../src/index.mjs';
 
-export const packageFiles = ['src/authorization.mjs', 'docs/authorization.md', 'src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs'];
+export const packageFiles = ['src/lifecycle.mjs', 'docs/lifecycle.md', 'src/authorization.mjs', 'docs/authorization.md', 'src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs'];
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 // Read the actual tar payload without extracting attacker-controlled paths.
@@ -74,7 +74,13 @@ import {fileURLToPath} from 'node:url';
 import {githubId, repositoryCoordinates, memberRunnerLabel, prepareGrant, signGrant, verifyGrant, createGithubProvider, parseCandidateObligations, validateCandidateFiles} from '@nibfin/core';
 import {generateKeyPairSync} from 'node:crypto';
 import {exportAuthority, importAuthority, authoritySnapshot, verifyAuthority, synchronizeAuthority} from '@nibfin/core';
-import {skillForRole, parseStageResult, compareCompatibility, compareEvidence, createAuthorizationBoundary} from '@nibfin/core';
+import {skillForRole, parseStageResult, compareCompatibility, compareEvidence, createAuthorizationBoundary, bodyDigest} from '@nibfin/core';
+const {createAgentEnvironments, createAgentLifecycle} = await import('@nibfin/core');
+const registry = createAgentEnvironments();
+const descriptor = {id:'env',agent:'fixture',loginSpace:'/fixture/login',instances:[{id:'one',workspace:'/fixture/work',registration:'/fixture/reg',service:'/fixture/service'}]};
+assert.equal(registry.describe(descriptor).agent, 'fixture');
+assert.throws(() => registry.describe({...descriptor,agent:'other'}));
+assert.equal(typeof createAgentLifecycle, 'function');
 assert.equal(skillForRole('shape-validator'), 'shape');
 assert.throws(() => skillForRole('scope'));
 assert.equal(parseStageResult({version:1, outcome:'ready', failureClass:'none', summary:'ok', conflicts:[]}).outcome, 'ready');
@@ -85,6 +91,22 @@ const evidence = {version:1, stage:'shape', binding:{authority:digest, grant:dig
   execution:{role:'shape', skill:'shape', id:'author', request:'req', result:'result', source:null},
   inputs:{body:digest}, result:{version:1,outcome:'ready',failureClass:'none',summary:'ok',conflicts:[]}};
 assert.deepEqual(compareEvidence(evidence, {expected:evidence, consumed:[]}), evidence);
+const lifecycleEvidence = structuredClone(evidence);
+lifecycleEvidence.binding.instructions = bodyDigest('approved');
+const lifecycle = createAgentLifecycle({environment:registry.describe(descriptor),instanceId:'one',
+  current:()=>({expected:lifecycleEvidence,consumed:[]}),backend:{
+    readiness:async()=>({login:'available',tool:'available',isolation:'verified',read:'verified',write:'verified',evidence:['fixture'],limitations:[]}),
+    start:async()=>({status:'started'}), collect:async()=>({status:'complete',exitCode:0,evidence:lifecycleEvidence}),
+    stop:async()=>({status:'requested'}), termination:async()=>({status:'terminated'}),
+    cleanup:async()=>({status:'completed',residuals:[]})}});
+const lifecycleInput={execution:lifecycleEvidence.execution,binding:lifecycleEvidence.binding,
+  instructions:{identity:bodyDigest('approved'),content:'approved'},visibility:'public',ownership:'organization'};
+assert.equal((await lifecycle.start(lifecycleInput)).start.status,'started');
+assert.equal((await lifecycle.collect('author')).result.status,'valid');
+await assert.rejects(lifecycle.collect('author'));
+await lifecycle.termination('author');
+assert.equal((await lifecycle.cleanup()).status,'completed');
+
 assert.throws(() => compareEvidence(evidence, {expected:evidence, consumed:['result']}));
 
 assert.equal(githubId('9007199254740993'), '9007199254740993');

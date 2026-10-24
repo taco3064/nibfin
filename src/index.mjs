@@ -37,3 +37,5 @@ export {protectedSkills, skillForRole, outcomesForRole, parseStageResult, valida
 
 export {exportAuthority, importAuthority, authoritySnapshot, verifyAuthority, synchronizeAuthority} from './authority.mjs';
 export {createAuthorizationBoundary} from './authorization.mjs';
+
+export {createAgentEnvironments, createAgentLifecycle} from './lifecycle.mjs';

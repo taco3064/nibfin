@@ -44,3 +44,7 @@ export {createAgentEnvironments, createAgentLifecycle} from './lifecycle.mjs';
 export {actionsArtifactUpload, prepareCustodyManifest, validateCustodyManifest, bindCustodyPublication, artifactArchiveTransport, createArtifactCustody, publishCustody} from './custody.mjs';
 export {actionsIssuer, actionsDiscovery, actionsJwks, createActionsVerifier,
   createSyntheticActionsVerifierForTest, verifyNativeNeeds} from './actions.mjs';
+
+
+export {checkDeploymentHealth, verifyDeployment, readDeploymentObservation,
+  deploymentHealthDisposition, createDeploymentFinal} from './deployment.mjs';

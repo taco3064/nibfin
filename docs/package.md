@@ -487,3 +487,7 @@ credential-free disposable consumer installs the exact local JOSE package and
 Core archive offline, imports the public API, performs actual synthetic JWT
 verification and rejects invalid source and predecessor input. Dependency caches
 belong to the supported build/test environment, not the offline hook contract.
+
+Deployment verification, scoped health dispositions and the semantic final-proof
+handoff are documented in [deployment.md](deployment.md). Live deployment and
+Recovery integration belongs to #123.

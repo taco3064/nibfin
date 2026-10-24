@@ -1,0 +1,41 @@
+name: Core package
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'test/**'
+      - 'tooling/**'
+      - 'docs/**'
+      - 'README.md'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.gitignore'
+      - '.github/workflows/core-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'test/**'
+      - 'tooling/**'
+      - 'docs/**'
+      - 'README.md'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.gitignore'
+      - '.github/workflows/core-ci.yml'
+permissions:
+  contents: read
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --offline --ignore-scripts --no-audit --no-fund
+      - run: npm run check
+      - run: npm run verify:archive

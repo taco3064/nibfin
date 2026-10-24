@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process';
 import {grantFixture} from './grant-fixture.mjs';
 import {bodyDigest} from '../src/index.mjs';
 
-export const packageFiles = ['src/actions.mjs', 'src/deployment.mjs', 'docs/deployment.md', 'src/lifecycle.mjs', 'docs/lifecycle.md', 'src/authorization.mjs', 'docs/authorization.md', 'src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs', 'src/custody-upload.mjs', 'src/custody.mjs', 'src/custody-zip.mjs', 'docs/custody.md'];
+export const packageFiles = ['src/runners.mjs', 'src/actions.mjs', 'src/deployment.mjs', 'docs/deployment.md', 'src/lifecycle.mjs', 'docs/lifecycle.md', 'src/authorization.mjs', 'docs/authorization.md', 'src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs', 'src/custody-upload.mjs', 'src/custody.mjs', 'src/custody-zip.mjs', 'docs/custody.md'];
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 // Read the actual tar payload without extracting attacker-controlled paths.
@@ -85,7 +85,7 @@ assert.equal((await av.authenticate('invalid',af.expected)).ok,false);
 assert.equal(av.predecessor({source:authenticated,receipt:{}}).ok,false);
 import {realpathSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
-import {githubId, repositoryCoordinates, memberRunnerLabel, prepareGrant, signGrant, verifyGrant, createGithubProvider, parseCandidateObligations, validateCandidateFiles} from '@nibfin/core';
+import {githubId, repositoryCoordinates, memberRunnerLabel, prepareGrant, signGrant, verifyGrant, createGithubProvider, observeRunners, parseCandidateObligations, validateCandidateFiles} from '@nibfin/core';
 import {generateKeyPairSync} from 'node:crypto';
 import {exportAuthority, importAuthority, authoritySnapshot, verifyAuthority, synchronizeAuthority} from '@nibfin/core';
 import {skillForRole, parseStageResult, compareCompatibility, compareEvidence, createAuthorizationBoundary, bodyDigest} from '@nibfin/core';
@@ -146,6 +146,19 @@ assert.equal(providerCalls.length, 2);
 assert.equal(providerCalls[1].headers['X-GitHub-Api-Version'], '2026-03-10');
 assert.equal(providerCalls[1].headers.Accept, 'application/vnd.github+json');
 assert.equal(providerCalls[1].body, JSON.stringify({state:'closed'}));
+const runnerTarget = {owner:'org',repository:'core',id:'42',ownerId:'7',ownerType:'Organization'};
+const runnerInput = {target:runnerTarget, registration:{level:'repository',id:'42'}, records:[
+  {instanceId:'one',runnerId:'91',memberId:'8',repositoryId:'42',platform:'linux',registration:{level:'repository',id:'42'}}],
+  conditions:{labels:['self-hosted','linux'],platform:'linux'},correlation:'consumer'};
+const runnerProvider = createGithubProvider({transport:async r => {
+  assert.equal(r.method,'GET');
+  const data = r.endpoint === '/repos/org/core' ? {id:'42',owner:{id:'7',type:'Organization'},full_name:'org/core',private:false,visibility:'public'}
+    : {total_count:1,runners:[{id:'91',name:'one',os:'linux',status:'online',busy:true,labels:
+      ['self-hosted','Linux','nibfin-user-8'].map(name=>({name,type:'custom'}))}]};
+  return {status:200,headers:{},body:JSON.stringify(data)};
+}});
+assert.equal((await observeRunners(runnerProvider,runnerInput)).outcome,'matched');
+assert.equal((await observeRunners(runnerProvider,{...runnerInput,target:{...runnerTarget,id:'01'}})).outcome,'unavailable');
 const entry = realpathSync(fileURLToPath(import.meta.resolve('@nibfin/core')));
 assert.equal(entry, process.cwd() + '/node_modules/@nibfin/core/src/index.mjs');
 const input = ${JSON.stringify(grantFixture(bodyDigest))};

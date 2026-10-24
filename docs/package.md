@@ -491,3 +491,86 @@ belong to the supported build/test environment, not the offline hook contract.
 Deployment verification, scoped health dispositions and the semantic final-proof
 handoff are documented in [deployment.md](deployment.md). Live deployment and
 Recovery integration belongs to #123.
+
+## Runner observation API v1
+
+`observeRunners(provider, input)` is an async read-only reconciliation API exported
+from `@nibfin/core`. Pass a trusted `createGithubProvider` capability; imports and
+input construction perform no authentication or I/O. Only GET requests are used.
+The provider retains its own cancellation, bounded retry and safe error semantics.
+Supported official schemas/endpoints are the GitHub
+[Runner REST API](https://docs.github.com/en/rest/actions/self-hosted-runners?apiVersion=2026-03-10)
+and [Runner Group REST API](https://docs.github.com/en/rest/actions/self-hosted-runner-groups?apiVersion=2026-03-10).
+Repository inventories require Administration read; organization Runner and group
+inventories require organization Self-hosted runners read and applicable official
+administrative access. Missing permission is unavailable evidence, never offline.
+
+```js
+const result = await observeRunners(provider, {
+  target: {owner:'example', repository:'core', id:'42', ownerId:'7',
+    ownerType:'Organization'},
+  registration: {level:'repository', id:'42'},
+  records: [{instanceId:'local-1', runnerId:'91', memberId:'8', repositoryId:'42',
+    platform:'linux', registration:{level:'repository', id:'42'}}],
+  conditions: {labels:['self-hosted','linux','X64'], platform:'linux'},
+  correlation:'attempt-1', signal:abortController.signal
+});
+```
+
+All database IDs are canonical positive-decimal strings, including IDs larger
+than JavaScript's safe-integer range. Target coordinates, ID, owner ID/type and
+public visibility must agree with the current repository response. An Org-owned
+public repository can use Repository Runners without organization administration.
+For Organization Runners instead use
+`registration:{level:'organization', organization:'example', id:'7'}` in both
+the request and records. Each local organization coordinate is required, validated
+and compared case-insensitively with the requested organization; a matching stable
+ID cannot compensate for a missing or conflicting coordinate. This path verifies
+the organization identity and all Runner/group/member inventories; selected-repository policies require their
+repository inventories. `conditions.groupId` optionally requires one exact group.
+Public access must be allowed. Workflow-restricted groups require trusted
+`conditions.workflow`, an exact official selected-workflow identifier such as
+`example/core/.github/workflows/build.yml@refs/heads/main`. No context yields
+`workflow_unresolved`; a nonmatching identifier yields `workflow_denied`. This
+API expects the caller to supply the actual workflow identity, never Issue prose.
+Inherited or otherwise inaccessible group endpoints fail explicitly; they are
+never assumed permissive. Unsupported host/enterprise configurations cannot match.
+
+Records come from trusted Core local state, never provider Labels or Issue text.
+Each requires a distinct instanceId and Runner ID, member ID, actual repository ID,
+registration level/ID and platform (`linux`, `windows`, `macos`). Records are never
+mutated. Several instances may share a member's canonical `nibfin-user-ID` Label.
+A matching Label/name cannot repair an absent or replaced Runner ID. Contradictory
+or duplicate local IDs/scopes fail; wrong/conflicting member Labels, missing IDs,
+platform/required-Label mismatch and unmatched registrations carrying a known
+member Label have separate diagnostic codes. Labels compare case-insensitively,
+with all requested conditions applied together. Conflicting platform Labels fail.
+Online idle, online busy and offline are independent observable states; a matched
+offline registration remains offline. Matching registration is not availability
+selection, member permission, dispatch or Owner authorization.
+
+Results have `outcome` (`matched`, `mismatch`, `unavailable`, `unsupported`),
+`inventory` and fixed-schema `diagnostics`. Complete inventories also return
+normalized `runners` and per-record `instances` with outcome, diagnostics and any
+matching `observation` (ID, name, lowercase Labels, platform, status, boolean busy).
+An empty complete inventory produces missing-ID diagnostics for bound records;
+empty records with empty inventories can match vacuously and confer no authority.
+Unavailable results contain no partial instances/runners. Provider failures retain
+safe categories in `diagnostics[].provider`; arbitrary error text, response fields
+and secret-bearing local record fields are omitted. Treat normalized observations
+as trusted operational data; public logging should use only the fixed diagnostics,
+never entire provider responses or local records. correlation must be a public-safe
+provider identifier, not a secret. Local secret fields do not enter the output.
+
+Every inventory must finish, have a stable total_count and unique exact IDs.
+Continuation is confined to the same endpoint/origin, page and per_page parameters;
+malformed links, inconsistent counts, duplicate IDs, cycles and exhausted bounds
+fail closed. `maxPages` defaults to 100 (1–1000) per collection; per-page reads use
+the existing provider time budget. Pass an overall AbortSignal deadline when the
+caller needs a whole-operation deadline across multiple collections. No cache is
+used. Re-read at each applicable Core checkpoint: inventories across APIs are not
+an atomic snapshot, and status/Labels/access may change after observation. The
+API neither freezes membership nor proves identity from Labels; administrator and
+host trust premises and all independent delivery/permission gates still apply.
+Fixtures validate response contracts, not live registration, host-platform support,
+routing, deployment or full-product completion. #121/#122 own live integration.

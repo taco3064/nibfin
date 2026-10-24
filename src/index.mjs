@@ -58,3 +58,4 @@ export {createAssigneeSelector} from './selection.mjs';
 
 export {controlledIntent, createControlledOperations} from './operations.mjs';
 export {concurrencyVersion, nativeConcurrency, nativeExecutionPlan, parallelIssueWorkspace} from './concurrency.mjs';
+export {createDependencyEvaluator} from './dynamic.mjs';

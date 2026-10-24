@@ -75,7 +75,9 @@ export function createAgentLifecycle({environment, instanceId, backend, current}
       fields(input, 'execution binding instructions visibility ownership');
       const v = copy(input), e = v.execution;
       if (skillForRole(e.role) !== e.skill) fail('skill');
-      fields(v.instructions, 'identity content'); text(v.instructions.content);
+      fields(v.instructions, 'identity content');
+      if (typeof v.instructions.content !== 'string' || !v.instructions.content.trim()
+          || /[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(v.instructions.content)) fail('instructions');
       if (bodyDigest(v.instructions.content) !== v.instructions.identity
           || v.instructions.identity !== v.binding.instructions) fail('instructions');
       if (v.visibility !== 'public' || !['personal', 'organization'].includes(v.ownership)) fail('product-scope');

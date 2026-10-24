@@ -51,3 +51,4 @@ export {checkDeploymentHealth, verifyDeployment, readDeploymentObservation,
 
 
 export {observeRunners} from './runners.mjs';
+export {selectInstructions, instructionSeparator} from './instructions.mjs';

@@ -339,3 +339,8 @@ Fake process tests need a writable executable filesystem for temporary scripts
 in the test working directory (OS temporary directories may be mounted noexec).
 They use no installed gh credentials or network. External archive consumers still
 run outside the producer checkout with offline installation.
+
+The versioned role/result/evidence/completion and compatibility API is specified in
+[evidence.md](evidence.md). Its pure comparisons preserve authentication,
+authorization and success as separate responsibilities. Both that document and
+src/evidence.mjs are included in the exact archive boundary.

@@ -12,7 +12,14 @@
     "npm": ">=10 <11"
   },
   "packageManager": "npm@10.9.9",
-  "files": ["src/index.mjs", "docs/package.md", "src/grants.mjs", "src/provider.mjs"],
+  "files": [
+    "src/index.mjs",
+    "docs/package.md",
+    "src/grants.mjs",
+    "src/evidence.mjs",
+    "docs/evidence.md",
+    "src/provider.mjs"
+  ],
   "scripts": {
     "check": "node --test test/*.test.mjs",
     "verify:archive": "node tooling/archive.mjs"

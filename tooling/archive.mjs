@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process';
 import {grantFixture} from './grant-fixture.mjs';
 import {bodyDigest} from '../src/index.mjs';
 
-export const packageFiles = ['README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/provider.mjs'];
+export const packageFiles = ['README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs'];
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 // Read the actual tar payload without extracting attacker-controlled paths.
@@ -73,6 +73,19 @@ import {realpathSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {githubId, repositoryCoordinates, memberRunnerLabel, prepareGrant, signGrant, verifyGrant, createGithubProvider} from '@nibfin/core';
 import {generateKeyPairSync} from 'node:crypto';
+import {skillForRole, parseStageResult, compareCompatibility, compareEvidence} from '@nibfin/core';
+assert.equal(skillForRole('shape-validator'), 'shape');
+assert.throws(() => skillForRole('scope'));
+assert.equal(parseStageResult({version:1, outcome:'ready', failureClass:'none', summary:'ok', conflicts:[]}).outcome, 'ready');
+assert.throws(() => compareCompatibility({version:99}, {version:99}));
+const digest = 'a'.repeat(64);
+const evidence = {version:1, stage:'shape', binding:{authority:digest, grant:digest, policy:digest,
+  core:digest, runtime:digest, instructions:digest, repositoryId:'42', issueId:'I_1', scopeHash:digest, shapeHash:null},
+  execution:{role:'shape', skill:'shape', id:'author', request:'req', result:'result', source:null},
+  inputs:{body:digest}, result:{version:1,outcome:'ready',failureClass:'none',summary:'ok',conflicts:[]}};
+assert.deepEqual(compareEvidence(evidence, {expected:evidence, consumed:[]}), evidence);
+assert.throws(() => compareEvidence(evidence, {expected:evidence, consumed:['result']}));
+
 assert.equal(githubId('9007199254740993'), '9007199254740993');
 assert.equal(repositoryCoordinates('Example-Org', 'Core').key, 'example-org/core');
 assert.equal(memberRunnerLabel('42'), 'nibfin-user-42');

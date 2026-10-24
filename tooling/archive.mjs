@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process';
 import {grantFixture} from './grant-fixture.mjs';
 import {bodyDigest} from '../src/index.mjs';
 
-export const packageFiles = ['src/runners.mjs', 'src/actions.mjs', 'src/deployment.mjs', 'docs/deployment.md', 'src/lifecycle.mjs', 'docs/lifecycle.md', 'src/authorization.mjs', 'docs/authorization.md', 'src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs', 'src/custody-upload.mjs', 'src/custody.mjs', 'src/custody-zip.mjs', 'docs/custody.md'];
+export const packageFiles = ['src/runners.mjs', 'src/instructions.mjs', 'docs/instructions.md', 'skills/shape/SKILL.md', 'skills/deliver/SKILL.md', 'skills/accept/SKILL.md', 'src/actions.mjs', 'src/deployment.mjs', 'docs/deployment.md', 'src/lifecycle.mjs', 'docs/lifecycle.md', 'src/authorization.mjs', 'docs/authorization.md', 'src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs', 'src/custody-upload.mjs', 'src/custody.mjs', 'src/custody-zip.mjs', 'docs/custody.md'];
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 // Read the actual tar payload without extracting attacker-controlled paths.
@@ -90,6 +90,15 @@ import {generateKeyPairSync} from 'node:crypto';
 import {exportAuthority, importAuthority, authoritySnapshot, verifyAuthority, synchronizeAuthority} from '@nibfin/core';
 import {skillForRole, parseStageResult, compareCompatibility, compareEvidence, createAuthorizationBoundary, bodyDigest} from '@nibfin/core';
 const {createAgentEnvironments, createAgentLifecycle} = await import('@nibfin/core');
+const {selectInstructions} = await import('@nibfin/core');
+for (const skill of ['shape','deliver','accept']) {
+  const selected = selectInstructions({skill,role:skill});
+  assert.equal(selected.identity,bodyDigest(selected.content));
+  assert.equal(selected.source,'builtin');
+  const asset = new URL('../skills/' + skill + '/SKILL.md', import.meta.resolve('@nibfin/core'));
+  assert.equal(selected.content,(await import('node:fs')).readFileSync(asset,'utf8'));
+}
+
 const {verifyDeployment, deploymentHealthDisposition} = await import('@nibfin/core');
 assert.equal((await verifyDeployment({policy:{mode:'not-applicable',reason:'No obligation'}})).status,'not-applicable');
 assert.equal((await verifyDeployment({policy:{mode:'required'}})).status,'blocked');

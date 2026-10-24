@@ -33,7 +33,12 @@
     "docs/custody.md",
     "src/actions.mjs",
     "src/deployment.mjs",
-    "docs/deployment.md"
+    "docs/deployment.md",
+    "src/instructions.mjs",
+    "docs/instructions.md",
+    "skills/shape/SKILL.md",
+    "skills/deliver/SKILL.md",
+    "skills/accept/SKILL.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

@@ -42,7 +42,10 @@
     "src/workspace.mjs",
     "docs/workspace.md",
     "src/selection.mjs",
-    "docs/selection.md"
+    "docs/selection.md",
+    "src/operations.mjs",
+    "src/concurrency.mjs",
+    "docs/operations.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

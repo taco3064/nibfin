@@ -55,3 +55,6 @@ export {selectInstructions, instructionSeparator} from './instructions.mjs';
 
 export {workspaceLimits, captureWorkspace, verifyWorkspace, exportWorkspace, importWorkspace} from './workspace.mjs';
 export {createAssigneeSelector} from './selection.mjs';
+
+export {controlledIntent, createControlledOperations} from './operations.mjs';
+export {concurrencyVersion, nativeConcurrency, nativeExecutionPlan, parallelIssueWorkspace} from './concurrency.mjs';

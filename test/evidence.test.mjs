@@ -302,3 +302,43 @@ test('AC3/6 regression: stage instructions differ while shared bindings stay inv
     assert.throws(() => createCompletion(inconsistent, chainContext(inconsistent)), key);
   }
 });
+
+// Uses the existing complete chain harness, not a second completion model.
+test('Issue #86 AC4: approved replacement invalidates complete historical chains', async () => {
+  const {generateKeyPairSync} = await import('node:crypto');
+  const {exportAuthority, authoritySnapshot, verifyAuthority, synchronizeAuthority, signGrant, verifyGrant} = await import('@nibfin/core');
+  const {grantFixture, grantContext} = await import('../tooling/grant-fixture.mjs');
+  const keys = generateKeyPairSync('ed25519');
+  const privateKey = keys.privateKey.export({type:'pkcs8',format:'pem'});
+  const publicKey = keys.publicKey.export({type:'spki',format:'pem'});
+  const first = exportAuthority({source:'https://app.notion.com/p/40006b644a2080dab1a8c2e562f95373',
+    revision:'1',approvalId:'approval-1',cycle:'cycle-1',
+    components:[{id:'scope',kind:'section',body:'Full approved source',references:[]}]});
+  const approve = v => {
+    const p = grantFixture(bodyDigest); p.authority = authoritySnapshot(v);
+    return {grant:signGrant(p,{keyId:'owner-1',privateKey}),grantContext:grantContext(p,publicKey),
+      expected:{source:v.source,revision:v.revision,approvalId:v.approvalId,cycle:v.cycle}};
+  };
+  const a = approve(first), old = verifyAuthority(first,a).binding;
+  const makeChain = (snapshot, grant) => chain(false,false,receipts => {
+    for (const r of Object.values(receipts)) {
+      r.binding.authority = contentIdentity(snapshot); r.binding.grant = contentIdentity(grant);
+    }
+  });
+  const original = makeChain(old.snapshot,a.grant);
+  const completion = createCompletion(original,chainContext(original));
+  for (const delta of [{revision:'2'}, {approvalId:'approval-2'}, {}]) {
+    const next = exportAuthority({source:first.source,revision:first.revision,approvalId:first.approvalId,
+      cycle:'cycle-2',components:first.components,...delta});
+    const b = approve(next);
+    const replacement = synchronizeAuthority({active:old,expectedPrevious:old,replacement:next,verification:b,
+      authorization:{previousIdentity:old.identity,replacementIdentity:next.identity,cycle:next.cycle}});
+    assert.equal(verifyGrant(a.grant,b.grantContext).ok,false);
+    const fresh = makeChain(replacement.active.snapshot,b.grant), current = chainContext(fresh);
+    assert.throws(() => verifyCompletion(completion,current));
+    verifyCompletion(createCompletion(fresh,current),current);
+    assert.equal(original.receipts.publication.binding.scopeHash,binding.scopeHash);
+    assert.equal(original.receipts.publication.binding.shapeHash,binding.shapeHash);
+    assert.notEqual(binding.scopeHash,binding.shapeHash);
+  }
+});

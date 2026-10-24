@@ -19,7 +19,9 @@
     "src/evidence.mjs",
     "docs/evidence.md",
     "src/provider.mjs",
-    "src/obligations.mjs"
+    "src/obligations.mjs",
+    "src/authority.mjs",
+    "docs/authority.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process';
 import {grantFixture} from './grant-fixture.mjs';
 import {bodyDigest} from '../src/index.mjs';
 
-export const packageFiles = ['README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs'];
+export const packageFiles = ['src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs'];
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 // Read the actual tar payload without extracting attacker-controlled paths.
@@ -73,6 +73,7 @@ import {realpathSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {githubId, repositoryCoordinates, memberRunnerLabel, prepareGrant, signGrant, verifyGrant, createGithubProvider, parseCandidateObligations, validateCandidateFiles} from '@nibfin/core';
 import {generateKeyPairSync} from 'node:crypto';
+import {exportAuthority, importAuthority, authoritySnapshot, verifyAuthority, synchronizeAuthority} from '@nibfin/core';
 import {skillForRole, parseStageResult, compareCompatibility, compareEvidence} from '@nibfin/core';
 assert.equal(skillForRole('shape-validator'), 'shape');
 assert.throws(() => skillForRole('scope'));
@@ -120,6 +121,29 @@ const context = {trustedKeys: new Map([['owner-1', publicKey]]), now: 1000,
   request: {repository: draft.work[0].repository, issueId: draft.work[0].issueId,
     number: draft.work[0].number, path: 'src/file.mjs', operation: 'deliver'}};
 assert.deepEqual(verifyGrant(grant, context), {ok: true, category: 'authorized'});
+const exported = exportAuthority({source:'https://app.notion.com/p/40006b644a2080dab1a8c2e562f95373',
+  revision:'1', approvalId:'approval-1', cycle:'cycle-1', components:[
+    {id:'section',kind:'section',body:'Hello\\n世界',references:['attachment']},
+    {id:'attachment',kind:'attachment',body:'AAEC',references:[]}]});
+const approvedPayload = {...draft, authority:authoritySnapshot(exported)};
+const approvedGrant = signGrant(approvedPayload, {keyId:'owner-1',privateKey});
+const verification = {grant:approvedGrant, grantContext:{...context, expectedAuthority:approvedPayload.authority},
+  expected:{source:exported.source,revision:'1',approvalId:'approval-1',cycle:'cycle-1'}};
+const imported = importAuthority(JSON.stringify(exported));
+const verified = verifyAuthority(imported, verification);
+assert.equal(verified.ok, true);
+const nextExport = exportAuthority({...verification.expected, revision:'2',cycle:'cycle-2',
+  approvalId:'approval-2',components:exported.components});
+const nextPayload = {...draft,authority:authoritySnapshot(nextExport)};
+const nextVerification = {grant:signGrant(nextPayload,{keyId:'owner-1',privateKey}),
+  grantContext:{...context,expectedAuthority:nextPayload.authority},
+  expected:{source:exported.source,revision:'2',approvalId:'approval-2',cycle:'cycle-2'}};
+const transition = synchronizeAuthority({active:verified.binding, expectedPrevious:verified.binding,
+  replacement:nextExport, verification:nextVerification,
+  authorization:{previousIdentity:exported.identity,replacementIdentity:nextExport.identity,cycle:'cycle-2'}});
+assert.equal(transition.status,'replaced');
+assert.equal(verifyAuthority(imported,nextVerification).ok,false);
+assert.equal(verifyGrant(approvedGrant,nextVerification.grantContext).ok,false);
 context.request.operation = 'merge';
 assert.deepEqual(verifyGrant(grant, context), {ok: false, category: 'operation'});
 console.log('Installed archive consumer passed (real Grant signatures and rejection):', entry);

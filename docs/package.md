@@ -574,3 +574,7 @@ API neither freezes membership nor proves identity from Labels; administrator an
 host trust premises and all independent delivery/permission gates still apply.
 Fixtures validate response contracts, not live registration, host-platform support,
 routing, deployment or full-product completion. #121/#122 own live integration.
+
+Local immutable Candidate capture and bounded transfer APIs are documented in
+[workspace.md](workspace.md), shipped with the package. No hook manager or lifecycle
+installation script is introduced by this module.

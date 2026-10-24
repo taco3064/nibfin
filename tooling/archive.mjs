@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process';
 import {grantFixture} from './grant-fixture.mjs';
 import {bodyDigest} from '../src/index.mjs';
 
-export const packageFiles = ['src/runners.mjs', 'src/instructions.mjs', 'docs/instructions.md', 'skills/shape/SKILL.md', 'skills/deliver/SKILL.md', 'skills/accept/SKILL.md', 'src/actions.mjs', 'src/deployment.mjs', 'docs/deployment.md', 'src/lifecycle.mjs', 'docs/lifecycle.md', 'src/authorization.mjs', 'docs/authorization.md', 'src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs', 'src/custody-upload.mjs', 'src/custody.mjs', 'src/custody-zip.mjs', 'docs/custody.md'];
+export const packageFiles = ['src/workspace.mjs', 'docs/workspace.md', 'src/runners.mjs', 'src/instructions.mjs', 'docs/instructions.md', 'skills/shape/SKILL.md', 'skills/deliver/SKILL.md', 'skills/accept/SKILL.md', 'src/actions.mjs', 'src/deployment.mjs', 'docs/deployment.md', 'src/lifecycle.mjs', 'docs/lifecycle.md', 'src/authorization.mjs', 'docs/authorization.md', 'src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs', 'src/custody-upload.mjs', 'src/custody.mjs', 'src/custody-zip.mjs', 'docs/custody.md'];
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 // Read the actual tar payload without extracting attacker-controlled paths.
@@ -234,10 +234,13 @@ assert.equal((await custodyTest.fresh().retrieve({ref:retained.ref, expected:{..
 console.log('Installed archive consumer passed (real Grant signatures and rejection):', entry);
 `);
     const smoke = execFileSync(process.execPath, ['smoke.mjs'], {cwd: consumer, env, encoding: 'utf8'}).trim();
+    writeFileSync(join(consumer, 'workspace.test.mjs'), readFileSync(join(root, 'test/workspace.test.mjs'), 'utf8').replace("'../src/index.mjs'", "'@nibfin/core'"));
+    const workspace = execFileSync(process.execPath, ['--test', 'workspace.test.mjs'], {cwd: consumer, env, encoding: 'utf8'});
+    if (!workspace.includes('# fail 0')) throw Error('Installed workspace contract failed');
     writeFileSync(join(consumer, 'deployment.test.mjs'), readFileSync(join(root, 'test/deployment.test.mjs')));
     const deployment = execFileSync(process.execPath, ['--test', 'deployment.test.mjs'], {cwd: consumer, env, encoding: 'utf8'});
     if (!deployment.includes('# fail 0')) throw Error('Installed deployment contract failed');
-    return smoke + '\nInstalled deployment public contract: 5 tests passed';
+    return smoke + '\nInstalled deployment public contract: 5 tests passed; installed workspace contract: 6 tests passed';
   } catch (error) {
     throw new Error(`Archive consumer failed: ${error.message}\n${error.stderr?.toString() ?? ''}`, {cause: error});
   } finally {

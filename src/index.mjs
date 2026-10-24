@@ -52,3 +52,5 @@ export {checkDeploymentHealth, verifyDeployment, readDeploymentObservation,
 
 export {observeRunners} from './runners.mjs';
 export {selectInstructions, instructionSeparator} from './instructions.mjs';
+
+export {workspaceLimits, captureWorkspace, verifyWorkspace, exportWorkspace, importWorkspace} from './workspace.mjs';

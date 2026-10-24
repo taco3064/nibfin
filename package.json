@@ -40,7 +40,9 @@
     "skills/deliver/SKILL.md",
     "skills/accept/SKILL.md",
     "src/workspace.mjs",
-    "docs/workspace.md"
+    "docs/workspace.md",
+    "src/selection.mjs",
+    "docs/selection.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

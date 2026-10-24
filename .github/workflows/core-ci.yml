@@ -38,7 +38,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm ci --offline --ignore-scripts --no-audit --no-fund
+      - run: npm ci --registry=https://registry.npmjs.org --ignore-scripts --no-audit --no-fund
       - name: Provision pinned artifact SDK test runtime
         run: npm install --prefix "$NIBFIN_ARTIFACT_SDK_ROOT" --registry=https://registry.npmjs.org --save-exact --ignore-scripts --no-audit --no-fund @actions/artifact@2.3.2
       - run: npm run check

@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process';
 import {grantFixture} from './grant-fixture.mjs';
 import {bodyDigest} from '../src/index.mjs';
 
-export const packageFiles = ['src/lifecycle.mjs', 'docs/lifecycle.md', 'src/authorization.mjs', 'docs/authorization.md', 'src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs', 'src/custody-upload.mjs', 'src/custody.mjs', 'src/custody-zip.mjs', 'docs/custody.md'];
+export const packageFiles = ['src/actions.mjs', 'src/lifecycle.mjs', 'docs/lifecycle.md', 'src/authorization.mjs', 'docs/authorization.md', 'src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs', 'src/custody-upload.mjs', 'src/custody.mjs', 'src/custody-zip.mjs', 'docs/custody.md'];
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 // Read the actual tar payload without extracting attacker-controlled paths.
@@ -51,7 +51,7 @@ export function verifyArchive(archive, producer = root) {
   }
   const manifest = JSON.parse(files.get('package.json'));
   if (manifest.name !== '@nibfin/core' || manifest.exports?.['.'] !== './src/index.mjs'
-      || manifest.dependencies || manifest.optionalDependencies || manifest.workspaces) {
+      || JSON.stringify(manifest.dependencies) !== JSON.stringify({jose:'6.2.13'}) || manifest.optionalDependencies || manifest.workspaces) {
     throw new Error('Unexpected package boundary');
   }
   return [...files.keys()].sort();
@@ -65,11 +65,24 @@ export function consumeArchive(archivePath) {
     // Deliberately pass no inherited credential or npm configuration variables.
     const env = {PATH: process.env.PATH, HOME: consumer, npm_config_cache: join(consumer, 'cache'),
       npm_config_userconfig: join(consumer, 'empty-npmrc'), npm_config_globalconfig: join(consumer, 'global-npmrc')};
-    execFileSync('npm', ['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund', '--package-lock=false', resolve(archivePath)],
+    const dependency = join(consumer, 'jose.tgz');
+    const packed = JSON.parse(execFileSync('npm', ['pack', '--json', '--ignore-scripts', '--offline', '--pack-destination', consumer], {cwd:join(root,'node_modules/jose'), env, encoding:'utf8'}));
+    renameSync(join(consumer, packed[0].filename), dependency);
+    execFileSync('npm', ['cache', 'add', dependency], {cwd:consumer, env, stdio:'pipe'});
+    execFileSync('npm', ['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund', '--package-lock=false', dependency, resolve(archivePath)],
       {cwd: consumer, env, stdio: 'pipe'});
     writeFileSync(join(consumer, 'custody-fixture.mjs'), readFileSync(join(root, 'tooling/custody-fixture.mjs'), 'utf8').replace("'../src/index.mjs'", "'@nibfin/core'"));
+    writeFileSync(join(consumer, 'actions-fixture.mjs'), readFileSync(join(root, 'tooling/actions-fixture.mjs'), 'utf8').replace("'../src/index.mjs'", "'@nibfin/core'"));
     writeFileSync(join(consumer, 'smoke.mjs'), `
 import assert from 'node:assert/strict';
+import {actionsFixture} from './actions-fixture.mjs';
+const af = await actionsFixture();
+const av = af.verifier();
+const authenticated = await av.authenticate(await af.sign(), af.expected);
+assert.equal(authenticated.ok,true);
+assert.ok(import.meta.resolve('jose').startsWith('file://' + process.cwd() + '/node_modules/jose/'));
+assert.equal((await av.authenticate('invalid',af.expected)).ok,false);
+assert.equal(av.predecessor({source:authenticated,receipt:{}}).ok,false);
 import {realpathSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {githubId, repositoryCoordinates, memberRunnerLabel, prepareGrant, signGrant, verifyGrant, createGithubProvider, parseCandidateObligations, validateCandidateFiles} from '@nibfin/core';

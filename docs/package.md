@@ -2,7 +2,7 @@
 
 The root `package.json` and `package-lock.json` belong exclusively to Core.
 The local package is `@nibfin/core` version `0.1.0`, ESM only, with one public
-export: `@nibfin/core`. There are no runtime dependencies, install scripts,
+export: `@nibfin/core`. The sole runtime dependency is pinned `jose@6.2.13`. There are no install scripts,
 credential reads, network lookups or execution on import. The package is private
 to prevent accidental registry publication; no license grant is asserted.
 
@@ -42,14 +42,16 @@ Prerequisites: Node.js 22.x, npm 10.x and a writable OS temporary directory outs
 the checkout. Commands run from the root, with website/ absent or present:
 
 ```sh
-npm ci --offline --ignore-scripts --no-audit --no-fund
+npm ci --registry=https://registry.npmjs.org --ignore-scripts --no-audit --no-fund
 npm run check
 npm run verify:archive
 ```
 
 The real custody SDK transport regression additionally requires the isolated test
-runtime described in [custody.md](custody.md); package installation and archive
-consumption remain dependency-free and offline. `check` discovers only `test/*.test.mjs`.
+runtime described in [custody.md](custody.md), exposed through
+`NIBFIN_ARTIFACT_SDK_ROOT`. Locked installation fetches JOSE from the registry;
+`npm ci --offline` is supported after provisioning its integrity-checked cache.
+Archive packing and installed-consumer checks remain offline. `check` discovers only `test/*.test.mjs`.
 It tests public imports, malformed inputs, real archive rejection, byte
 correspondence and disposable website coexistence. `verify:archive` uses offline
 `npm pack`, normalizes the output to `out/nibfin-core.tgz`, reads the actual gzip/tar
@@ -59,7 +61,7 @@ payload and enforces the exact file allowlist in `tooling/archive.mjs`:
 `src/obligations.mjs`, `src/authority.mjs`, `docs/authority.md`,
 `src/custody.mjs`, `src/custody-upload.mjs`, `src/custody-zip.mjs`, `docs/custody.md`,
 `src/authorization.mjs`, `docs/authorization.md`,
-`src/lifecycle.mjs`, `docs/lifecycle.md`.
+`src/lifecycle.mjs`, `docs/lifecycle.md`, `src/actions.mjs`.
 Every entry is mandatory and must match the producer bytes. Unexpected entries,
 duplicates, links, unsupported tar types, bad checksums and absent runtime files
 fail. Tests, tooling, controls, secrets, donor material, prototype commands,
@@ -69,15 +71,17 @@ these checks is disposable; required non-tree Candidate deliverables are governe
 by the current Issue Shape inventory. No build transformation is required.
 
 The same command installs that exact archive into a fresh external temporary
-consumer using `npm install --offline --ignore-scripts --no-audit --no-fund`.
+consumer using `npm install --offline --ignore-scripts --no-audit --no-fund`
+with the Core archive and a local package of the installed pinned JOSE dependency.
 It passes a minimal environment without inherited credentials, imports by package
 name, verifies the installed resolution, checks success and rejection, and removes
 consumer state on success or failure. npm offline mode prevents registry fetching;
-the smoke program uses only Node built-ins and this package. Core executes any
+the smoke program uses Node built-ins, this package and its pinned JOSE dependency. Core executes any
 required hooks in its separate credential-free, network-disabled environment;
 this baseline introduces no hook manager.
 
-A manual local consumer example (run after archive verification):
+A manual local consumer example (run after archive verification, with the JOSE
+registry tarball already cached; use the registry if its cache is absent):
 
 ```sh
 archive="$PWD/out/nibfin-core.tgz"
@@ -474,3 +478,12 @@ GitHub-backed artifact custody and the callable #121/#123 handoff are specified 
 [custody.md](custody.md). Offline archive consumers also perform an injected
 official-response publication/readback round trip, discard producer state and
 reject a changed Attempt. Live GitHub artifact custody remains separately tested.
+
+The Actions verification API is exported from `@nibfin/core`; `src/actions.mjs`
+is included in the exact archive allowlist. Its sole runtime dependency is pinned
+`jose@6.2.13` (also integrity-pinned in the lockfile). Archive verification rejects
+other dependency declarations and compares every included source byte. The
+credential-free disposable consumer installs the exact local JOSE package and
+Core archive offline, imports the public API, performs actual synthetic JWT
+verification and rejects invalid source and predecessor input. Dependency caches
+belong to the supported build/test environment, not the offline hook contract.

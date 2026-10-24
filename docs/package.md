@@ -53,7 +53,7 @@ correspondence and disposable website coexistence. `verify:archive` uses offline
 `npm pack`, normalizes the output to `out/nibfin-core.tgz`, reads the actual gzip/tar
 payload and enforces the exact file allowlist in `tooling/archive.mjs`:
 `package.json`, `README.md`, `docs/package.md`, `src/index.mjs`,
-`src/grants.mjs`, `src/provider.mjs`.
+`src/grants.mjs`, `src/provider.mjs`, `src/obligations.mjs`.
 Every entry is mandatory and must match the producer bytes. Unexpected entries,
 duplicates, links, unsupported tar types, bad checksums and absent runtime files
 fail. Tests, tooling, controls, secrets, donor material, prototype commands,
@@ -339,3 +339,113 @@ Fake process tests need a writable executable filesystem for temporary scripts
 in the test working directory (OS temporary directories may be mounted noexec).
 They use no installed gh credentials or network. External archive consumers still
 run outside the producer checkout with offline installation.
+
+## Candidate obligation API v1
+
+The public entry exports `parseCandidateObligations(body)`,
+`reconcileCandidateObligations(parsed, evidence)`, `validateHookObservation(observation)`,
+`validateCandidateFiles(inventory, {root, permittedPaths})`, `safeObligationPath(path)`,
+`hookEvents` and `hookConfigurationAreas`. Results have `ok` and `diagnostics`:
+structured `{code, path, reason}` entries. Parsing also returns `inventory` and
+`explanations` once JSON is readable. Never use a failed result to qualify work.
+These APIs neither authorize execution nor execute hook scripts or produce receipts.
+
+An executable inventory opens on an unindented line of three or more backticks
+or tildes followed by exactly `kairo-candidate` (surrounding whitespace allowed).
+It closes with the same character and at least the opening length, whitespace only
+following. Other fenced regions (including fences indented up to three spaces)
+are opaque: an inventory inside an illustrative outer fence does not count.
+Indented code and blockquoted inventories do not qualify. Exactly one complete
+executable inventory is required; unterminated inventories reject.
+
+The JSON object has exactly `artifacts` and `hooks` arrays. Entries have exactly
+`{path, purpose}` or `{path, event}` respectively. Purposes must be nonblank strings.
+Paths are canonical relative POSIX file paths without controls, backslashes,
+drive prefixes, empty components, `.` or `..`. Each array forbids duplicate paths;
+a source can independently be both an artifact and a hook. No existence check
+occurs while parsing: future ignored build output can be declared before generation.
+
+Each empty array requires a distinct prose line outside fences:
+
+```text
+Candidate artifacts applicability: Scope requires no extra artifacts.
+Candidate hooks applicability: Complete configuration review found no applicable hooks.
+```
+
+For compatibility with existing published Shapes, the explicit prose sentence
+`Hooks is empty because <nonblank reason>` (or `Artifacts is empty because ...`)
+is also recognized outside fences. Repeated canonical explanation lines reject
+empty applicability. Author prose alone never proves hook absence.
+
+```js
+const parsed = parseCandidateObligations(shapeBody);
+const checked = reconcileCandidateObligations(parsed, {
+  scopeEvidenceReference: 'frozen-scope:revision-and-identity',
+  requiredArtifacts: [{path:'out/core.tgz', purpose:'Distribution',
+    evidenceReference:'scope:required-distribution'}],
+  hookObservation: trustedObservation
+});
+// Later, after generating every required output:
+const candidate = validateCandidateFiles(parsed.inventory, {
+  root: approvedRepositoryRoot, permittedPaths:['out', '.githooks']
+});
+```
+
+The independent trusted caller translates frozen Scope into the complete
+`requiredArtifacts` list, including approved applicability for every declaration;
+it supplies evidence references and nonblank purposes. Missing or extra declarations
+block. Purposes may differ in wording; the independent caller reviews their semantics.
+An empty list still requires a Scope evidence reference. The API cannot certify
+that references are authentic, complete or current, or interpret arbitrary Scope prose.
+Callers must independently establish provenance, identity and freshness.
+
+The observation adapter accepts `{areas, hooks}`. Each area is exactly one record
+with `area`, `status:'resolved'`, nonblank `detail` and `evidenceReference`.
+All six areas exported in `hookConfigurationAreas` are mandatory, including
+explicit absence findings. Build observations from repository configuration and
+trusted effective configuration as follows; a partial directory scan is insufficient:
+
+- `effective-git`: caller-provided effective Git settings and origins, including
+  `core.hooksPath` and signing settings. Do not read hidden controller metadata.
+- `hook-directories`: full relevant tracked hook inventory, applicable default
+  hooks and every configured hooksPath target, including chained sources.
+- `repository-setup`: repository-managed Git configuration/setup scripts, their
+  effective paths and source order; dynamic or unresolved setup blocks.
+- `package-lifecycle`: root package scripts and lifecycle installation/setup effects.
+- `husky`: Husky setup, configured source paths and chained event handlers, or
+  explicit absence. A package name alone does not prove effective applicability.
+- `workspaces`: every workspace manifest and hook manager configuration, chained
+  handlers and their effective ordering, or explicit absence of workspaces.
+
+Each applicable source becomes a hook record `{path, event, applicability,
+evidenceReference, prerequisites}`. Hooks must exactly match the inventory in
+source order within events and in event order `pre-commit`, `prepare-commit-msg`,
+`commit-msg`. Wrapper/chained sources must be accounted for; do not discard a hook
+because its prerequisite is unavailable. Pre-commit has no message arguments;
+prepare-commit-msg uses the applicable message-file/source/commit inputs;
+commit-msg uses the message-file input. The future executor must preserve these
+semantics; this API describes obligations only.
+
+`prerequisites` is an explicit array of `{name, status, evidenceReference}`.
+Only `available-offline-credential-free` passes. Missing tools, required installation,
+signing, credentials, network or external effects must be named and reported as
+`unresolved` or `unsupported`; neither status passes. This is trusted caller
+assessment, never permission supplied by repository text. Configuration too dynamic
+to resolve must keep the corresponding area unresolved and block qualification.
+No built-in scanner claims to statically understand arbitrary shell or hook managers.
+
+For example, no hooks requires all six absence/configuration observations and
+`hooks:[]`. A Husky prepare script plus workspace handlers requires observations
+of both setup sources and the effective ordered hooks; without effective Git
+configuration evidence `configuration` diagnostics block even if the array is empty.
+An omitted configured source produces `hook-correspondence`; missing output
+produces `file`; unsupported signing produces `prerequisite` naming signing.
+
+Candidate file validation checks every declared artifact and hook as a regular
+file, rejects symlinks in every component (including root ancestors), and enforces
+explicit component-boundary permitted paths. It ignores tracking/ignore status:
+required ignored output remains mandatory. Roots must be approved by the trusted
+caller; platform alias handling and concurrent filesystem changes require Core's
+isolated immutable capture gate. Local checks are observations, not snapshots.
+Actual sandboxed hooks, two-stage execution, receipts, independent Accept and
+lifecycle E2E remain Core responsibilities and are not claimed by these tests.

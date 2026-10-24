@@ -56,6 +56,14 @@ constraints. Production public-path reliance remains blocked; these experiments
 do not certify a native-code sandbox or live GitHub event support. Reproduce with
 `node experiments/public-path/run.mjs`; preserve `out/public-path/evidence.json`.
 
+## Claude Code research
+
+The [Claude Code research dossier](docs/research/claude-code/README.md) records
+official documentation, a proposed adapter boundary, safety risks and future
+verification cases. It does not implement or enable Claude execution. Unexecuted
+configurations remain Unverified; research is not operational support or P1 E2E
+evidence.
+
 ## Public-facing language
 
 All public-facing information maintained by this project must be written in English. This applies across `taco3064/nibfin`, `taco3064/nibfin-action`, and `taco3064/gh-nibfin`, including repository descriptions, READMEs, documentation and the website, UI text, CLI help and user-facing output/errors, Action/workflow descriptions, examples, release notes, and maintainer-authored issue/PR titles, descriptions, and comments.

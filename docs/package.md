@@ -53,7 +53,8 @@ correspondence and disposable website coexistence. `verify:archive` uses offline
 `npm pack`, normalizes the output to `out/nibfin-core.tgz`, reads the actual gzip/tar
 payload and enforces the exact file allowlist in `tooling/archive.mjs`:
 `package.json`, `README.md`, `docs/package.md`, `src/index.mjs`,
-`src/grants.mjs`, `src/provider.mjs`, `src/obligations.mjs`.
+`src/grants.mjs`, `src/evidence.mjs`, `docs/evidence.md`, `src/provider.mjs`,
+`src/obligations.mjs`, `src/authority.mjs`, `docs/authority.md`.
 Every entry is mandatory and must match the producer bytes. Unexpected entries,
 duplicates, links, unsupported tar types, bad checksums and absent runtime files
 fail. Tests, tooling, controls, secrets, donor material, prototype commands,
@@ -158,8 +159,10 @@ A snapshot is exactly `{source, revision, body, hash}`: nonempty source/revision
 strings, exact body string and `bodyDigest(body)`. Use approved immutable source
 locators and revisions. Hashing arbitrary Issue prose does not establish product
 authority, approval or truthful GitHub observations. The caller supplies approved
-Proposal snapshots independently of untrusted Issue content; there is no Notion
-fetch/synchronization or provider verification hidden in this API.
+Proposal snapshots independently of untrusted Issue content. The Grant API has
+no hidden Notion fetch or provider verification. The explicit approved-export
+interface and pure synchronization transition are specified in
+[authority.md](authority.md); they reuse these full signed snapshots.
 
 `scope` always preserves the frozen original body and hash. `currentBody` records
 an independent Issue-body observation; `shape` records an independently published

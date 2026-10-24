@@ -2,7 +2,8 @@
 
 This repository owns the single Nibfin Core implementation. The current baseline
 provides a standalone ESM package, canonical GitHub identity helpers, explicit
-Grant preparation/signing/verification APIs, and local archive installation checks. It is not a published release or a complete delivery
+Grant preparation/signing/verification APIs, approved authority export/import and
+explicit synchronization, and local archive installation checks. It is not a published release or a complete delivery
 runtime, and makes no Agent or supported-platform certification claim.
 
 Nibfin's planned delivery runtime uses per-Issue native GitHub dependencies,
@@ -27,3 +28,7 @@ files with source and tests an independent offline installation. See
 [the package contract](docs/package.md) for imports, rejection rules and the
 Core/website/Action/CLI ownership handoff. These local checks establish package
 behavior; independent Acceptance and repository CI remain separate gates.
+
+The [approved-export contract](docs/authority.md) documents full representation,
+independent approval, cycle binding and dependent-evidence invalidation. It uses
+locally supplied exports and does not connect to live Notion.

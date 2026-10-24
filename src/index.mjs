@@ -34,3 +34,5 @@ export {hookEvents, hookConfigurationAreas, safeObligationPath, parseCandidateOb
 export {protectedSkills, skillForRole, outcomesForRole, parseStageResult, validateStageResult,
   byteDigest, contentIdentity, stageApplicability, createEvidence, compareEvidence, createCompletion,
   verifyCompletion, validateCompatibility, compareCompatibility} from './evidence.mjs';
+
+export {exportAuthority, importAuthority, authoritySnapshot, verifyAuthority, synchronizeAuthority} from './authority.mjs';

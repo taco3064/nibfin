@@ -103,3 +103,11 @@ The [Gemini CLI feasibility study](docs/research/gemini-cli.md) and
 sources, proposed Host boundaries and unexecuted cases. This research provides
 no Gemini executor, formal support or Runner eligibility; all unexecuted
 configurations remain Unverified.
+
+## macOS Host research
+
+The [macOS Host feasibility study](docs/research/macos-host.md) and
+[future real-host verification design](docs/research/macos-host-verification.md)
+separate Intel, Apple Silicon, native Darwin, external sandboxing and Linux guests.
+All configurations remain Unverified; this research provides no native adapter,
+operational support or Runner eligibility.

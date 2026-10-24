@@ -16,6 +16,8 @@
     "src/index.mjs",
     "docs/package.md",
     "src/grants.mjs",
+    "src/evidence.mjs",
+    "docs/evidence.md",
     "src/provider.mjs",
     "src/obligations.mjs"
   ],

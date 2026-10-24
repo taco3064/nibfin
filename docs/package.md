@@ -449,3 +449,8 @@ caller; platform alias handling and concurrent filesystem changes require Core's
 isolated immutable capture gate. Local checks are observations, not snapshots.
 Actual sandboxed hooks, two-stage execution, receipts, independent Accept and
 lifecycle E2E remain Core responsibilities and are not claimed by these tests.
+
+The versioned role/result/evidence/completion and compatibility API is specified in
+[evidence.md](evidence.md). Its pure comparisons preserve authentication,
+authorization and success as separate responsibilities. Both that document and
+src/evidence.mjs are included in the exact archive boundary.

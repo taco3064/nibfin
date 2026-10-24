@@ -50,7 +50,8 @@ export {checkDeploymentHealth, verifyDeployment, readDeploymentObservation,
   deploymentHealthDisposition, createDeploymentFinal} from './deployment.mjs';
 
 
-export {observeRunners} from './runners.mjs';
+export {observeRunners, observeRunnerBindings} from './runners.mjs';
 export {selectInstructions, instructionSeparator} from './instructions.mjs';
 
 export {workspaceLimits, captureWorkspace, verifyWorkspace, exportWorkspace, importWorkspace} from './workspace.mjs';
+export {createAssigneeSelector} from './selection.mjs';

@@ -17,7 +17,11 @@ function runner(value) {
 }
 
 /** Read-only observations; trusted Core inputs and provider capability are required. */
-export async function observeRunners(provider, input) {
+export function observeRunners(provider, input) { return observe(provider, input, true); }
+
+/** Binding/access reconciliation across platforms; does not establish job eligibility. */
+export function observeRunnerBindings(provider, input) { return observe(provider, input, false); }
+async function observe(provider, input, matchJob) {
   const diagnostics = [];
   let request, target, registration, records, conditions;
   try {
@@ -167,7 +171,7 @@ export async function observeRunners(provider, input) {
       else {
         const memberLabels = remote.labels.filter(label => label.startsWith('nibfin-user-'));
         if (memberLabels.length !== 1 || memberLabels[0] !== memberRunnerLabel(record.memberId)) codes.push('member_label');
-        if (remote.platform !== record.platform || remote.platform !== conditions.platform
+        if (remote.platform !== record.platform || (matchJob && remote.platform !== conditions.platform)
             || remote.labels.some(label => platforms.has(label) && label !== remote.platform)) codes.push('platform');
         if (!conditions.labels.every(label => remote.labels.includes(lower(label)))) codes.push('required_labels');
         const group = groupsByRunner.get(remote.id);

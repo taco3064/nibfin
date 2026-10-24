@@ -30,7 +30,9 @@
     "src/custody.mjs",
     "src/custody-zip.mjs",
     "docs/custody.md",
-    "src/actions.mjs"
+    "src/actions.mjs",
+    "src/deployment.mjs",
+    "docs/deployment.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

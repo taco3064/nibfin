@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process';
 import {grantFixture} from './grant-fixture.mjs';
 import {bodyDigest} from '../src/index.mjs';
 
-export const packageFiles = ['src/actions.mjs', 'src/lifecycle.mjs', 'docs/lifecycle.md', 'src/authorization.mjs', 'docs/authorization.md', 'src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs', 'src/custody-upload.mjs', 'src/custody.mjs', 'src/custody-zip.mjs', 'docs/custody.md'];
+export const packageFiles = ['src/actions.mjs', 'src/deployment.mjs', 'docs/deployment.md', 'src/lifecycle.mjs', 'docs/lifecycle.md', 'src/authorization.mjs', 'docs/authorization.md', 'src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs', 'src/custody-upload.mjs', 'src/custody.mjs', 'src/custody-zip.mjs', 'docs/custody.md'];
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 // Read the actual tar payload without extracting attacker-controlled paths.
@@ -90,6 +90,10 @@ import {generateKeyPairSync} from 'node:crypto';
 import {exportAuthority, importAuthority, authoritySnapshot, verifyAuthority, synchronizeAuthority} from '@nibfin/core';
 import {skillForRole, parseStageResult, compareCompatibility, compareEvidence, createAuthorizationBoundary, bodyDigest} from '@nibfin/core';
 const {createAgentEnvironments, createAgentLifecycle} = await import('@nibfin/core');
+const {verifyDeployment, deploymentHealthDisposition} = await import('@nibfin/core');
+assert.equal((await verifyDeployment({policy:{mode:'not-applicable',reason:'No obligation'}})).status,'not-applicable');
+assert.equal((await verifyDeployment({policy:{mode:'required'}})).status,'blocked');
+assert.equal((await deploymentHealthDisposition({target:{issueId:'I'},selectors:[],baselines:[],observations:[]})).permission,false);
 const registry = createAgentEnvironments();
 const descriptor = {id:'env',agent:'fixture',loginSpace:'/fixture/login',instances:[{id:'one',workspace:'/fixture/work',registration:'/fixture/reg',service:'/fixture/service'}]};
 assert.equal(registry.describe(descriptor).agent, 'fixture');
@@ -207,7 +211,11 @@ assert.deepEqual(recovered.payloads.get('out/ignored.bin'), Buffer.from([0,255,1
 assert.equal((await custodyTest.fresh().retrieve({ref:retained.ref, expected:{...custodyTest.expected,attempt:'2'}})).outcome, 'failed');
 console.log('Installed archive consumer passed (real Grant signatures and rejection):', entry);
 `);
-    return execFileSync(process.execPath, ['smoke.mjs'], {cwd: consumer, env, encoding: 'utf8'}).trim();
+    const smoke = execFileSync(process.execPath, ['smoke.mjs'], {cwd: consumer, env, encoding: 'utf8'}).trim();
+    writeFileSync(join(consumer, 'deployment.test.mjs'), readFileSync(join(root, 'test/deployment.test.mjs')));
+    const deployment = execFileSync(process.execPath, ['--test', 'deployment.test.mjs'], {cwd: consumer, env, encoding: 'utf8'});
+    if (!deployment.includes('# fail 0')) throw Error('Installed deployment contract failed');
+    return smoke + '\nInstalled deployment public contract: 5 tests passed';
   } catch (error) {
     throw new Error(`Archive consumer failed: ${error.message}\n${error.stderr?.toString() ?? ''}`, {cause: error});
   } finally {

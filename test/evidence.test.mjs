@@ -342,3 +342,32 @@ test('Issue #86 AC4: approved replacement invalidates complete historical chains
     assert.notEqual(binding.scopeHash,binding.shapeHash);
   }
 });
+
+test('semantic deployment qualification feeds the complete completion chain', async t => {
+  const {createServer} = await import('node:http');
+  const {once} = await import('node:events');
+  const {verifyDeployment, createDeploymentFinal} = await import('@nibfin/core');
+  const server = createServer((req,res) => res.end('healthy'));
+  server.listen(0,'127.0.0.1'); await once(server,'listening');
+  t.after(() => {server.closeAllConnections();server.close();});
+  const url = `http://127.0.0.1:${server.address().port}/health`;
+  const checks = [{url,status:200,body:'healthy'}];
+  const policy = {mode:'required',reason:'Issue release',repositoryId:binding.repositoryId,
+    commit:g('d'),version:'fixed',environment:'production',deploymentId:'1',statusId:'2',baseline:'fixed',
+    source:{repositoryId:binding.repositoryId,workflow:'pinned-workflow',runId:'3',attempt:'1'},maxAgeMs:100,checks};
+  const inputs = {policy,observation:{...policy,state:'success',observedAt:1000},
+    health:{checks,allowlist:[url],timeoutMs:1000,maxBytes:32,maxRequests:1},now:()=>1100};
+  const q = await verifyDeployment(inputs);
+  const c = chain(false,true,receipts => {receipts.final.inputs.deployment=q.proof;});
+  const ctx = chainContext(c);
+  assert.deepEqual(await createDeploymentFinal(ctx.final,q,inputs),c.receipts.final);
+  const completion = createCompletion(c,ctx);
+  assert.deepEqual(verifyCompletion(completion,ctx),completion);
+  for (const observation of [null,{...inputs.observation,state:'pending'},
+    {...inputs.observation,state:'failure'},{...inputs.observation,commit:g('e')},
+    {...inputs.observation,observedAt:999}]) {
+    await assert.rejects(createDeploymentFinal(ctx.final,q,{...inputs,observation}));
+  }
+  const changed = chain(false,true,receipts => {receipts.final.inputs.deployment={...q.proof,identities:[h('8')]};});
+  assert.throws(() => verifyCompletion(completion,chainContext(changed)));
+});

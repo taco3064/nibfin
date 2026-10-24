@@ -38,7 +38,9 @@
     "docs/instructions.md",
     "skills/shape/SKILL.md",
     "skills/deliver/SKILL.md",
-    "skills/accept/SKILL.md"
+    "skills/accept/SKILL.md",
+    "src/workspace.mjs",
+    "docs/workspace.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

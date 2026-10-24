@@ -52,7 +52,8 @@ It tests public imports, malformed inputs, real archive rejection, byte
 correspondence and disposable website coexistence. `verify:archive` uses offline
 `npm pack`, normalizes the output to `out/nibfin-core.tgz`, reads the actual gzip/tar
 payload and enforces the exact file allowlist in `tooling/archive.mjs`:
-`package.json`, `README.md`, `docs/package.md`, `src/index.mjs`, `src/grants.mjs`.
+`package.json`, `README.md`, `docs/package.md`, `src/index.mjs`,
+`src/grants.mjs`, `src/provider.mjs`.
 Every entry is mandatory and must match the producer bytes. Unexpected entries,
 duplicates, links, unsupported tar types, bad checksums and absent runtime files
 fail. Tests, tooling, controls, secrets, donor material, prototype commands,
@@ -232,3 +233,109 @@ public entry only; consumers must retain independent trusted keys and policy.
 The offline archive consumer generates real ephemeral Ed25519 keys, prepares two
 Issue records, serializes/signs/verifies a Grant and rejects an expanded operation.
 No real provider, Runner or model E2E is claimed by these local checks.
+
+## Authenticated GitHub provider
+
+`createGithubProvider`, `localGhTransport`, `parseGithubJson`, `publicDiagnostic`
+and `githubApiVersion` are exported from the same inert entry. The maintained
+provider supports JSON REST on `https://api.github.com`, API `2026-03-10`, with
+`application/vnd.github+json`. Enterprise hosts, binary transfers, GraphQL,
+encoded endpoints and arbitrary headers are unsupported. No platform or live
+provider certification follows from fixture tests. Endpoint paths begin with `/`
+and use ASCII letters, digits, `_/?=&.-`; placeholders, percent escapes,
+traversal, fragments, userinfo and external URLs are rejected. Personal and Org
+repository coordinates use identical paths; database IDs and node IDs are distinct.
+
+```js
+import {createGithubProvider, publicDiagnostic} from '@nibfin/core';
+// The application owns this callback and the identity-bound approved context.
+const provider = createGithubProvider({authorize: request =>
+  approvedContexts.has(request.context) && policyAllows(request)});
+const request = {endpoint:'/repos/example/core/issues/1', operation:'close',
+  correlation:'attempt-1', target:'42'};
+const submission = await provider.request({...request, method:'PATCH',
+  context: approvedContext, body:{state:'closed'}});
+const completion = await provider.reconcile(submission, request,
+  data => data.state === 'closed' && observationIsCurrent(data));
+console.log(publicDiagnostic(completion));
+```
+
+`target` is the canonical decimal stable target ID, never the issue number.
+`operation` and `correlation` are trusted, public-safe labels (1–80 ASCII
+letters/digits/underscore/hyphen); do not put private material in these labels.
+The trusted `authorize` callback receives a frozen `{method, endpoint, target,
+operation, context}`. It must bind every field to current authority; `context`
+is an opaque application capability, not a provider or Agent payload. Without
+this callback returning exactly true, mutations send no requests. The adapter
+cannot establish Grants, permissions, dependencies or lifecycle eligibility.
+
+`request` defaults to GET and accepts POST/PUT/PATCH/DELETE, JSON `body`, optional
+AbortSignal `signal`, `expectedId` for singular resources and a trusted
+`validate(data)` predicate for endpoint-required identities and schemas. Singular
+resource consumers must supply `expectedId` and validate all relevant nested
+identities; endpoints without singular IDs use an explicit schema predicate.
+IDs present as `id` or `*_id` (except `node_id`) are converted to canonical
+strings, with invalid forms rejected; numeric identity spellings are recovered from Node 22's JSON reviver source
+without rounding; fractional/exponent ID spellings fail. Array order remains unchanged. Missing identities must be
+required by the endpoint schema, never guessed from coordinates.
+
+Results distinguish `read`, `submitted`, `unknown` and `failed`; no HTTP response
+alone is `verified`. Trusted `data`, `link` and `observedAt` are separate from
+safe `diagnostic`. Status categories are authentication, denied,
+not_found_or_inaccessible, invalid_request, rate_limited, malformed, transport,
+server, unsupported, unauthorized, cancelled and timeout. Runner-list diagnostics
+identify `administration:read`; other capability requirements explicitly remain
+unknown. None requests broader credentials or probes with writes. Only publish
+`publicDiagnostic(result)`, which drops trusted response data and links.
+
+`collection({...request, envelope:'runners'})` supports collection envelopes;
+omit `envelope` for arrays. Every item must have a canonical database `id`.
+`validate` applies to each complete page before envelope extraction. Actual Link
+`rel="next"` controls traversal; all links must parse, and next destinations must
+remain on the API origin. It returns `complete` with ordered data only after the
+last page; any failure, cycle or limit returns `incomplete` without partial data.
+Pagination is not an atomic snapshot. Defaults: 100 pages (configurable 1–1000),
+3 attempts per safe read (1–10), 30 seconds total request/collection time.
+Backoff starts at one second, doubles to eight seconds; provider Retry-After and
+primary reset delays are honored even when larger. Secondary limiting without
+explicit timing waits at least 60 seconds with exponential increases. Insufficient
+remaining time returns failure/wait timing without an early retry. Only GETs
+retry transport/server/rate failures; denials and malformed data never loop.
+Cancellation interrupts both requests and delays. `now` and `delay(ms, signal)`
+are trusted test seams; production uses the wall clock and abortable timers.
+
+Writes submit once, without retries. Loss, timeout, malformed success or server
+error remains `unknown`; successful submission (including 202) stays `submitted`.
+Both unknown and submitted result objects carry an internal reconciliation binding.
+`reconcile(originalResult, readOptions, matches)` performs a separate GET, requires
+the same target, a matching returned `id`, and a true caller-owned final-state
+predicate. That predicate must also reject stale revisions/observations using the
+endpoint's actual semantics. Failed, contradictory or inconclusive reads remain
+unknown; reconciliation never replays a write. Dispatch acceptance cannot prove
+workflow completion. Reconciliation bindings are process-local, not durable
+Write Intents; Core owns persisted reconciliation/manual handling after restart.
+
+The local transport invokes the actual account's stored-login `gh` with a minimal
+environment, outside the checkout, using argument vectors and stdin JSON. It
+checks `gh auth status --hostname github.com` without exposing its output. No
+login or token extraction occurs. Only PATH, account HOME and fixed noninteractive/
+no-update/color flags pass through: inherited GH_TOKEN/GITHUB_TOKEN, enterprise
+tokens, host/repo/config overrides, proxy and debug variables are excluded.
+The request uses an absolute API URL to avoid gh repository/API-host defaults.
+Use a trusted GitHub CLI 2.65+ executable supporting `auth status`, `api --include`,
+`--hostname`, `--method`, headers and `--input -`; `executable` overrides are trusted
+configuration, never repository input. The process-account home, PATH, gh config,
+OS credential store and installed executable remain administrator trust premises.
+CLI-native official redirects/authentication semantics remain those of that
+trusted gh version; this adapter does not implement another credential transport.
+Responses over 8 MiB fail explicitly. Missing executable/login/nonzero exits,
+HTTP failures and truncated output are reported without subprocess output.
+Hosted execution must explicitly inject a trusted transport and set
+`identity:'hosted-authorized'`; it supplies its separately authorized identity,
+raw `{status, headers, body}` and must honor cancellation, origin confinement,
+no write retries and secret-free errors. It never requires member local login.
+
+Fake process tests need a writable executable filesystem for temporary scripts
+in the test working directory (OS temporary directories may be mounted noexec).
+They use no installed gh credentials or network. External archive consumers still
+run outside the producer checkout with offline installation.

@@ -46,16 +46,18 @@ test('real archive, rejection policy and website isolation', () => {
     assert.throws(() => verifyArchive(changeEntry(archive, 'src/index.mjs', 'src/missing.mjs'), fixture), /Forbidden/);
     // A valid subset still fails the mandatory-entry check.
     const tar = gunzipSync(archive);
-    let offset = 0;
-    while (offset < tar.length) {
-      const name = tar.subarray(offset, offset + 100).toString().replace(/\0.*$/s, '');
-      if (name === 'package/src/index.mjs') {
-        const size = parseInt(tar.subarray(offset + 124, offset + 136).toString(), 8);
-        const end = offset + 512 + Math.ceil(size / 512) * 512;
-        assert.throws(() => verifyArchive(gzipSync(Buffer.concat([tar.subarray(0, offset), tar.subarray(end)])), fixture), /Missing required/);
-        break;
+    for (const required of ['src/index.mjs', 'src/grants.mjs']) {
+      let offset = 0;
+      while (offset < tar.length) {
+        const name = tar.subarray(offset, offset + 100).toString().replace(/\0.*$/s, '');
+        if (name === `package/${required}`) {
+          const size = parseInt(tar.subarray(offset + 124, offset + 136).toString(), 8);
+          const end = offset + 512 + Math.ceil(size / 512) * 512;
+          assert.throws(() => verifyArchive(gzipSync(Buffer.concat([tar.subarray(0, offset), tar.subarray(end)])), fixture), /Missing required/);
+          break;
+        }
+        offset += 512 + Math.ceil(parseInt(tar.subarray(offset + 124, offset + 136).toString(), 8) / 512) * 512;
       }
-      offset += 512 + Math.ceil(parseInt(tar.subarray(offset + 124, offset + 136).toString(), 8) / 512) * 512;
     }
     mkdirSync(join(fixture, 'website'), {recursive: true});
     writeFileSync(join(fixture, 'website/package.json'), JSON.stringify({private: true, dependencies: {'must-not-install': '0.0.0'}, scripts: {install: 'exit 99'}}));

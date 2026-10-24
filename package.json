@@ -7,7 +7,7 @@
   "exports": {".": "./src/index.mjs"},
   "engines": {"node": ">=22 <23", "npm": ">=10 <11"},
   "packageManager": "npm@10.9.9",
-  "files": ["src/index.mjs", "docs/package.md"],
+  "files": ["src/index.mjs", "docs/package.md", "src/grants.mjs"],
   "scripts": {
     "check": "node --test test/*.test.mjs",
     "verify:archive": "node tooling/archive.mjs"

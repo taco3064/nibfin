@@ -4,8 +4,10 @@ import {tmpdir} from 'node:os';
 import {resolve, join, dirname, sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
+import {grantFixture} from './grant-fixture.mjs';
+import {bodyDigest} from '../src/index.mjs';
 
-export const packageFiles = ['README.md', 'docs/package.md', 'package.json', 'src/index.mjs'];
+export const packageFiles = ['README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs'];
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 // Read the actual tar payload without extracting attacker-controlled paths.
@@ -69,14 +71,30 @@ export function consumeArchive(archivePath) {
 import assert from 'node:assert/strict';
 import {realpathSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
-import {githubId, repositoryCoordinates, memberRunnerLabel} from '@nibfin/core';
+import {githubId, repositoryCoordinates, memberRunnerLabel, prepareGrant, signGrant, verifyGrant} from '@nibfin/core';
+import {generateKeyPairSync} from 'node:crypto';
 assert.equal(githubId('9007199254740993'), '9007199254740993');
 assert.equal(repositoryCoordinates('Example-Org', 'Core').key, 'example-org/core');
 assert.equal(memberRunnerLabel('42'), 'nibfin-user-42');
 assert.throws(() => githubId('01'), TypeError);
 const entry = realpathSync(fileURLToPath(import.meta.resolve('@nibfin/core')));
 assert.equal(entry, process.cwd() + '/node_modules/@nibfin/core/src/index.mjs');
-console.log('Installed archive consumer passed:', entry);
+const input = ${JSON.stringify(grantFixture(bodyDigest))};
+const {draft, summary} = prepareGrant(input);
+assert.ok(summary.includes('DRAFT ONLY'));
+const keys = generateKeyPairSync('ed25519');
+const privateKey = keys.privateKey.export({type: 'pkcs8', format: 'pem'});
+const publicKey = keys.publicKey.export({type: 'spki', format: 'pem'});
+const grant = JSON.parse(JSON.stringify(signGrant(draft, {keyId: 'owner-1', privateKey})));
+const context = {trustedKeys: new Map([['owner-1', publicKey]]), now: 1000,
+  revocation: {id: draft.revocationId, available: true, revokedRecords: []},
+  expectedAuthority: draft.authority, expectedWork: draft.work, expectedPolicy: draft.policy,
+  request: {repository: draft.work[0].repository, issueId: draft.work[0].issueId,
+    number: draft.work[0].number, path: 'src/file.mjs', operation: 'deliver'}};
+assert.deepEqual(verifyGrant(grant, context), {ok: true, category: 'authorized'});
+context.request.operation = 'merge';
+assert.deepEqual(verifyGrant(grant, context), {ok: false, category: 'operation'});
+console.log('Installed archive consumer passed (real Grant signatures and rejection):', entry);
 `);
     return execFileSync(process.execPath, ['smoke.mjs'], {cwd: consumer, env, encoding: 'utf8'}).trim();
   } catch (error) {

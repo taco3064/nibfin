@@ -25,3 +25,5 @@ export function repositoryCoordinates(owner, repository) {
 export function memberRunnerLabel(userId) {
   return `nibfin-user-${githubId(userId)}`;
 }
+
+export {canonicalJSON, bodyDigest, prepareGrant, signGrant, verifyGrant} from './grants.mjs';

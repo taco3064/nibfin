@@ -21,7 +21,9 @@
     "src/provider.mjs",
     "src/obligations.mjs",
     "src/authority.mjs",
-    "docs/authority.md"
+    "docs/authority.md",
+    "src/authorization.mjs",
+    "docs/authorization.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

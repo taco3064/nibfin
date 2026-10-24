@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process';
 import {grantFixture} from './grant-fixture.mjs';
 import {bodyDigest} from '../src/index.mjs';
 
-export const packageFiles = ['src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs'];
+export const packageFiles = ['src/authorization.mjs', 'docs/authorization.md', 'src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs'];
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 // Read the actual tar payload without extracting attacker-controlled paths.
@@ -74,7 +74,7 @@ import {fileURLToPath} from 'node:url';
 import {githubId, repositoryCoordinates, memberRunnerLabel, prepareGrant, signGrant, verifyGrant, createGithubProvider, parseCandidateObligations, validateCandidateFiles} from '@nibfin/core';
 import {generateKeyPairSync} from 'node:crypto';
 import {exportAuthority, importAuthority, authoritySnapshot, verifyAuthority, synchronizeAuthority} from '@nibfin/core';
-import {skillForRole, parseStageResult, compareCompatibility, compareEvidence} from '@nibfin/core';
+import {skillForRole, parseStageResult, compareCompatibility, compareEvidence, createAuthorizationBoundary} from '@nibfin/core';
 assert.equal(skillForRole('shape-validator'), 'shape');
 assert.throws(() => skillForRole('scope'));
 assert.equal(parseStageResult({version:1, outcome:'ready', failureClass:'none', summary:'ok', conflicts:[]}).outcome, 'ready');
@@ -121,6 +121,20 @@ const context = {trustedKeys: new Map([['owner-1', publicKey]]), now: 1000,
   request: {repository: draft.work[0].repository, issueId: draft.work[0].issueId,
     number: draft.work[0].number, path: 'src/file.mjs', operation: 'deliver'}};
 assert.deepEqual(verifyGrant(grant, context), {ok: true, category: 'authorized'});
+const authorization = createAuthorizationBoundary({now:()=>1100,maxCheckpointMs:100,
+  identity:'hosted-authorized',getCheckpoint:()=>({request:context.request,grant,grantContext:context,
+    member:{id:'42',login:'member'},operator:{kind:'service',id:'app-1',source:'hosted-authorized',trusted:true},
+    write:{method:'PATCH',endpoint:'/repos/example-org/core/issues/101',target:'123'}}),
+  transport:async r=>({status:200,body:JSON.stringify(r.method==='PATCH'?{id:123}:
+    r.endpoint==='/repos/example-org/core'?{id:context.request.repository.id,full_name:'example-org/core',private:false,visibility:'public',owner:{login:'example-org',type:'Organization'}}:
+    r.endpoint.endsWith('/issues/101')?{id:123,node_id:'I_101',number:101,repository_url:'https://api.github.com/repos/example-org/core',assignees:[{id:42,login:'member'}]}:
+    r.endpoint.endsWith('/permission')?{permission:'write',user:{id:42,login:'member'}}:{id:42,login:'member'})})});
+assert.equal((await authorization.eligibility()).ok,true);
+assert.equal((await authorization.request({method:'PATCH',endpoint:'/repos/example-org/core/issues/101',
+  target:'123',operation:'deliver',correlation:'smoke',body:{title:'new'}})).outcome,'submitted');
+context.revocation.available=false;
+assert.equal((await authorization.eligibility()).ok,false);
+context.revocation.available=true;
 const exported = exportAuthority({source:'https://app.notion.com/p/40006b644a2080dab1a8c2e562f95373',
   revision:'1', approvalId:'approval-1', cycle:'cycle-1', components:[
     {id:'section',kind:'section',body:'Hello\\n世界',references:['attachment']},

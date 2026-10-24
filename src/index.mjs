@@ -48,3 +48,6 @@ export {actionsIssuer, actionsDiscovery, actionsJwks, createActionsVerifier,
 
 export {checkDeploymentHealth, verifyDeployment, readDeploymentObservation,
   deploymentHealthDisposition, createDeploymentFinal} from './deployment.mjs';
+
+
+export {observeRunners} from './runners.mjs';

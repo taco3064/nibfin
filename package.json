@@ -19,6 +19,7 @@
     "src/evidence.mjs",
     "docs/evidence.md",
     "src/provider.mjs",
+    "src/runners.mjs",
     "src/obligations.mjs",
     "src/authority.mjs",
     "docs/authority.md",

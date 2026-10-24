@@ -29,10 +29,14 @@
     "src/custody-upload.mjs",
     "src/custody.mjs",
     "src/custody-zip.mjs",
-    "docs/custody.md"
+    "docs/custody.md",
+    "src/actions.mjs"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",
     "verify:archive": "node tooling/archive.mjs"
+  },
+  "dependencies": {
+    "jose": "6.2.13"
   }
 }

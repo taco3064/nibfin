@@ -203,3 +203,91 @@ validateStageResult(parsed, trustedRoleContext); // fixed role/conflict checks
 const evidence = compareEvidence(persistedReceipt, freshCoreContext);
 // Neither return value authorizes a write. Core still enforces all live gates.
 ```
+
+## Actions source verification (local module contract)
+
+`createActionsVerifier()` exposes `authenticate(token, expected, jobObservation)` and
+`predecessor({source, receipt, current, now, maxAge, recordedAt, consumerExecution})`.
+Imports are inert. Neither method acquires tokens, checks local login, authorizes a
+stage or writes anything. An authenticated source is not a success receipt.
+
+Production uses only `https://token.actions.githubusercontent.com`, discovery at
+`/.well-known/openid-configuration`, and keys at `/.well-known/jwks`. `jose` performs
+RS256 signature and required JWT claim verification. Token key URLs, embedded keys,
+redirects, alternate issuers and algorithms are rejected. Discovery must advertise
+that exact issuer, key endpoint and RS256. Each verifier has a lifetime budget of
+three HTTP requests: discovery, initial keys, and at most one unknown-key refresh.
+Create a fresh verifier at a new trusted checkpoint; this is not a permanent key
+cache. Requests default to five seconds (maximum thirty), responses to 256 KiB,
+key sets to 32 keys, tokens to 32 KiB. Transport injection is a trusted HTTP
+capability, responsible for truthful URL/status/body observations, not token data.
+The default transport uses no credentials, rejects redirects and bounds streaming.
+
+Trusted Core constructs `expected` independently from current authorized policy
+and official observations, never by decoding a token, copying a receipt, or trusting
+Agent output. Required claim expectations are `repository_id`,
+`repository_owner_id`, `actor_id`, `run_id`, `run_attempt`, `workflow_ref`,
+`workflow_sha`, `ref`, `event_name`, `repository_visibility` (`public`) and `audience`.
+IDs are canonical positive decimal strings without Number conversion. Workflow ref
+contains the caller repository/path/reference; workflow SHA is its immutable Git
+revision. `workflowDigest` is the independently pinned 64-character content digest
+used by existing v1 evidence `execution.source.workflow`; Core must resolve that
+digest and SHA to the same approved workflow bytes. Ownership may be personal or
+organization; it does not select a Runner registration level.
+
+`reusable` and `job` each explicitly select `required` or `not-applicable`.
+Reusable execution requires separate `job_workflow_ref` and `job_workflow_sha`
+expectations; unexpected reusable claims fail closed. Required job association
+requires `check_run_id`, `jobId`, `runner_environment`, and `runner` applicability.
+The independent official `jobObservation` must match repository/run/attempt/check
+and job IDs, plus `runnerId` when `runner: required`. A signed runner environment
+is not physical Runner identity. Missing observations never make a gate optional.
+Core owns the authenticity and freshness of these observations.
+
+`now` is trusted epoch seconds; `maxAge` is an integer from 1–3600 seconds and
+`tolerance` an integer from 0–60 seconds, both mandatory. Issued-at age and future
+issuance, expiration and not-before are checked; `sub`, `jti`, `iat`, `nbf`, `exp`
+are required. Tolerance permits the stated clock skew, including the max-age
+boundary. Tokens cannot have expiration before issuance or not-before after
+expiration. All rejected sources return only `source-rejected`, never tokens,
+claims, key material, provider response bodies or exception text.
+
+The explicit `createSyntheticActionsVerifierForTest(jwks)` facility uses local
+synthetic keys and marks authenticated results `synthetic: true`. It is for retained
+cryptographic tests only; production callers must never select it or accept its
+results as production proof. Each verifier privately recognizes only its own
+successful authentication objects; copying `{ok:true}` cannot manufacture one.
+
+`predecessor` requires that recognized source, a complete durable v1 envelope,
+Core's independently constructed `{expected, consumed}` context, finite receipt
+freshness, and an independent consumer execution. It delegates all complete schema,
+result, stage inputs, Candidate/artifacts/hooks, upstream references and exact
+comparison to `compareEvidence`, preserving v1 hash domains. The envelope source
+must match authenticated repository, workflow digest, run and attempt. Failed,
+missing or incomplete evidence never becomes success. `recordedAt` is an
+independently verified durable publication time, not a timestamp supplied by the
+receipt author; it must fall within token validity and current receipt freshness.
+Core must persist consumed result IDs atomically with its controlled continuation,
+revalidate current expectations and authorization, and preserve role independence.
+The helper does not persist replay state or confer write permission. Arbitrary
+self-derived expectations are unsupported and cannot replace trusted Core inputs.
+
+`verifyNativeNeeds({expected, dependency, jobsObservation})` establishes only the
+local success prerequisite. Trusted fixed-workflow analysis supplies exact
+repository/workflow/run/attempt/predecessor-job/consumer-job identities and
+`fixedWorkflow: true`, `unweakened: true`. It must verify actual native `needs`
+and absence of continuation after failure/cancellation/skip, not accept these
+booleans from workflow output. The trusted dependency observation must report
+`result: success`. This relation cannot bridge Runs or Attempts. A lagging
+queued/null Jobs response with matching identity does not override that trusted
+native prerequisite. Completed failure or any identity contradiction returns
+`waiting-or-blocked`; partial logs never prove success or nonexecution. Callers may
+perform bounded independent rereads under their policy; there is no implicit retry
+or universal immediate Jobs-completion requirement. Stronger exact-head CI,
+review, merge and completion gates remain separate and mandatory.
+
+Retained tests demonstrate local cryptography, official-shape transport fixtures
+and installed package consumption only. No live Actions/OIDC acquisition, hosted
+fixture account, deployment or `actions-source-proof.json` is claimed or required
+here. #121 owns live Actions/OIDC/predecessor integration; #123 owns actual rerun,
+attempt separation and rejection/recovery scenarios.

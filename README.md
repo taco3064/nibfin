@@ -3,7 +3,7 @@
 This repository owns the single Nibfin Core implementation. The current baseline
 provides a standalone ESM package, canonical GitHub identity helpers, explicit
 Grant preparation/signing/verification APIs, approved authority export/import and
-explicit synchronization, and local archive installation checks. It is not a published release or a complete delivery
+explicit synchronization, Actions OIDC source and predecessor verification, and local archive installation checks. It is not a published release or a complete delivery
 runtime, and makes no Agent or supported-platform certification claim.
 
 Nibfin's planned delivery runtime uses per-Issue native GitHub dependencies,
@@ -15,10 +15,12 @@ execution permission. Public visibility does not authorize untrusted fork/PR cod
 to run on credential-bearing self-hosted Runners.
 
 Use Node.js 22.x and npm 10.x (development baseline: Node 22.23.3, npm 10.9.9).
-No third-party dependencies or build compiler are needed:
+The runtime dependency is pinned JOSE; no build compiler is needed. Provision the
+isolated artifact SDK test runtime as described in [custody.md](docs/custody.md)
+and set `NIBFIN_ARTIFACT_SDK_ROOT` before running checks:
 
 ```sh
-npm ci --offline --ignore-scripts --no-audit --no-fund
+npm ci --registry=https://registry.npmjs.org --ignore-scripts --no-audit --no-fund
 npm run check
 npm run verify:archive
 ```

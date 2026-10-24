@@ -56,7 +56,7 @@ export function operationsFixture(input = operationInput()) {
     if (match) return records.has(match[1]) ? response(records.get(match[1]).metadata) : response({}, 404);
     const d = state.mutate(effectData());
     const headers = state.incomplete ? {link: `<https://evil.example/page>; rel="next"`} : {};
-    if (r.endpoint.startsWith(`${root}/actions/workflows/`)) return response({total_count:state.total ?? (state.effect ? 1 : 0),workflow_runs: state.effect ? [d] : []}, state.status, headers);
+    if (r.endpoint.startsWith(`${root}/actions/workflows/`)) return response({total_count:state.total ?? (state.effect ? 1 : 0),workflow_runs: state.runs ?? (state.effect ? [d] : [])}, state.status, headers);
     if (r.endpoint === `${root}/pulls?state=all&per_page=100`) return response(state.effect ? [d] : [], state.status, headers);
     if (r.endpoint.includes('/labels')) return response(state.effect ? [{id: '80', name: 'delivered'}] : [], state.status, headers);
     if (r.endpoint.includes('/commits/')) return response({sha: 'd'.repeat(40)}, state.status);
@@ -69,6 +69,7 @@ export function operationsFixture(input = operationInput()) {
   const keys = generateKeyPairSync('ed25519');
   const context = grantContext(grantInput, keys.publicKey.export({type:'spki',format:'pem'}));
   context.request.operation = input.kind;
+  context.request.number = b.number; context.request.issueId = b.issueId;
   const grant = signGrant(grantInput, {keyId:'owner-1', privateKey:keys.privateKey.export({type:'pkcs8',format:'pem'})});
   const authorization = createAuthorizationBoundary({identity:'hosted-authorized',maxCheckpointMs:1000,now:()=>1100,attempts:1,
     getCheckpoint: intent => {
@@ -80,7 +81,7 @@ export function operationsFixture(input = operationInput()) {
       if (r.method !== 'GET') return transport(r);
       calls.push({...r,checkpoint:true});
       const data = r.endpoint === root ? {id:'42',full_name:b.repository,private:false,visibility:'public',owner:{login:'example-org',type:'Organization'}}
-        : r.endpoint === root+'/issues/101' ? {id:'61',node_id:'I_101',number:101,repository_url:'https://api.github.com'+root,assignees:[{id:'7',login:'member'}]}
+        : r.endpoint === root+'/issues/'+b.number ? {id:'61',node_id:b.issueId,number:Number(b.number),repository_url:'https://api.github.com'+root,assignees:[{id:'7',login:'member'}]}
         : r.endpoint.endsWith('/permission') ? {permission:state.allowed?'write':'read',user:{id:'7',login:'member'}}
         : {id:'7',login:'member'};
       return response(data);
@@ -110,7 +111,7 @@ export function operationsFixture(input = operationInput()) {
     }}
   });
   const fresh = (source={runId:'100',attempt:'1'}) => {execution=source; return createControlledOperations({authorization, provider, custody: custody(), publication, execution,
-    locate: ({identity, correlation}) => history.has(correlation)
+    locate: ({identity, correlation}) => state.historyUnavailable ? {outcome:'unavailable'} : history.has(correlation)
       ? {outcome: 'found', refs: structuredClone(history.get(correlation))} : {outcome: 'new', identity}});};
   return {input, state, calls, records, history, fresh, writes: () => calls.filter(r => r.method && r.method !== 'GET')};
 }

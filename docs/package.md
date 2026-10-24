@@ -578,3 +578,9 @@ routing, deployment or full-product completion. #121/#122 own live integration.
 Local immutable Candidate capture and bounded transfer APIs are documented in
 [workspace.md](workspace.md), shipped with the package. No hook manager or lifecycle
 installation script is introduced by this module.
+
+The public native Issue/approved Dispatch relay is documented in
+[relay.md](relay.md). Its inert exports reuse Actions predecessor verification,
+controlled dispatch, retained custody and current Core gates. Installed archive
+consumers exercise the real adapter; these fixtures establish local contracts,
+not live event delivery or stage success.

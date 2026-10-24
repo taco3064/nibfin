@@ -47,7 +47,9 @@
     "src/concurrency.mjs",
     "docs/operations.md",
     "src/dynamic.mjs",
-    "docs/dynamic.md"
+    "docs/dynamic.md",
+    "src/relay.mjs",
+    "docs/relay.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

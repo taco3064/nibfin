@@ -1,8 +1,8 @@
 # Nibfin Core
 
 This repository owns the single Nibfin Core implementation. The current baseline
-provides a standalone ESM package, canonical GitHub identity helpers, and local
-archive installation checks. It is not a published release or a complete delivery
+provides a standalone ESM package, canonical GitHub identity helpers, explicit
+Grant preparation/signing/verification APIs, and local archive installation checks. It is not a published release or a complete delivery
 runtime, and makes no Agent or supported-platform certification claim.
 
 Nibfin's planned delivery runtime uses per-Issue native GitHub dependencies,

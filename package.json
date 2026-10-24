@@ -45,7 +45,9 @@
     "docs/selection.md",
     "src/operations.mjs",
     "src/concurrency.mjs",
-    "docs/operations.md"
+    "docs/operations.md",
+    "src/dynamic.mjs",
+    "docs/dynamic.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

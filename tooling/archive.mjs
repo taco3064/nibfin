@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process';
 import {grantFixture} from './grant-fixture.mjs';
 import {bodyDigest} from '../src/index.mjs';
 
-export const packageFiles = ['src/operations.mjs', 'src/concurrency.mjs', 'docs/operations.md', 'src/selection.mjs', 'docs/selection.md', 'src/workspace.mjs', 'docs/workspace.md', 'src/runners.mjs', 'src/instructions.mjs', 'docs/instructions.md', 'skills/shape/SKILL.md', 'skills/deliver/SKILL.md', 'skills/accept/SKILL.md', 'src/actions.mjs', 'src/deployment.mjs', 'docs/deployment.md', 'src/lifecycle.mjs', 'docs/lifecycle.md', 'src/authorization.mjs', 'docs/authorization.md', 'src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs', 'src/custody-upload.mjs', 'src/custody.mjs', 'src/custody-zip.mjs', 'docs/custody.md'];
+export const packageFiles = ['src/dynamic.mjs', 'docs/dynamic.md', 'src/operations.mjs', 'src/concurrency.mjs', 'docs/operations.md', 'src/selection.mjs', 'docs/selection.md', 'src/workspace.mjs', 'docs/workspace.md', 'src/runners.mjs', 'src/instructions.mjs', 'docs/instructions.md', 'skills/shape/SKILL.md', 'skills/deliver/SKILL.md', 'skills/accept/SKILL.md', 'src/actions.mjs', 'src/deployment.mjs', 'docs/deployment.md', 'src/lifecycle.mjs', 'docs/lifecycle.md', 'src/authorization.mjs', 'docs/authorization.md', 'src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs', 'src/custody-upload.mjs', 'src/custody.mjs', 'src/custody-zip.mjs', 'docs/custody.md'];
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 // Read the actual tar payload without extracting attacker-controlled paths.
@@ -73,7 +73,7 @@ export function consumeArchive(archivePath) {
       {cwd: consumer, env, stdio: 'pipe'});
     writeFileSync(join(consumer, 'custody-fixture.mjs'), readFileSync(join(root, 'tooling/custody-fixture.mjs'), 'utf8').replace("'../src/index.mjs'", "'@nibfin/core'"));
     writeFileSync(join(consumer, 'actions-fixture.mjs'), readFileSync(join(root, 'tooling/actions-fixture.mjs'), 'utf8').replace("'../src/index.mjs'", "'@nibfin/core'"));
-    for (const fixture of ['operations-fixture.mjs','selection-fixture.mjs','grant-fixture.mjs']) {
+    for (const fixture of ['operations-fixture.mjs','selection-fixture.mjs','grant-fixture.mjs','dynamic-fixture.mjs']) {
       writeFileSync(join(consumer, fixture), readFileSync(join(root, 'tooling', fixture), 'utf8').replaceAll("'../src/index.mjs'", "'@nibfin/core'"));
     }
     for (const file of ['operations.test.mjs','concurrency.test.mjs']) {
@@ -84,6 +84,11 @@ export function consumeArchive(archivePath) {
     }
     writeFileSync(join(consumer, 'smoke.mjs'), `
 import assert from 'node:assert/strict';
+import {dynamicFixture} from './dynamic-fixture.mjs';
+const df = dynamicFixture();
+assert.equal((await df.evaluate()).outcome,'ready');
+df.edges.set('1',['2']);
+assert.equal((await df.evaluate()).outcome,'waiting');
 import {selectionFixture} from './selection-fixture.mjs';
 const sf = selectionFixture();
 const sd = await sf.select();

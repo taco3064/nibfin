@@ -190,7 +190,7 @@ export function createGithubProvider({transport, identity = 'local-stored-login'
     const started = now();
     let path = options.endpoint;
     for (let page = 0; page < maxPages; page++) {
-      if (seen.has(path) || now() - started >= elapsedMs) break;
+      if (seen.has(path) || now() - started >= elapsedMs || options.allowPage && options.allowPage(path) !== true) break;
       seen.add(path);
       const result = await request({...options, method: 'GET', endpoint: path, signal, [remaining]: Math.max(1, elapsedMs - (now() - started))});
       if (result.outcome !== 'read') return {...publicDiagnostic(result), outcome: 'incomplete'};

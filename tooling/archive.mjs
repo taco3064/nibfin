@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process';
 import {grantFixture} from './grant-fixture.mjs';
 import {bodyDigest} from '../src/index.mjs';
 
-export const packageFiles = ['src/lifecycle.mjs', 'docs/lifecycle.md', 'src/authorization.mjs', 'docs/authorization.md', 'src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs'];
+export const packageFiles = ['src/lifecycle.mjs', 'docs/lifecycle.md', 'src/authorization.mjs', 'docs/authorization.md', 'src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs', 'src/custody-upload.mjs', 'src/custody.mjs', 'src/custody-zip.mjs', 'docs/custody.md'];
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 // Read the actual tar payload without extracting attacker-controlled paths.
@@ -67,6 +67,7 @@ export function consumeArchive(archivePath) {
       npm_config_userconfig: join(consumer, 'empty-npmrc'), npm_config_globalconfig: join(consumer, 'global-npmrc')};
     execFileSync('npm', ['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund', '--package-lock=false', resolve(archivePath)],
       {cwd: consumer, env, stdio: 'pipe'});
+    writeFileSync(join(consumer, 'custody-fixture.mjs'), readFileSync(join(root, 'tooling/custody-fixture.mjs'), 'utf8').replace("'../src/index.mjs'", "'@nibfin/core'"));
     writeFileSync(join(consumer, 'smoke.mjs'), `
 import assert from 'node:assert/strict';
 import {realpathSync} from 'node:fs';
@@ -182,6 +183,15 @@ assert.equal(verifyAuthority(imported,nextVerification).ok,false);
 assert.equal(verifyGrant(approvedGrant,nextVerification.grantContext).ok,false);
 context.request.operation = 'merge';
 assert.deepEqual(verifyGrant(grant, context), {ok: false, category: 'operation'});
+const {custodyFixture} = await import('./custody-fixture.mjs');
+const custodyTest = custodyFixture();
+const retained = await custodyTest.publish();
+assert.equal(retained.outcome, 'retained');
+custodyTest.payloads.clear();
+const recovered = await custodyTest.fresh().retrieve({ref:retained.ref, expected:custodyTest.expected});
+assert.equal(recovered.outcome, 'retrieved');
+assert.deepEqual(recovered.payloads.get('out/ignored.bin'), Buffer.from([0,255,1,128]));
+assert.equal((await custodyTest.fresh().retrieve({ref:retained.ref, expected:{...custodyTest.expected,attempt:'2'}})).outcome, 'failed');
 console.log('Installed archive consumer passed (real Grant signatures and rejection):', entry);
 `);
     return execFileSync(process.execPath, ['smoke.mjs'], {cwd: consumer, env, encoding: 'utf8'}).trim();

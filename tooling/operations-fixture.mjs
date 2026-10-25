@@ -9,7 +9,7 @@ import {createGithubProvider, createArtifactCustody, byteDigest, contentIdentity
 
 export function operationInput(kind = 'close') {
   const h = 'a'.repeat(64), head = 'b'.repeat(40), base = 'c'.repeat(40);
-  const payload = {close: {state: 'closed', state_reason: 'completed'}, label: {labels: ['delivered']},
+  const payload = {comment:{body:'Recovery\n<!-- nibfin-operation:request-1 -->'},reopen:{state:'open'},close: {state: 'closed', state_reason: 'completed'}, label: {labels: ['delivered']},
     dispatch: {ref: head, inputs: {nibfin_correlation: 'request-1'}},
     pr: {title: 'Candidate', body: 'Candidate\n<!-- nibfin-operation:request-1 -->', head: 'nibfin/101', base: 'main'},
     merge: {sha: head, merge_method: 'rebase'}}[kind];
@@ -28,17 +28,20 @@ export function operationsFixture(input = operationInput()) {
   let next = 900;
   const response = (data, status = 200, headers = {}) => ({status, headers, body: JSON.stringify(data)});
   function effectData() {
+    if(input.kind==='comment')return {id:'81',body:input.payload.body,user:{id:'7'},created_at:'2026-10-24T12:00:00Z',
+      updated_at:'2026-10-24T12:00:00Z',issue_url:`https://api.github.com${root}/issues/${b.number}`};
     if (input.kind === 'dispatch') return {id: '70', workflow_id: '50', event: 'workflow_dispatch',
       display_title: 'nibfin-operation:request-1', head_sha: b.head, repository: {id: '42'}, status: 'queued'};
     if (['pr', 'merge'].includes(input.kind)) return {id: '60', number: 102, title: input.payload.title, body: input.payload.body,
       head: {ref: input.payload.head, sha: b.head, repo: {id: '42'}}, base: {ref: input.kind === 'merge' ? b.baseRef : input.payload.base, sha: b.base, repo: {id: '42'}},
       merged: input.kind === 'merge', state: input.kind === 'merge' ? 'closed' : 'open', merge_commit_sha: 'd'.repeat(40)};
     return {id: '61', node_id: 'I_101', number: 101, repository_url: `https://api.github.com${root}`,
-      state: input.kind === 'close' ? 'closed' : 'open', state_reason: 'completed', closed_at: '2026-10-24T12:00:00Z'};
+      state: input.kind === 'close' ? 'closed' : 'open', state_reason: 'completed', closed_at: input.kind==='reopen'?null:'2026-10-24T12:00:00Z'};
   }
   const transport = async r => {
     calls.push(r);
     if (r.method !== 'GET') {
+      if(state.writeStatus>=400)return response({},state.writeStatus);
       state.beforeWrite(r);
       state.effect = true;
       if (state.onWrite) await state.onWrite(r);
@@ -54,10 +57,13 @@ export function operationsFixture(input = operationInput()) {
     }
     const match = r.endpoint.match(/\/actions\/artifacts\/(\d+)$/);
     if (match) return records.has(match[1]) ? response(records.get(match[1]).metadata) : response({}, 404);
+    if(input.kind==='comment'&&r.endpoint===`${root}/issues/${b.number}`)
+      return response({id:input.target.id,node_id:b.issueId,number:Number(b.number),repository_url:`https://api.github.com${root}`});
     const d = state.mutate(effectData());
     const headers = state.incomplete ? {link: `<https://evil.example/page>; rel="next"`} : {};
     if (r.endpoint.startsWith(`${root}/actions/workflows/`)) return response({total_count:state.total ?? (state.effect ? 1 : 0),workflow_runs: state.runs ?? (state.effect ? [d] : [])}, state.status, headers);
     if (r.endpoint === `${root}/pulls?state=all&per_page=100`) return response(state.prs ? state.prs(d) : state.effect ? [d] : [], state.status, headers);
+    if(r.endpoint.endsWith('/comments?per_page=100')) return response(state.comments??(state.effect?[d]:[]),state.status,headers);
     if (r.endpoint.includes('/labels')) return response(state.effect ? (input.payload.labels ?? []).map(name=>({id:'80',name})) : [], state.status, headers);
     if (r.endpoint.includes('/branches/')) return response(state.destination ?? {name:input.binding.baseRef,commit:{sha:state.tip??'d'.repeat(40)}},state.status);
     if (r.endpoint.includes('/compare/')) return response(state.membership ?? {base_commit:{sha:'d'.repeat(40)},merge_base_commit:{sha:'d'.repeat(40)},

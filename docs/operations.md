@@ -213,3 +213,11 @@ Merge also requires `authorization.withMutationGuard`: the existing operation
 guard runs again after awaited authorization reads, immediately before transport.
 The boundary enforces the signed method and destination Base policy. Recovery
 with an existing attempt remains read-only and uses the original custody records.
+
+Post-merge recovery also uses controlled `comment` (POST Issue comments) and
+`reopen` (PATCH Issue state open). Both retain submission custody and run the
+post-authorization mutation guard. Comment readback checks the stable Issue,
+exact unedited body, authorized writer, full correlated collection and detail GET.
+Reopen's `open-present` observation alone is noncausal; the recovery flow additionally
+requires original closed lifecycle, submission custody and the new writer-bound
+reopened occurrence. See [Recovery](recovery.md) for ordering and authorization.

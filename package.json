@@ -86,7 +86,9 @@
     "src/final-review.mjs",
     "docs/final-review.md",
     "src/completion.mjs",
-    "docs/completion.md"
+    "docs/completion.md",
+    "src/recovery.mjs",
+    "docs/recovery.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

@@ -91,3 +91,5 @@ export {createCandidatePublication, createPublicationGit} from './candidate-publ
 export {observeFinalReview,createFinalReview,createProtectedMerge} from './final-review.mjs';
 
 export {observeClosure, createCompletionFlow} from './completion.mjs';
+
+export {observeRecoveryIncident,createRecoveryFlow,recoveryComment} from './recovery.mjs';

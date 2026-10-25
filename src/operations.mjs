@@ -17,14 +17,14 @@ async function bounded(work, signal) {
   } finally {signal.removeEventListener('abort', abort);}
 }
 // Publication and completed-close require submission custody; presence alone is noncausal.
-const publicationEffect = (v,causalClose) => v.kind === 'issue-body' || v.kind === 'label' || causalClose && v.kind === 'close';
+const publicationEffect = (v,causalClose) => ['comment','reopen','issue-body','label'].includes(v.kind) || causalClose && v.kind === 'close';
 const unknown = (refs = {}, reason = 'readback') => ({outcome: 'unknown', continuation: false, refs, reason});
 
 /** Construct the exact supported HTTP request; callers cannot supply endpoints/predicates. */
 export function controlledIntent(input) {
   const v = JSON.parse(canonicalJSON(input));
   if (!exact(v, 'version kind correlation source binding target payload') || v.version !== 1
-      || !['dispatch', 'pr', 'merge', 'close', 'label', 'issue-body'].includes(v.kind) || !name(v.correlation)) fail();
+      || !['dispatch', 'pr', 'merge', 'close', 'label', 'issue-body', 'comment', 'reopen'].includes(v.kind) || !name(v.correlation)) fail();
   const b = v.binding;
   if (!exact(b, 'repository repositoryId issueId number cycle scopeHash shapeHash authorization runId attempt candidate base head'
       + (v.kind === 'merge' ? ' baseRef' : ''))
@@ -41,7 +41,7 @@ export function controlledIntent(input) {
   if (!exact(v.target, 'id number workflow') || !v.payload || typeof v.payload !== 'object' || Array.isArray(v.payload)) fail();
   githubId(v.target.id);
   const p = v.payload, t = v.target;
-  if (['close', 'label', 'issue-body'].includes(v.kind) && (t.number !== b.number || t.workflow !== null)) fail();
+  if (['close', 'label', 'issue-body', 'comment', 'reopen'].includes(v.kind) && (t.number !== b.number || t.workflow !== null)) fail();
   if (['pr', 'merge'].includes(v.kind)) {
     if (!sha(b.head) || !sha(b.base) || !hash(b.candidate)) fail();
     if (v.kind === 'merge') githubId(t.number);
@@ -51,6 +51,13 @@ export function controlledIntent(input) {
         || !p.inputs || typeof p.inputs !== 'object' || Array.isArray(p.inputs)
         || Object.values(p.inputs).some(x => typeof x !== 'string')
         || p.inputs.nibfin_correlation !== v.correlation) fail();
+  } else if (v.kind === 'comment') {
+    githubId(t.number);
+    if (!exact(p, 'body') || typeof p.body !== 'string' || p.body.length > 8192
+      || !p.body.endsWith(`\n<!-- nibfin-operation:${v.correlation} -->`)) fail();
+  } else if (v.kind === 'reopen') {
+    githubId(t.number);
+    if (!exact(p, 'state') || p.state !== 'open') fail();
   } else if (v.kind === 'issue-body') {
     githubId(t.number);
     if (!exact(p, 'body') || typeof p.body !== 'string' || !p.body.trim() || bodyDigest(p.body) !== b.shapeHash) fail();
@@ -79,9 +86,9 @@ export function controlledIntent(input) {
 }
 function requestFor(v) {
   const root = `/repos/${v.binding.repository}`, t = v.target;
-  return {method: ({dispatch: 'POST', pr: 'POST', merge: 'PUT', close: 'PATCH', label: 'POST', 'issue-body': 'PATCH'})[v.kind],
+  return {method: ({dispatch: 'POST', pr: 'POST', merge: 'PUT', close: 'PATCH', reopen:'PATCH', comment:'POST', label: 'POST', 'issue-body': 'PATCH'})[v.kind],
     endpoint: root + ({dispatch: `/actions/workflows/${t.workflow}/dispatches`, pr: '/pulls',
-      merge: `/pulls/${t.number}/merge`, close: `/issues/${t.number}`, 'issue-body': `/issues/${t.number}`, label: `/issues/${t.number}/labels`})[v.kind],
+      merge: `/pulls/${t.number}/merge`, comment:`/issues/${t.number}/comments`, reopen:`/issues/${t.number}`, close: `/issues/${t.number}`, 'issue-body': `/issues/${t.number}`, label: `/issues/${t.number}/labels`})[v.kind],
     operation: v.kind, target: t.id, correlation: v.correlation, body: v.payload};
 }
 function custodyBinding(v, phase, source) {
@@ -101,6 +108,21 @@ async function observe(provider, v, signal, allowAbsent = false, reconcilePR = f
   const repo = await read(root);
   if (repo.data?.id !== v.binding.repositoryId || repo.data.full_name?.toLowerCase() !== v.binding.repository
       || repo.data.private !== false) throw Error('repository');
+  if (v.kind === 'comment') {
+    const issue=(await read(`${root}/issues/${v.target.number}`)).data;
+    if(issue.id!==v.target.id || issue.node_id!==v.binding.issueId || String(issue.number)!==v.binding.number
+      ||issue.repository_url!==`https://api.github.com${root}` || issue.pull_request) throw Error('issue');
+    const path = `${root}/issues/${v.target.number}/comments`;
+    const c = await provider.collection({...options, endpoint:path+'?per_page=100', allowPage:p=>p.split('?')[0]===path});
+    if(c.outcome!=='complete') throw Error('pagination');
+    const related=c.data.filter(d=>d.body?.includes(`<!-- nibfin-operation:${v.correlation} -->`));
+    if(related.length!==1) throw Error('comment');
+    const d=(await read(`${root}/issues/comments/${related[0].id}`)).data;
+    if(d.id!==related[0].id || d.body!==v.payload.body || d.user?.id!==v.source.actorId
+      || d.issue_url!==`https://api.github.com${root}/issues/${v.target.number}`
+      || d.updated_at!==d.created_at || canonicalJSON(d)!==canonicalJSON(related[0])) throw Error('comment');
+    return {effect:'comment-present',id:d.id,endpoint:`${root}/issues/comments/${d.id}`,identity:contentIdentity(d)};
+  }
   let r;
   if (v.kind === 'dispatch' || v.kind === 'pr') {
     const path = v.kind === 'pr' ? `${root}/pulls` : `${root}/actions/workflows/${v.target.workflow}/runs`;
@@ -160,6 +182,7 @@ async function observe(provider, v, signal, allowAbsent = false, reconcilePR = f
   const d = r.data;
   if (d.id !== v.target.id || d.node_id !== v.binding.issueId || String(d.number) !== v.binding.number
       || d.repository_url !== `https://api.github.com${root}` || d.pull_request) throw Error('issue');
+  if (v.kind === 'reopen' && (d.state !== 'open' || d.closed_at !== null)) throw Error('reopen');
   if (v.kind === 'close' && (d.state !== 'closed' || d.state_reason !== 'completed' || !d.closed_at)) throw Error('close');
   if (v.kind === 'issue-body' && d.body !== v.payload.body) throw Error('body');
   let labelsIdentity;
@@ -170,7 +193,7 @@ async function observe(provider, v, signal, allowAbsent = false, reconcilePR = f
     if (labels.outcome !== 'complete' || !v.payload.labels.every(x => labels.data.some(l => l.name === x))) throw Error('labels');
     labelsIdentity = contentIdentity(labels.data);
   }
-  return {effect: v.kind === 'close' ? 'closed-completed' : v.kind === 'issue-body' ? 'body-present' : 'labels-present', id: d.id,
+  return {effect: v.kind === 'reopen' ? 'open-present' : v.kind === 'close' ? 'closed-completed' : v.kind === 'issue-body' ? 'body-present' : 'labels-present', id: d.id,
     ...(labelsIdentity ? {labelsIdentity, labelsEndpoint: `${root}/issues/${v.target.number}/labels`} : {}),
     endpoint: `${root}/issues/${v.target.number}`, observedAt: r.observedAt, identity: contentIdentity(d)};
 }
@@ -210,7 +233,7 @@ export function createControlledOperations({authorization, provider, custody, pu
     return entry;
   }
   async function submit(v, refs, signal) {
-    const boundary = ['merge','close','label'].includes(v.kind) ? authorization.withMutationGuard(async()=>{
+    const boundary = ['merge','close','label','comment','reopen'].includes(v.kind) ? authorization.withMutationGuard(async()=>{
       await beforeSubmit(structuredClone(v)); return !signal.aborted;
     }) : authorization;
     const result = await bounded(boundary.request({...requestFor(v), context: structuredClone(v.binding), signal}), signal);

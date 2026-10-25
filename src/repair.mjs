@@ -39,7 +39,9 @@ export function invalidateRepairEvidence({records,current,from=null}) {
     changed=false;
     for(const item of items.filter(v=>!v.invalid)) {
       const r=item.r;
-      const upstream=items.filter(v=>v.invalid && shared.every(k=>v.r.binding[k]===r.binding[k]));
+      // Execution IDs may be shared by Core-produced receipts. A reference
+      // propagates invalidation only toward a later lifecycle stage.
+      const upstream=items.filter(v=>v.invalid && order.indexOf(v.r.stage)<order.indexOf(r.stage) && shared.every(k=>v.r.binding[k]===r.binding[k]));
       if(upstream.some(v=>Object.values(r.inputs).some(x=>typeof x==='string'
           && (x===v.id || x===v.r.execution.id))
         || v.r.stage==='deliver' && r.inputs.candidate && same(r.inputs.candidate,v.r.inputs.candidate))) {

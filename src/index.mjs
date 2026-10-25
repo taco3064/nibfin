@@ -80,3 +80,4 @@ export {createLinuxClaudeBackend, linuxClaudeProfile} from './claude.mjs';
 export {createLinuxGeminiBackend, linuxGeminiProfile} from './gemini.mjs';
 
 export {createWindowsWslBackend, windowsLocalPath, windowsToWslPath, wslToWindowsPath, wslSession, wslLaunchEnvironment} from './wsl.mjs';
+export {createHookRunner, hookProcess, verifyHookReceipt} from './hooks.mjs';

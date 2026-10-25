@@ -74,7 +74,9 @@
     "docs/gemini.md",
     "src/wsl.mjs",
     "src/wsl-guest.mjs",
-    "docs/wsl.md"
+    "docs/wsl.md",
+    "src/hooks.mjs",
+    "docs/hooks.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

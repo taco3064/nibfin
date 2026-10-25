@@ -1,0 +1,84 @@
+name: Kairo CI completion
+on:
+  workflow_run:
+    workflows: ["Core package", "Website CI"]
+    types: [completed]
+permissions:
+  contents: read
+jobs:
+  notify:
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
+      pull-requests: read
+      issues: read
+    steps:
+      - name: Wake the existing signed Kairo entrypoint for the current PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APPROVED_WORKFLOWS: '[".github/workflows/core-ci.yml",".github/workflows/website-ci.yml"]'
+        # Never checkout or execute the completed workflow's code or artifacts.
+        # A notification grants nothing: private Core rechecks its signed grant,
+        # current Issue, exact Candidate, reviews, required CI and protected merge.
+        run: |
+          node <<'NODE'
+          const {readFileSync} = require('node:fs');
+          (async () => {
+            const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+            const repository = process.env.GITHUB_REPOSITORY;
+            const run = event.workflow_run;
+            const approved = JSON.parse(process.env.APPROVED_WORKFLOWS);
+            if (!run || run.status !== 'completed' || run.event !== 'pull_request' ||
+                event.repository?.full_name !== repository || run.repository?.full_name !== repository ||
+                run.head_repository?.full_name !== repository || !/^[a-f0-9]{40}$/.test(run.head_sha || '') ||
+                !Number.isSafeInteger(run.id) || !approved.includes(run.path)) {
+              throw Error('Unapproved CI completion identity');
+            }
+            const api = async (path, method = 'GET', body) => {
+              const response = await fetch('https://api.github.com/repos/' + repository + path, {
+                method, headers: {Authorization: 'Bearer ' + process.env.GH_TOKEN,
+                  Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28',
+                  'Content-Type': 'application/json'}, ...(body ? {body: JSON.stringify(body)} : {})
+              });
+              if (!response.ok) throw Error('GitHub ' + method + ' ' + path + ': HTTP ' + response.status);
+              return response.status === 204 ? null : response.json();
+            };
+            const liveRun = await api('/actions/runs/' + run.id);
+            if (liveRun.id !== run.id || liveRun.run_attempt !== run.run_attempt ||
+                liveRun.status !== 'completed' || liveRun.path !== run.path ||
+                liveRun.head_sha !== run.head_sha || liveRun.event !== 'pull_request' ||
+                liveRun.repository?.full_name !== repository || liveRun.head_repository?.full_name !== repository) {
+              throw Error('CI completion changed before notification');
+            }
+            const associated = await api('/commits/' + run.head_sha + '/pulls?per_page=100');
+            if (!Array.isArray(associated) || associated.length >= 100) throw Error('Unbounded PR association');
+            const targets = new Set();
+            for (const candidate of associated) {
+              if (!Number.isSafeInteger(candidate.number)) throw Error('Invalid PR association');
+              const pr = await api('/pulls/' + candidate.number);
+              if (pr.state !== 'open' || pr.draft || pr.head?.sha !== run.head_sha ||
+                  pr.head?.repo?.full_name !== repository || pr.base?.repo?.full_name !== repository ||
+                  pr.base?.ref !== event.repository.default_branch ||
+                  String(pr.user?.id) !== String(event.repository.owner.id)) continue;
+              const match = /^Implements #([1-9]\d*)\.\n\nManaged by the approved Kairo cohort\. Closure follows verified delivery gates\.$/.exec(pr.body || '');
+              if (!match || pr.title !== 'Kairo: deliver #' + match[1]) continue;
+              const issue = await api('/issues/' + match[1]);
+              if (issue.pull_request || issue.state !== 'open' ||
+                  String(issue.user?.id) !== String(event.repository.owner.id) ||
+                  !issue.labels?.some(label => label.name === 'scope') || !/^[\w-]+$/.test(issue.node_id || '')) continue;
+              targets.add(issue.node_id);
+            }
+            for (const issueId of targets) {
+              // workflow_dispatch is deliberately allowed to trigger workflows
+              // when authenticated with GITHUB_TOKEN. Do not retry an uncertain POST.
+              await api('/actions/workflows/kairo.yml/dispatches', 'POST', {
+                ref: event.repository.default_branch, inputs: {issue_id: issueId}
+              });
+              console.log('Kairo wakeup dispatched for ' + issueId + ' after CI run ' + run.id);
+            }
+            if (!targets.size) console.log('No current managed PR requires a wakeup.');
+          })().catch(error => { console.error(error.message); process.exitCode = 1; });
+          NODE

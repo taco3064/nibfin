@@ -589,3 +589,9 @@ Protected Owner-side registration and encrypted response consumption are exporte
 through [registration.md](registration.md). Archive consumers run positive and
 negative registration cases through the installed package. This proves a local
 module contract; #122 retains actual protected-host/channel integration proof.
+
+The archive also includes the pre-delivery Scope instructions, version 1 local
+portfolio checker, template/reference (docs/scope.md) and examples/scope.json.
+`scopeInstructions` and `checkPortfolio` are exported from @nibfin/core; Scope
+is separate from protected Skill selection. Archive verification runs real
+positive and rejection cases through a fresh installed consumer.

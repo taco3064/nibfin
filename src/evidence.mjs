@@ -168,6 +168,18 @@ export function compareEvidence(receipt, current) {
   equal(v, current.expected);
   return v;
 }
+/** Collect a classified failure without treating it as successful stage evidence.
+ * Core supplies both the expected successful envelope and exact body provenance.
+ */
+export function compareStageCollection(receipt, current, bodies = {}) {
+  const v = copy(receipt);
+  const result = validateStageResult(v.result, {...bodies, execution:v.execution, binding:v.binding});
+  if (result.failureClass === 'none') return {status:'valid', evidence:compareEvidence(v,current)};
+  // Validate every envelope field, stage input, independence and replay binding
+  // with the protected successful result, then retain the separately checked failure.
+  compareEvidence({...v,result:current.expected.result},current);
+  return {status:'rejected', collection:v};
+}
 export function createEvidence(current) {
   return compareEvidence(current.expected, current);
 }

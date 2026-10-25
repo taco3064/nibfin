@@ -1,5 +1,5 @@
 import {resolve, isAbsolute, parse, sep, posix} from 'node:path';
-import {bodyDigest, canonicalJSON, skillForRole, validateStageResult, compareEvidence} from './index.mjs';
+import {bodyDigest, canonicalJSON, skillForRole, validateStageResult, compareEvidence, compareStageCollection} from './index.mjs';
 
 const fail = reason => { throw new TypeError(`lifecycle:${reason}`); };
 const copy = value => JSON.parse(canonicalJSON(value));
@@ -54,7 +54,7 @@ export function createAgentEnvironments() {
 }
 
 /** Backend methods receive only allowlisted, immutable inputs. No host env is forwarded. */
-export function createAgentLifecycle({environment, instanceId, backend, current}) {
+export function createAgentLifecycle({environment, instanceId, backend, current, resultContext = () => ({}), collectFailures = false}) {
   const env = snapshot(environment);
   // Validate even descriptors supplied across a serialization boundary.
   createAgentEnvironments().describe(env);
@@ -127,7 +127,7 @@ export function createAgentLifecycle({environment, instanceId, backend, current}
     collect(id) { return exclusive(async () => {
       const s = get(id);
       if (s.start.status === 'rejected' || s.cleanup.status === 'completed') fail('collect-transition');
-      if (s.result.status === 'valid') fail('already-collected');
+      if (['valid','rejected'].includes(s.result.status)) fail('already-collected');
       const observed = await call('collect', query(s), r => {
         fields(r, 'status exitCode evidence');
         if (!['pending', 'complete'].includes(r.status)) fail('collection');
@@ -135,13 +135,14 @@ export function createAgentLifecycle({environment, instanceId, backend, current}
         if (r.exitCode !== 0 || r.evidence === null) return {status:'invalid'};
         try {
           const c = current(id);
-          const receipt = compareEvidence(r.evidence, c);
+          const collected = collectFailures ? compareStageCollection(r.evidence, c, resultContext(id))
+            : {status:'valid',evidence:compareEvidence(r.evidence,c)};
+          const receipt = collected.evidence ?? collected.collection;
           const pin = pins.get(id);
           if (canonicalJSON(receipt.execution) !== canonicalJSON(pin.execution)
               || canonicalJSON(receipt.binding) !== canonicalJSON(pin.binding)) fail('start-binding');
           if (receipt.execution.id !== id || receipt.execution.request !== s.request) fail('correlation');
-          validateStageResult(receipt.result, {execution:receipt.execution, binding:receipt.binding});
-          return {status:'valid', evidence:receipt};
+          return collected;
         } catch { return {status:'invalid'}; }
       });
       s.result = observed;

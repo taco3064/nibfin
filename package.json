@@ -76,7 +76,9 @@
     "src/wsl-guest.mjs",
     "docs/wsl.md",
     "src/hooks.mjs",
-    "docs/hooks.md"
+    "docs/hooks.md",
+    "src/accept.mjs",
+    "docs/accept.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

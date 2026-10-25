@@ -81,3 +81,6 @@ export {createLinuxGeminiBackend, linuxGeminiProfile} from './gemini.mjs';
 
 export {createWindowsWslBackend, windowsLocalPath, windowsToWslPath, wslToWindowsPath, wslSession, wslLaunchEnvironment} from './wsl.mjs';
 export {createHookRunner, hookProcess, verifyHookReceipt} from './hooks.mjs';
+
+export {compareStageCollection} from './evidence.mjs';
+export {createAcceptFlow} from './accept.mjs';

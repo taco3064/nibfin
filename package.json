@@ -80,7 +80,9 @@
     "src/accept.mjs",
     "docs/accept.md",
     "src/repair.mjs",
-    "docs/repair.md"
+    "docs/repair.md",
+    "src/candidate-publication.mjs",
+    "docs/candidate-publication.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

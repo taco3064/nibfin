@@ -91,7 +91,7 @@ function custodyBinding(v, phase, source) {
     runId: source.runId, attempt: source.attempt, stage: 'candidate', result: `${phase}-${contentIdentity(v)}`, candidate: null};
 }
 /** Independent GETs only. Acknowledgment is never sufficient. */
-async function observe(provider, v, signal) {
+async function observe(provider, v, signal, allowAbsent = false, reconcilePR = false) {
   const root = `/repos/${v.binding.repository}`, options = {operation: v.kind, correlation: v.correlation, target: v.target.id, signal};
   const read = async endpoint => {
     const r = await provider.request({...options, endpoint, method: 'GET'});
@@ -119,6 +119,12 @@ async function observe(provider, v, signal) {
       : d.workflow_id === v.target.id && d.event === 'workflow_dispatch' && d.head_sha === v.payload.ref
         && d.display_title === `nibfin-operation:${v.correlation}` && d.repository?.id === v.binding.repositoryId;
     const matches = result.data.filter(matchesEffect);
+    if (v.kind === 'pr' && (allowAbsent || reconcilePR)) {
+      const related = result.data.filter(d => d.body?.includes(`<!-- nibfin-operation:${v.correlation} -->`)
+        || d.head?.ref === v.payload.head);
+      if (!related.length && allowAbsent) return null;
+      if (related.length !== 1 || matches.length !== 1 || related[0] !== matches[0]) throw Error('conflicting-pr');
+    }
     if (matches.length !== 1) throw Error('ambiguous');
     r = await read(v.kind === 'pr' ? `${root}/pulls/${matches[0].number}` : `${root}/actions/runs/${matches[0].id}`);
     if (r.data?.id !== matches[0].id || !matchesEffect(r.data)
@@ -162,7 +168,7 @@ async function observe(provider, v, signal) {
  * traceable custody references, or positively attests a new request. Never infer
  * newness from a missing artifact. Writes must use createAuthorizationBoundary.
  */
-export function createControlledOperations({authorization, provider, custody, publication, locate, execution, beforeSubmit = async () => {}, timeoutMs = 30000} = {}) {
+export function createControlledOperations({authorization, provider, custody, publication, locate, execution, beforeSubmit = async () => {}, reconcileExistingPR = false, timeoutMs = 30000} = {}) {
   if (typeof authorization?.request !== 'function' || typeof provider?.request !== 'function'
       || typeof provider?.collection !== 'function' || typeof custody?.retrieve !== 'function'
       || typeof publication !== 'function' || typeof locate !== 'function') throw Error('operations:capability');
@@ -238,10 +244,16 @@ export function createControlledOperations({authorization, provider, custody, pu
         if (signal?.aborted) return unknown(refs, 'cancelled');
         refs.attempt = await retain(v, 'attempt', {previousResult: refs.result ?? null}, signal);
         await bounded(Promise.resolve(beforeSubmit(structuredClone(v))), signal);
+        const existing = reconcileExistingPR && v.kind === 'pr' ? await observe(provider, v, signal, true) : null;
+        if (existing) {
+          refs.result = await retain(v, 'result', {outcome:'confirmed-success', attempt:refs.attempt, observation:existing, submission:null}, signal);
+          return {outcome:'confirmed-success', continuation:true, refs, observation:existing};
+        }
+        if (reconcileExistingPR && v.kind === 'pr') await bounded(Promise.resolve(beforeSubmit(structuredClone(v))), signal);
         submission = await submit(v, refs, signal);
       } else return unknown(refs, 'history');
       let observation;
-      try {observation = await observe(provider, v, signal);} catch { /* Unknown effect remains blocked. */ }
+      try {observation = await observe(provider, v, signal, false, reconcileExistingPR);} catch { /* Unknown effect remains blocked. */ }
       // Only the current boundary's explicit rejection BEFORE transport proves no effect.
       // HTTP failures, provider acknowledgment, cancellation and old state never do.
       const noEffect = submission?.outcome === 'failed' && submission.diagnostic?.kind === 'unauthorized';

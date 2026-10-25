@@ -1,0 +1,16 @@
+---
+// Starlight normalizes the special file-based 404 into a nonexistent /404/ URL.
+// Preserve its entire generated head, correcting only that page's output identity.
+const is404 = /\/404(?:\.html)?\/?$/.test(Astro.url.pathname);
+const head = Astro.locals.starlightRoute.head.map((entry) => {
+  if (!is404) return entry;
+  if (entry.tag === 'link' && entry.attrs?.rel === 'canonical') {
+    return { ...entry, attrs: { ...entry.attrs, href: new URL(`${import.meta.env.BASE_URL}404.html`, Astro.site).href } };
+  }
+  if (entry.tag === 'meta' && entry.attrs?.property === 'og:url') {
+    return { ...entry, attrs: { ...entry.attrs, content: new URL(`${import.meta.env.BASE_URL}404.html`, Astro.site).href } };
+  }
+  return entry;
+});
+---
+{head.map(({ tag: Tag, attrs, content }) => <Tag {...attrs} set:html={content} />)}

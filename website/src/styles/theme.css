@@ -1,0 +1,22 @@
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+@source '../../node_modules/flowbite-react/dist';
+:root {
+  --sl-color-accent-low: #292047;
+  --sl-color-accent: #8b70d4;
+  --sl-color-accent-high: #d7c9ff;
+  --sl-color-bg: #10142b;
+  --sl-font: system-ui, sans-serif;
+}
+:root[data-theme='light'] {
+  --sl-color-accent-low: #e8dfff;
+  --sl-color-accent: #6746af;
+  --sl-color-accent-high: #382061;
+  --sl-color-bg: #ffffff;
+}
+:focus-visible { outline: 3px solid var(--sl-color-accent); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; }
+}

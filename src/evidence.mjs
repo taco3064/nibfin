@@ -185,12 +185,14 @@ export function createEvidence(current) {
 }
 const CHAIN = ['publication', 'deliver', 'pre-accept-hooks', 'accept', 'pre-commit-hooks',
   'pr', 'ci', 'shaper-review', 'merge', 'final', 'closure', 'delivered'];
-function completion(input, current) {
+export function verifyEvidenceChain(input, current, through = 'delivered') {
+  if (!['final', 'closure', 'delivered'].includes(through)) fail('through');
+  const stages = CHAIN.slice(0, CHAIN.indexOf(through) + 1);
   fields(input, 'version receipts');
   if (input.version !== 1) fail('version');
-  fields(input.receipts, CHAIN.join(' ')); fields(current, CHAIN.join(' '));
+  fields(input.receipts, stages.join(' ')); fields(current, stages.join(' '));
   const r = {};
-  for (const stage of CHAIN) {
+  for (const stage of stages) {
     r[stage] = compareEvidence(input.receipts[stage], current[stage]);
     equal(r[stage].stage, stage);
     // Instructions belong to each execution; compareEvidence binds them to Core's
@@ -201,7 +203,7 @@ function completion(input, current) {
     }
   }
   const i = stage => r[stage].inputs;
-  const ref = (stage, key, upstream) => equal(i(stage)[key], contentIdentity(r[upstream]));
+  const ref = (stage, key, upstream) => { if (r[stage]) equal(i(stage)[key], contentIdentity(r[upstream])); };
   ref('deliver', 'publication', 'publication');
   for (const s of ['pre-accept-hooks', 'accept', 'pre-commit-hooks', 'pr', 'shaper-review']) {
     equal(i(s).candidate, i('deliver').candidate);
@@ -220,11 +222,11 @@ function completion(input, current) {
   }
   equal(i('pr').base, i('deliver').candidate.base);
   equal(i('ci').policy, r.ci.binding.policy);
-  for (const s of ['final', 'closure', 'delivered']) equal(i(s).commit, i('merge').commit);
+  for (const s of ['final', 'closure', 'delivered'].filter(s => r[s])) equal(i(s).commit, i('merge').commit);
   return copy(input);
 }
 export function createCompletion(input, current) {
-  const payload = completion(input, current);
+  const payload = verifyEvidenceChain(input, current);
   return {version: 1, payload, identity: contentIdentity({kind: 'nibfin-completion-v1', payload})};
 }
 export function verifyCompletion(receipt, current) {

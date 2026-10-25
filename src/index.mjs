@@ -33,7 +33,7 @@ export {hookEvents, hookConfigurationAreas, safeObligationPath, parseCandidateOb
 
 export {protectedSkills, skillForRole, outcomesForRole, parseStageResult, validateStageResult,
   byteDigest, contentIdentity, stageApplicability, createEvidence, compareEvidence, createCompletion,
-  verifyCompletion, validateCompatibility, compareCompatibility} from './evidence.mjs';
+  verifyCompletion, verifyEvidenceChain, validateCompatibility, compareCompatibility} from './evidence.mjs';
 
 export {exportAuthority, importAuthority, authoritySnapshot, verifyAuthority, synchronizeAuthority} from './authority.mjs';
 export {createAuthorizationBoundary} from './authorization.mjs';
@@ -56,7 +56,7 @@ export {selectInstructions, instructionSeparator} from './instructions.mjs';
 export {workspaceLimits, captureWorkspace, verifyWorkspace, exportWorkspace, importWorkspace} from './workspace.mjs';
 export {createAssigneeSelector} from './selection.mjs';
 
-export {controlledIntent, createControlledOperations} from './operations.mjs';
+export {controlledIntent, createControlledOperations, observeControlledOperation} from './operations.mjs';
 export {concurrencyVersion, nativeConcurrency, nativeExecutionPlan, parallelIssueWorkspace} from './concurrency.mjs';
 export {createDependencyEvaluator} from './dynamic.mjs';
 
@@ -89,3 +89,5 @@ export {createRepairFlow,invalidateRepairEvidence} from './repair.mjs';
 export {createCandidatePublication, createPublicationGit} from './candidate-publication.mjs';
 
 export {observeFinalReview,createFinalReview,createProtectedMerge} from './final-review.mjs';
+
+export {observeClosure, createCompletionFlow} from './completion.mjs';

@@ -22,7 +22,7 @@ export function operationInput(kind = 'close') {
 }
 export function operationsFixture(input = operationInput()) {
   let execution = {runId:'100',attempt:'1'};
-  const b = input.binding, root = `/repos/${b.repository}`, records = new Map(), history = new Map(), calls = [];
+  const b = input.binding, root = `/repos/${b.repository}`, records = new Map(), history = new Map(), attempted = new Set(), calls = [];
   const state = {effect: false, allowed: true, lost: false, status: 200, failRead: false, incomplete: false,
     retainFail: false, corrupt: false, expired: false, mutate: d => d, beforeWrite: () => {}};
   let next = 900;
@@ -100,8 +100,16 @@ export function operationsFixture(input = operationInput()) {
       repositoryId: '42', runId: expected.runId, attempt: expected.attempt},
     client: {uploadArtifact: async (name, paths, directory) => {
       calls.push({phase, name});
+      // Submission may outlive cancellation. Missing artifact history must not
+      // attest newness while a previously invoked upload is pending/unknown.
+      attempted.add(intent.correlation);
       if (state.onPublish) await state.onPublish(phase);
-      if (state.retainFail === phase || state.retainFail === true) throw Error('retention unavailable');
+      if (state.retainFail === phase || state.retainFail === true) {
+        // This injected local prerequisite failure positively proves upload did
+        // not start. Cancellation of a pending upload cannot make that claim.
+        if(phase==='intent')attempted.delete(intent.correlation);
+        throw Error('retention unavailable');
+      }
       const entries = await Promise.all(paths.map(async p => [relative(directory, p), await readFile(p)]));
       const bytes = zipFixture(entries), id = String(next++);
       records.set(id, {bytes, metadata: {id, name, size_in_bytes: bytes.length, expired: false,
@@ -117,8 +125,8 @@ export function operationsFixture(input = operationInput()) {
   });
   const fresh = (source={runId:'100',attempt:'1'}, beforeSubmit, options={}) => {execution=source;if(options.reconcileExistingPR)state.mutationGuard=()=>beforeSubmit(input); return createControlledOperations({authorization, provider, custody: custody(), publication, execution, beforeSubmit, ...options,
     locate: ({identity, correlation}) => state.historyUnavailable ? {outcome:'unavailable'} : history.has(correlation)
-      ? {outcome: 'found', refs: structuredClone(history.get(correlation))} : {outcome: 'new', identity}});};
-  return {input, state, calls, records, history, fresh, authorization, writes: () => calls.filter(r => r.method && r.method !== 'GET')};
+      ? {outcome: 'found', refs: structuredClone(history.get(correlation))} : attempted.has(correlation) ? {outcome:'unavailable'} : {outcome: 'new', identity}});};
+  return {input, state, calls, records, history, fresh, authorization, provider, custody, publication, writes: () => calls.filter(r => r.method && r.method !== 'GET')};
 }
 /** A generator fixture, not a deployed workflow. Its outputs are actual GitHub configuration fields. */
 export function concurrencyConsumer(input) {

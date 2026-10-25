@@ -4,6 +4,12 @@ import { readdirSync, readFileSync, lstatSync } from 'node:fs';
 import { resolve, relative } from 'node:path';
 import { spawnSync } from 'node:child_process';
 export const hash = bytes => createHash('sha256').update(bytes).digest('hex');
+export function outputMember(pathname) {
+  assert(pathname.startsWith('/nibfin/'), 'Resource escapes the configured base');
+  const member = decodeURIComponent(pathname.slice('/nibfin/'.length));
+  assert(!member.includes('\\') && !member.split('/').some(p => p === '.' || p === '..'), 'Unsafe output member');
+  return !member || member.endsWith('/') ? member + 'index.html' : member;
+}
 export function inventory() {
   const inputs = {};
   function walk(dir) {

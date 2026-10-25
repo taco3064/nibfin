@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { parse } from 'yaml';
 import { validateConfiguration } from '../tooling/pages-configuration.mjs';
+import { outputMember } from '../tooling/build-identity.mjs';
 const workflow = parse(readFileSync('../.github/workflows/website-ci.yml', 'utf8'));
 test('required Core and website checks run for every PR; deployment requires successful quality on protected main', () => {
   const core = parse(readFileSync('../.github/workflows/core-ci.yml', 'utf8'));
@@ -41,6 +42,14 @@ test('deployment retries consume the immutable artifact ID from the completed bu
   assert.equal(download.with['artifact-ids'], '${{ needs.website.outputs.quality-artifact-id }}');
   assert.equal(download.with['merge-multiple'], true);
   assert.equal(download.with.name, undefined, 'A deploy retry must not derive an artifact name from its current run_attempt');
+});
+
+test('live resource verification maps directory URLs to exact archived index files', () => {
+  const outputs = { 'index.html': 'home', 'concepts/index.html': 'concepts', '_astro/site.css': 'css', '404.html': '404' };
+  for (const [path, expected] of [['/nibfin/', 'home'], ['/nibfin/concepts/', 'concepts'], ['/nibfin/_astro/site.css', 'css'], ['/nibfin/404.html', '404']])
+    assert.equal(outputs[outputMember(path)], expected);
+  assert.notEqual(outputs[outputMember('/nibfin/concepts/')], 'stale bytes');
+  for (const path of ['/elsewhere/', '/nibfin/%2e%2e/private', '/nibfin/a%5cb']) assert.throws(() => outputMember(path));
 });
 test('configuration rejects non-Actions source, unprotected main and permissive environments', () => {
   const good = { pages: { build_type: 'workflow' }, branch: { name: 'main', protected: true }, environment: { deployment_branch_policy: { custom_branch_policies: true } }, policies: { branch_policies: [{ name: 'main', type: 'branch' }] } };

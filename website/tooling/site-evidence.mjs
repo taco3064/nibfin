@@ -4,7 +4,7 @@ import { readFileSync, statSync, mkdirSync, writeFileSync, rmSync } from 'node:f
 import { resolve, extname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { chromium } from 'playwright';
-import { verifyBuild, hash } from './build-identity.mjs';
+import { verifyBuild, hash, outputMember } from './build-identity.mjs';
 const build = verifyBuild();
 const live = process.argv.includes('--live');
 const target = 'https://taco3064.github.io/nibfin/';
@@ -91,7 +91,7 @@ try {
       assert(r.ok(), `Resource HTTP ${r.status()}: ${u.pathname}`);
       const expected = mime[extname(u.pathname)];
       if (expected) assert(r.headers()['content-type']?.includes(expected), `Resource MIME: ${u.pathname}`);
-      let member = u.pathname.slice('/nibfin/'.length); if (!member || member.endsWith('/')) member += 'index.html';
+      const member = outputMember(u.pathname);
       const digest = hash(await bytes(r));
       assert.equal(digest, build.outputs[member], `Resource differs from archive: ${member}`);
       report.resources.push({ url: u.pathname, status: r.status(), contentType: r.headers()['content-type'], sha256: digest });
@@ -111,7 +111,7 @@ try {
         const r = await context.request.get(url); assert(r.ok(), `Missing resource: ${url}`);
         const expected = mime[extname(u.pathname)]; if (expected) assert(r.headers()['content-type']?.includes(expected), `Wrong MIME: ${url}`);
         report.resources.push({ url: u.pathname, status: r.status(), contentType: r.headers()['content-type'], sha256: hash(await r.body()) });
-        if (live) assert.equal(hash(await r.body()), hash(readFileSync(resolve('dist', '.' + u.pathname.slice(7)))), `Stale live resource: ${url}`);
+        if (live) assert.equal(hash(await r.body()), build.outputs[outputMember(u.pathname)], `Stale live resource: ${url}`);
       }
       const fragment = data.fragments.find(u => new URL(u).pathname === new URL(page.url()).pathname);
       if (fragment) { await page.goto(fragment); assert(await page.locator(`[id="${decodeURIComponent(new URL(fragment).hash.slice(1))}"]`).count()); }
@@ -142,7 +142,7 @@ try {
   for (const url of new Set(report.cancelledRequests)) {
     const u = new URL(url); assert(u.pathname.startsWith('/nibfin/'));
     const r = await fetch(url); assert(r.ok, 'Cancelled resource cannot be loaded');
-    assert.equal(hash(Buffer.from(await r.arrayBuffer())), build.outputs[u.pathname.slice(8)], 'Cancelled resource differs from build');
+    assert.equal(hash(Buffer.from(await r.arrayBuffer())), build.outputs[outputMember(u.pathname)], 'Cancelled resource differs from build');
   }
   assert.deepEqual(errors, [], 'Browser console/request defects');
   // The generated 404 is a real file, not a normal directory route.

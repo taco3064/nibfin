@@ -701,3 +701,12 @@ The Linux/Codex backend is documented in [codex.md](codex.md). Its package inclu
 the fixed container entrypoint and explicit version/profile checks. Installed
 consumer tests use credential-free controlled process fixtures; native support
 remains Unverified pending #121's actual integration observations.
+
+## Raw Scope publisher
+
+`publishPortfolio(options)` composes the installed provider and durable journal.
+The [publisher contract](publisher.md) defines authenticated full-plan approval,
+protection/disclosure capabilities, exact raw Issue requests, native reciprocal
+dependency reads and recovery/handoff schemas. Its retained composition tests
+also run against a fresh installed archive. Local fixtures are not live GitHub
+publication evidence; that observation remains owned by #124.

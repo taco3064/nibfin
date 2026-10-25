@@ -2,7 +2,7 @@
 
 `@nibfin/core` exports `publicationManifest` and `openPublicationJournal`. This
 module retains publication evidence; it neither authenticates nor calls a
-provider. #119 can consume this interface; live publication/recovery proof is
+provider. The [raw publisher](publisher.md) composes this interface; live publication/recovery proof is
 owned by #124. The retained tests simulate effects and are not GitHub evidence.
 
 A manifest is `{version:1, approval, plan, operations}`. `approval` is the exact
@@ -119,3 +119,28 @@ and `npm run verify:archive` with Node 22/npm 10 and locked dependencies. Crash
 fault tests use fresh child processes, SIGKILL and Linux `/proc/self/fd` to
 interrupt actual record writes. Their scratch is verifier-owned and disposable;
 this does not imply production journal directories can be ephemeral.
+
+The backward-compatible optional second argument `submission(operation, derivation)`
+retains a canonical object with the actual request derivation before transport.
+It is included in the hash chain and recovered state; older submission records
+without it remain valid. The raw publisher always supplies method, endpoint,
+body and independently resolved endpoint identities. This record is evidence,
+never authorization. Other journal consumers retain the one-argument contract.
+
+Issue/metadata readbacks may now retain the full resolved binding
+`{issueId, repository, repositoryId, nodeId, number}`. Repository coordinates and
+ID must match the original target; database/node IDs and Issue number are retained
+in the hash chain and compared across every subsequent complete observation.
+Legacy one-field `{issueId}` records remain readable for existing journal
+consumers. They cannot establish the publisher's full identity invariant: mixing
+a legacy binding with a full binding remains unresolved rather than silently
+backfilling historical proof. Contradictory bindings also remain unresolved even
+if a later observation returns to an earlier value; retain history and use the
+separate authorized recovery procedure.
+
+For metadata publication, the publisher's submission derivation also binds the
+pre-write `assignees` ID array. Its full resolved readbacks include the observed
+`assignees` sequence. The journal keeps any mismatch with that baseline unresolved
+across all subsequent reads; returning to the original sequence does not erase
+contradictory evidence. Generic legacy journal consumers remain readable, but the
+publisher refuses recovery of attempted metadata without a durable baseline.

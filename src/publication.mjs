@@ -135,7 +135,12 @@ export function openPublicationJournal({directory, manifest, initialize = false,
         } else {
           if (!prior) fail('missing-intent');
           if (e.type === 'submission') {
-            fields(e, 'type correlation operation');
+            fields(e, Object.hasOwn(e, 'derivation') ? 'type correlation operation derivation' : 'type correlation operation');
+            if (Object.hasOwn(e, 'derivation')) {
+              if (!e.derivation || Object.getPrototypeOf(e.derivation) !== Object.prototype) fail('derivation-invalid');
+              canonicalJSON(e.derivation);
+              prior.derivation = clone(e.derivation);
+            }
             if (prior.phase !== 'intent') fail('submission-replay');
             if ([...result.values()].some(s => s.phase === 'unknown')) fail('unresolved-operation');
             prior.phase = 'unknown';
@@ -151,12 +156,33 @@ export function openPublicationJournal({directory, manifest, initialize = false,
             if (typeof observation.complete !== 'boolean' || !Array.isArray(observation.matches)) fail('observation-invalid');
             for (const m of observation.matches) {
               fields(m, 'intent resolved'); operation(m.intent);
-              fields(m.resolved, op.kind === 'dependency' ? 'blockedIssueId blockingIssueId' : 'issueId');
-              Object.values(m.resolved).forEach(id);
+              if (op.kind === 'dependency') {
+                fields(m.resolved, 'blockedIssueId blockingIssueId');
+                Object.values(m.resolved).forEach(id);
+              } else if (Object.keys(m.resolved).length === 1) {
+                fields(m.resolved, 'issueId'); id(m.resolved.issueId); // Legacy journal consumer.
+              } else {
+                const assignments = op.kind === 'metadata' && Object.hasOwn(m.resolved, 'assignees');
+                fields(m.resolved, 'issueId repository repositoryId nodeId number' + (assignments ? ' assignees' : ''));
+                if (assignments && (!Array.isArray(m.resolved.assignees)
+                    || m.resolved.assignees.some(a => typeof a !== 'string' || !/^[1-9][0-9]*$/.test(a)))) fail('resolved-assignments');
+                id(m.resolved.issueId); id(m.resolved.nodeId);
+                if (!/^[1-9][0-9]*$/.test(m.resolved.issueId)
+                    || !/^[1-9][0-9]*$/.test(m.resolved.repositoryId)
+                    || !/^[A-Za-z0-9_=-]{1,256}$/.test(m.resolved.nodeId)
+                    || !Number.isSafeInteger(m.resolved.number) || m.resolved.number < 1
+                    || m.resolved.repository !== op.target.repository
+                    || m.resolved.repositoryId !== op.target.repositoryId) fail('resolved-identity');
+              }
             }
             prior.observations.push(clone(observation));
             prior.phase = observation.complete && observation.matches.length === 1
               && equal(observation.matches[0].intent, op) ? 'complete' : 'unknown';
+            // Metadata preservation is bound to the durable pre-write sequence.
+            // Retain every contradiction even if a later read restores assignments.
+            if (op.kind === 'metadata' && Object.hasOwn(prior.derivation ?? {}, 'assignees')
+                && (!Array.isArray(prior.derivation.assignees) || prior.observations.some(o =>
+                  o.matches.some(m => !equal(m.resolved.assignees ?? null, prior.derivation.assignees))))) prior.phase = 'unknown';
             // Previously observed stable identities cannot silently change.
             const matches = prior.observations.filter(o => o.complete && o.matches.length === 1 && equal(o.matches[0].intent, op));
             if (matches.some(o => !equal(o.matches[0].resolved, matches[0].matches[0].resolved))
@@ -198,7 +224,8 @@ export function openPublicationJournal({directory, manifest, initialize = false,
     }
     return Object.freeze({identity:binding.identity,
       intent: op => safe(() => append({...event('intent', op), value:clone(op)})),
-      submission: op => safe(() => append(event('submission', op))),
+      submission: (op, derivation) => safe(() => append({...event('submission', op),
+        ...(derivation === undefined ? {} : {derivation:clone(derivation)})})),
       result: (op, outcome) => safe(() => append({...event('result', op), outcome})),
       readback: (op, observation) => safe(() => append({...event('readback', op), observation:clone(observation)})),
       recover: snapshot,

@@ -1,3 +1,4 @@
+import { verifyBuild } from './build-identity.mjs';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFileSync, readdirSync, statSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -8,7 +9,7 @@ import { platform, release } from 'node:os';
 import { chromium } from 'playwright';
 import { contrast, checkSample } from './theme-metrics.mjs';
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-const build = JSON.parse(readFileSync('out/build-evidence.json'));
+const build = verifyBuild();
 // Reject stale build proof before measuring a different source tree.
 for (const [path, digest] of Object.entries(build.inputs)) assert.equal(hash(readFileSync(resolve('..', path))), digest, `Stale build: ${path}`);
 assert.equal(hash(readFileSync('out/site.tar.gz')), build.archive.sha256);

@@ -1,32 +1,34 @@
 // Credential-free local contracts only, never live model or native isolation proof.
 import {execFileSync,spawnSync} from 'node:child_process';
-import {mkdtempSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
+import {mkdtempSync,writeFileSync,readFileSync,rmSync,chmodSync,unlinkSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {captureWorkspace,createAcceptFlow,createAgentLifecycle,createHookRunner,selectInstructions,
   bodyDigest,contentIdentity,hookConfigurationAreas} from '../src/index.mjs';
-export async function acceptFixture({empty=false,ownership='personal',child=false}={}) {
+export async function acceptFixture({empty=false,ownership='personal',child=false,rich=false,originalMessage=Buffer.from('candidate message'),repository='owner/public',issueId='I_97'}={}) {
   const root=mkdtempSync(join(tmpdir(),'nibfin-accept-'));
   const h='a'.repeat(64), image='sha256:'+h;
   const git=(...args)=>execFileSync('git',args,{cwd:root,env:{PATH:process.env.PATH,HOME:'/nonexistent',
     GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null'},stdio:['pipe','pipe','pipe']});
   git('init','--template=');git('config','user.name','Fixture');git('config','user.email','fixture@example.invalid');
   writeFileSync(join(root,'.gitignore'),'ignored\n');writeFileSync(join(root,'binary'),Buffer.from([0,1,2,255]));
+  if(rich)writeFileSync(join(root,'deleted'),'delete me');
   git('add','.');git('-c','core.hooksPath=/dev/null','commit','-qm','fixture baseline');
   const base=git('rev-parse','HEAD').toString().trim();
   writeFileSync(join(root,'binary'),Buffer.from([0,255,128,3]));writeFileSync(join(root,'ignored'),'required ignored bytes');
+  if(rich){chmodSync(join(root,'binary'),0o755);unlinkSync(join(root,'deleted'));}
   const hooks=empty?[]:[{path:'pre',event:'pre-commit'}];
   if(!empty) writeFileSync(join(root,'pre'),'#!/bin/sh\nexit 0\n');
   const scopeBody='Review this exact candidate before commit';
   const shapeBody=['Candidate artifacts applicability: Required ignored fixture payload.',
     'Candidate hooks applicability: Empty only for explicit empty fixture configuration.',
     '```kairo-candidate',JSON.stringify({artifacts:[{path:'ignored',purpose:'fixture output'}],hooks}),'```'].join('\n');
-  const captureInput={root,base,scopeBody,shapeBody,permittedPaths:['.gitignore','binary','ignored','pre'],
-    binding:{repository:'owner/public',scopeHash:bodyDigest(scopeBody),shapeHash:bodyDigest(shapeBody),cycle:'one',policy:h}};
+  const captureInput={root,base,scopeBody,shapeBody,permittedPaths:['.gitignore','binary','ignored','pre',...(rich?['deleted']:[])],
+    binding:{repository,scopeHash:bodyDigest(scopeBody),shapeHash:bodyDigest(shapeBody),cycle:'one',policy:h}};
   let w=captureWorkspace(captureInput);
   const selected=selectInstructions({skill:'accept',role:'accept'});
   const binding={authority:h,grant:h,policy:h,core:h,runtime:h,instructions:selected.identity,
-    repositoryId:'42',issueId:'I_97',scopeHash:bodyDigest(scopeBody),shapeHash:bodyDigest(shapeBody)};
+    repositoryId:'42',issueId,scopeHash:bodyDigest(scopeBody),shapeHash:bodyDigest(shapeBody)};
   const observation={hooks:hooks.map(v=>({...v,evidenceReference:'fixture',applicability:'required',prerequisites:[]})),
     areas:hookConfigurationAreas.map(area=>({area,status:'resolved',evidenceReference:'fixture',detail:'inspected'}))};
   const events=[], records=[], expected=new Map(), lives=[];
@@ -38,7 +40,7 @@ export async function acceptFixture({empty=false,ownership='personal',child=fals
     const r=spawnSync('/bin/sh',args,{cwd:join(job,'repo'),env:{PATH:'/usr/bin:/bin',HOME:'/nonexistent'}});
     return {outcome:r.status===0?'success':'nonzero'};
   }});
-  let hookInput={workspace:w,expected:w.expected,phase:'pre-accept',executionId:'first',message:Buffer.from('candidate message'),observation,profile:runner.profile};
+  let hookInput={workspace:w,expected:w.expected,phase:'pre-accept',executionId:'first',message:Buffer.from(originalMessage),observation,profile:runner.profile};
   const first=await runner.execute(hookInput);
   if(!first.ok) throw Error(first.diagnostic);
   events.push('first-pass');
@@ -47,7 +49,7 @@ export async function acceptFixture({empty=false,ownership='personal',child=fals
     inputs:{publication:h,candidate:w.candidate},result:{version:1,outcome:'ready',failureClass:'none',summary:'fixture deliver',conflicts:[]}};
   const stage={version:1,stage:'pre-accept-hooks',binding:{...binding,instructions:h},execution:execution('deliver','hook'),
     inputs:{candidate:w.candidate,phase:'pre-accept',receipt:first.receipt.identity},result:null};
-  const pin={repository:'owner/public',binding,scopeBody,shapeBody,decisions:['No writes from review'],instructions:{},
+  const pin={repository,binding,scopeBody,shapeBody,decisions:['No writes from review'],instructions:{},
     visibility:'public',ownership,workspace:w.expected,obligations:{requiredArtifacts:[{path:'ignored',purpose:'fixture output',evidenceReference:'scope'}],
       scopeEvidenceReference:'scope',hookObservation:observation},deliver,deliverCurrent:{expected:structuredClone(deliver),consumed:[]},
     hooks:{stage,stageCurrent:{expected:structuredClone(stage),consumed:[]},receipt:first.receipt,

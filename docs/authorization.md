@@ -80,3 +80,9 @@ by GitHub's [user API](https://docs.github.com/en/rest/users/users),
 The tests exercise these responses through the provider's injected transport and
 use real locally signed Ed25519 Grant fixtures. They do not certify live provider,
 multi-member or deployment behavior; those integrations belong to #121 and #122.
+
+Publication compositions may supply optional trusted `beforeMutation(intent)`.
+After fresh authorization reads and Grant validation, it must return exactly
+`true`; rejection, throw or cancellation refuses transport. Use it to revalidate
+Candidate/evidence expectations that can change while authorization reads await.
+The default preserves existing authorization behavior; it grants no new operation.

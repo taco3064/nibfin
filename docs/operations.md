@@ -198,3 +198,10 @@ Legacy Body/Label history without a submission receipt remains unknown; matching
 remote state cannot upgrade it. A prior denial applies to its exact attempt. An
 explicitly authorized retry receives a new attempt and submission receipt, so an
 interrupted final-result retention can reconcile the later submitted effect.
+
+Accepted-Candidate publication opts into `reconcileExistingPR:true`. Before a new
+PR POST, complete discovery and single-PR readback reconcile an existing exact PR.
+Related correlation/head-ref mismatches and duplicate PRs remain unresolved.
+Discovery failure is never treated as absence. After an empty complete discovery,
+the pre-submit guard runs again before the guarded provider request. Re-entry of
+an attempted operation only reads back; it does not repeat an uncertain POST.

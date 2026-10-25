@@ -9,8 +9,8 @@ const user = (actual, expected) => actual?.id === expected.id && sameLogin(actua
 const denied = category => ({ok: false, diagnostic: {kind: category}});
 
 /** Core-owned configuration only. No observation or eligibility result is a write capability. */
-export function createAuthorizationBoundary({getCheckpoint, now = Date.now, maxCheckpointMs, ...providerOptions} = {}) {
-  if (typeof getCheckpoint !== 'function' || typeof now !== 'function'
+export function createAuthorizationBoundary({getCheckpoint, now = Date.now, maxCheckpointMs, beforeMutation = async () => true, ...providerOptions} = {}) {
+  if (typeof getCheckpoint !== 'function' || typeof now !== 'function' || typeof beforeMutation !== 'function'
       || !Number.isSafeInteger(maxCheckpointMs) || maxCheckpointMs <= 0
       || Object.hasOwn(providerOptions, 'authorize')) throw Error('Invalid authorization configuration');
   const identity = providerOptions.identity ?? 'local-stored-login';
@@ -89,7 +89,10 @@ export function createAuthorizationBoundary({getCheckpoint, now = Date.now, maxC
         operation: request.operation}};
     } catch { return denied('incomplete'); }
   }
-  provider = createGithubProvider({...providerOptions, now, authorize: async intent => (await check(intent, intent.signal)).ok});
+  provider = createGithubProvider({...providerOptions, now, authorize: async intent => {
+    if (!(await check(intent, intent.signal)).ok) return false;
+    try {return await beforeMutation(intent) === true && !intent.signal?.aborted;} catch {return false;}
+  }});
   return Object.freeze({eligibility: (intent = {}, {signal} = {}) => check(intent, signal),
     request: provider.request, reconcile: provider.reconcile});
 }

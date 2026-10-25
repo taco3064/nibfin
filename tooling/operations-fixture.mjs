@@ -57,7 +57,7 @@ export function operationsFixture(input = operationInput()) {
     const d = state.mutate(effectData());
     const headers = state.incomplete ? {link: `<https://evil.example/page>; rel="next"`} : {};
     if (r.endpoint.startsWith(`${root}/actions/workflows/`)) return response({total_count:state.total ?? (state.effect ? 1 : 0),workflow_runs: state.runs ?? (state.effect ? [d] : [])}, state.status, headers);
-    if (r.endpoint === `${root}/pulls?state=all&per_page=100`) return response(state.effect ? [d] : [], state.status, headers);
+    if (r.endpoint === `${root}/pulls?state=all&per_page=100`) return response(state.prs ? state.prs(d) : state.effect ? [d] : [], state.status, headers);
     if (r.endpoint.includes('/labels')) return response(state.effect ? (input.payload.labels ?? []).map(name=>({id:'80',name})) : [], state.status, headers);
     if (r.endpoint.includes('/commits/')) return response({sha: 'd'.repeat(40)}, state.status);
     return response(state.effect ? (state.detail ? state.detail(d) : d) : {id: input.target.id, state: 'open'}, state.status);
@@ -71,7 +71,7 @@ export function operationsFixture(input = operationInput()) {
   context.request.operation = input.kind;
   context.request.number = b.number; context.request.issueId = b.issueId;
   const grant = signGrant(grantInput, {keyId:'owner-1', privateKey:keys.privateKey.export({type:'pkcs8',format:'pem'})});
-  const authorization = createAuthorizationBoundary({identity:'hosted-authorized',maxCheckpointMs:1000,now:()=>1100,attempts:1,
+  const authorization = createAuthorizationBoundary({beforeMutation:async intent=>{await state.mutationGuard?.(intent);return true;},identity:'hosted-authorized',maxCheckpointMs:1000,now:()=>1100,attempts:1,
     getCheckpoint: intent => {
       if (canonicalJSON(intent.context) !== canonicalJSON(b)) throw Error('changed checkpoint');
       return {request:context.request,grant,grantContext:context,member:{id:'7',login:'member'},
@@ -80,7 +80,8 @@ export function operationsFixture(input = operationInput()) {
     }, transport: async r => {
       if (r.method !== 'GET') return transport(r);
       calls.push({...r,checkpoint:true});
-      const data = r.endpoint === root ? {id:'42',full_name:b.repository,private:false,visibility:'public',owner:{login:'example-org',type:'Organization'}}
+      await state.onAuthorizationRead?.(r);
+      const data = r.endpoint === root ? {id:'42',full_name:b.repository,private:false,visibility:'public',owner:{login:'example-org',type:state.ownership??'Organization'}}
         : r.endpoint === root+'/issues/'+b.number ? {id:'61',node_id:b.issueId,number:Number(b.number),repository_url:'https://api.github.com'+root,assignees:[{id:'7',login:'member'}]}
         : r.endpoint.endsWith('/permission') ? {permission:state.allowed?'write':'read',user:{id:'7',login:'member'}}
         : {id:'7',login:'member'};
@@ -110,10 +111,10 @@ export function operationsFixture(input = operationInput()) {
       return {id, digest: byteDigest(bytes)};
     }}
   });
-  const fresh = (source={runId:'100',attempt:'1'}, beforeSubmit) => {execution=source; return createControlledOperations({authorization, provider, custody: custody(), publication, execution, beforeSubmit,
+  const fresh = (source={runId:'100',attempt:'1'}, beforeSubmit, options={}) => {execution=source;if(options.reconcileExistingPR)state.mutationGuard=()=>beforeSubmit(input); return createControlledOperations({authorization, provider, custody: custody(), publication, execution, beforeSubmit, ...options,
     locate: ({identity, correlation}) => state.historyUnavailable ? {outcome:'unavailable'} : history.has(correlation)
       ? {outcome: 'found', refs: structuredClone(history.get(correlation))} : {outcome: 'new', identity}});};
-  return {input, state, calls, records, history, fresh, writes: () => calls.filter(r => r.method && r.method !== 'GET')};
+  return {input, state, calls, records, history, fresh, authorization, writes: () => calls.filter(r => r.method && r.method !== 'GET')};
 }
 /** A generator fixture, not a deployed workflow. Its outputs are actual GitHub configuration fields. */
 export function concurrencyConsumer(input) {

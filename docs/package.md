@@ -589,3 +589,9 @@ Protected Owner-side registration and encrypted response consumption are exporte
 through [registration.md](registration.md). Archive consumers run positive and
 negative registration cases through the installed package. This proves a local
 module contract; #122 retains actual protected-host/channel integration proof.
+
+
+The Linux/Codex backend is documented in [codex.md](codex.md). Its package includes
+the fixed container entrypoint and explicit version/profile checks. Installed
+consumer tests use credential-free controlled process fixtures; native support
+remains Unverified pending #121's actual integration observations.

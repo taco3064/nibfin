@@ -1,0 +1,284 @@
+import {spawn} from 'node:child_process';
+import {randomUUID} from 'node:crypto';
+import {lstatSync, realpathSync, readdirSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync} from 'node:fs';
+import {resolve, join, dirname, sep} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {createAgentEnvironments} from './lifecycle.mjs';
+import {bodyDigest, canonicalJSON} from './grants.mjs';
+import {skillForRole, outcomesForRole} from './evidence.mjs';
+
+export const linuxCodexProfile = Object.freeze({id:'linux-amd64-codex-v1', docker:'28.5.1',
+  codex:'codex-cli 0.163.0', node:'v22.23.3', guest:'debian-12', platform:'linux', arch:'x64'});
+const fail = code => { throw new TypeError(`codex:${code}`); };
+const same = (a,b) => canonicalJSON(a) === canonicalJSON(b);
+const within = (a,b) => b.startsWith(a + sep);
+const safePath = p => typeof p === 'string' && resolve(p) === p && p !== '/' && !/[\x00-\x20,:]/.test(p);
+const entry = fileURLToPath(new URL('./codex-entry.mjs', import.meta.url));
+const cleanEnv = Object.freeze({PATH:'/usr/bin:/bin',LANG:'C'});
+
+/** External process boundary only. It cannot supply a readiness/permission override. */
+export function codexProcess(command) {
+  return new Promise(resolveResult => {
+    let child, chunks = [], bytes = 0, settled = false, timer;
+    const finish = value => { if (!settled) { settled = true; clearTimeout(timer); resolveResult(value); } };
+    try {
+      child = spawn(command.file, command.args, {env:command.env, cwd:'/', shell:false, stdio:['ignore','pipe','ignore']});
+      child.stdout.on('data', data => {
+        bytes += data.length;
+        if (bytes > command.limit) { child.kill('SIGKILL'); finish({ok:false,output:''}); }
+        else chunks.push(data);
+      });
+      child.on('error', () => finish({ok:false,output:''}));
+      child.on('close', code => finish({ok:code === 0,output:code === 0 ? Buffer.concat(chunks).toString('utf8') : ''}));
+      timer = setTimeout(() => { child.kill('SIGKILL'); finish({ok:false,output:''}); },command.timeout);
+    } catch { finish({ok:false,output:''}); }
+  });
+}
+
+/** Construction is inert. Configuration belongs to trusted Core, never model input. */
+export function createLinuxCodexBackend(config) {
+  const {root, image, socket, environment:original, instanceId, process:run = codexProcess,
+    timeout = 300000, task} = config;
+  if (Object.keys(config).some(k => !['root','image','socket','environment','instanceId','process','timeout','task'].includes(k))) fail('configuration');
+  if (!safePath(root) || !/^sha256:[a-f0-9]{64}$/.test(image) || !safePath(socket)
+      || !/^\/run\/user\/[1-9][0-9]*\/docker.sock$/.test(socket)
+      || typeof task !== 'function' || typeof run !== 'function' || !Number.isInteger(timeout) || timeout < 50 || timeout > 3600000) fail('profile');
+  const environment = createAgentEnvironments().describe(original);
+  const instance = environment.instances.find(i => i.id === instanceId);
+  if (environment.agent !== 'codex' || !instance) fail('environment');
+  const resources = [instance.workspace,instance.registration,instance.service];
+  const all = [environment.loginSpace,...environment.instances.flatMap(i => [i.workspace,i.registration,i.service])];
+  if (all.some(p => !safePath(p) || !within(root,p))) fail('resource-root');
+  const scratch = join(instance.service,'codex');
+  const states = new Map(), containers = new Map(), pins = new Map();
+  let deleting = false, secrets = [];
+  let diagnostic = 'not-checked', ready = false, retired = false;
+  async function command(args, ms = 15000, limit = 1048576) {
+    try {
+      const response = await run(Object.freeze({file:'/usr/bin/docker',args:Object.freeze(['--host',`unix://${socket}`,...args]),
+        env:cleanEnv,timeout:ms,limit}));
+      if (!response || typeof response.ok !== 'boolean' || typeof response.output !== 'string'
+          || Buffer.byteLength(response.output) > limit) return {ok:false,output:''};
+      return response;
+    } catch { return {ok:false,output:''}; }
+  }
+  async function json(args) {
+    const r = await command(args);
+    if (!r.ok) throw Error();
+    return JSON.parse(r.output);
+  }
+  function physical() {
+    // Reject symlink ancestors, hard links, bind aliases, special files and mount escapes.
+    const seen = new Set(); let count = 0;
+    const checkPath = p => {
+      if (realpathSync(p) !== p) fail('path-alias');
+      for (let part=p; part !== '/'; part=dirname(part)) if (lstatSync(part).isSymbolicLink()) fail('path-alias');
+    };
+    checkPath(root); checkPath(entry);
+    const ownedRoot=lstatSync(root);
+    if (!ownedRoot.isDirectory() || ownedRoot.uid !== process.getuid() || (ownedRoot.mode & 0o077)) fail('resource-owner');
+    // realpath cannot detect bind mounts of unrelated host data on the same device.
+    const mountpoints=readFileSync('/proc/self/mountinfo','utf8').trim().split('\n').map(line=>{
+      const point=line.split(' ')[4];
+      if (!point) fail('mount-observation');
+      return point.replace(/\\([0-7]{3})/g,(_,octal)=>String.fromCharCode(parseInt(octal,8)));
+    });
+    if (mountpoints.some(p=>p === root || within(root,p))) fail('mounted-resource');
+    if (!safePath(entry)) fail('entry-path');
+    const walk = (p,dev) => {
+      if (++count > 50000) fail('filesystem-bound');
+      const s = lstatSync(p), id = `${s.dev}:${s.ino}`;
+      if (s.isSymbolicLink() || (!s.isDirectory() && !s.isFile()) || s.dev !== dev
+          || (s.isFile() && s.nlink !== 1) || seen.has(id)) fail('unsafe-filesystem');
+      seen.add(id);
+      if (s.isDirectory()) for (const name of readdirSync(p)) {
+        if (name === '.codex') fail('project-configuration');
+        walk(join(p,name),dev);
+      }
+    };
+    for (const p of all) {
+      if (deleting && resources.includes(p) && !existsSync(p)) continue;
+      checkPath(p); const s = lstatSync(p);
+      if (!s.isDirectory()) fail('resource-directory');
+      const identity = `${s.dev}:${s.ino}`;
+      if (pins.has(p) && pins.get(p) !== identity) fail('resource-replaced');
+      walk(p,s.dev); pins.set(p,identity);
+    }
+    // Only the selected member's file is mounted; no config, keychain or home mount.
+    const auth = join(environment.loginSpace,'auth.json');
+    return auth;
+  }
+  function loginFile(auth) {
+    diagnostic='login-absent'; if (!existsSync(auth)) fail('login-absent');
+    diagnostic='login-invalid'; const s=lstatSync(auth);
+    if (!s.isFile() || s.nlink !== 1 || s.size === 0 || s.size > 65536) fail('login-invalid');
+    diagnostic='login-denied'; const bytes=readFileSync(auth,'utf8');
+    diagnostic='login-invalid'; const value=JSON.parse(bytes);
+    if (value.auth_mode !== 'chatgpt' || !value.tokens || typeof value.tokens.access_token !== 'string'
+        || !value.tokens.access_token || value.OPENAI_API_KEY) fail('login-invalid');
+    secrets = Object.values(value.tokens).filter(v=>typeof v === 'string' && v.length);
+  }
+  const mount = (source,target,write=false) => ['--mount',
+    `type=bind,src=${source},dst=${target},bind-propagation=rprivate,bind-recursive=disabled${write?'':',readonly'}`];
+  function base(name, auth) {
+    return ['create','--name',name,'--label',`nibfin.execution=${name}`,'--pull','never','--platform','linux/amd64',
+      '--read-only','--user','0:0','--no-healthcheck','--ipc','private','--cgroupns','private','--cap-drop','ALL','--security-opt','no-new-privileges','--pids-limit','128',
+      '--memory','1g','--cpus','2','--network','bridge','--log-driver','none',
+      '--tmpfs','/tmp:rw,nosuid,nodev,size=64m,mode=1777','--workdir','/work',
+      '--env','HOME=/tmp/home','--env','CODEX_HOME=/tmp/home/.codex',
+      '--env','PATH=/usr/local/bin:/usr/bin:/bin',...mount(auth,'/tmp/home/.codex/auth.json'),
+      ...mount(entry,'/entry.mjs'),'--entrypoint','/usr/local/bin/node'];
+  }
+  async function inspect(s) {
+    const data = await json(['inspect',s.name]);
+    if (!Array.isArray(data) || data.length !== 1) throw Error();
+    const c = data[0];
+    if (c.Name !== '/' + s.name || c.Config?.Labels?.['nibfin.execution'] !== s.name || c.Image !== image
+        || !c.State || typeof c.State.Running !== 'boolean' || !Number.isInteger(c.State.ExitCode)) throw Error();
+    return c;
+  }
+  async function missing(s) {
+    const r = await command(['container','ls','--all','--no-trunc','--format','{{json .}}']);
+    if (!r.ok) return false;
+    try { return r.output.trim().split('\n').filter(Boolean).map(v=>JSON.parse(v))
+      .every(c => typeof c.Names === 'string' && c.Names !== s.name); } catch { return false; }
+  }
+  async function remove(s) {
+    try {
+      if (s.absent) return true;
+      if (s.pending) return false;
+      if (await missing(s)) { s.absent = true; return true; }
+      const c = await inspect(s);
+      if (c.State.Running) return false;
+      await command(['rm',s.name]);
+      s.absent = await missing(s); return s.absent;
+    } catch { return false; }
+  }
+  async function reserve(args, kind, record = ()=>{}) {
+    const s = {name:'nibfin-'+randomUUID(), kind, absent:false, output:null, failed:false, launched:false};
+    containers.set(s.name,s); record(s); // State survives a lost create response; never retry create/start.
+    const r = await command(args(s.name));
+    if (!r.ok) { s.failed = true; return s; }
+    try { await inspect(s); } catch { s.failed=true; }
+    return s;
+  }
+  function query(v) {
+    const s = states.get(v.execution);
+    if (!s || v.request !== s.request || v.environment !== environment.id || v.instance !== instanceId || v.agent !== 'codex') fail('query');
+    return s;
+  }
+  const readinessResult = () => ({login:ready?'available':'unavailable',tool:ready?'available':'unavailable',
+    isolation:ready?'verified':'unsupported',read:ready?'verified':'unsupported',write:ready?'verified':'unsupported',
+    evidence:[`profile:${linuxCodexProfile.id}`,`diagnostic:${diagnostic}`],
+    limitations:['Local fixtures do not establish measured native support; #121 owns native evidence']});
+  return Object.freeze({
+    diagnostic:()=>diagnostic,
+    async readiness() {
+      ready = false;
+      try {
+        if (retired || process.platform !== 'linux' || process.arch !== 'x64') { diagnostic='unsupported-host'; return readinessResult(); }
+        diagnostic='unsafe-mount'; const auth = physical(); loginFile(auth);
+        diagnostic='runtime-unavailable';
+        if (await json(['version','--format','{{json .Client.Version}}']) !== linuxCodexProfile.docker) return readinessResult();
+        const info = await json(['info','--format','{{json .}}']);
+        if (info.ServerVersion !== linuxCodexProfile.docker || info.OSType !== 'linux' || info.Architecture !== 'x86_64'
+            || info.CgroupVersion !== '2' || !['MemoryLimit','PidsLimit','CpuCfsQuota','CpuCfsPeriod'].every(k=>info[k] === true)
+            || !info.SecurityOptions?.includes('name=rootless') || !info.SecurityOptions?.includes('name=seccomp,profile=builtin'))
+          return readinessResult();
+        diagnostic='image-mismatch'; const [im] = await json(['image','inspect',image]);
+        if (im.Id !== image || im.Os !== 'linux' || im.Architecture !== 'amd64' || im.Config?.Volumes
+            || !Array.isArray(im.Config?.Env) || im.Config.Env.some(x=>!/^PATH=/.test(x))) return readinessResult();
+        diagnostic='cleanup-unresolved';
+        for (const old of containers.values()) if (!await remove(old)) return readinessResult();
+        diagnostic='probe-failed';
+        const s = await reserve(name=>[...base(name,auth),image,'/entry.mjs','probe'],'probe');
+        if (s.failed) return readinessResult();
+        const r = await command(['start','--attach',s.name],25000,4096);
+        const c = await inspect(s);
+        if (c.State.Running || !await remove(s)) { diagnostic='cleanup-unresolved'; return readinessResult(); }
+        if (!r.ok || c.State.ExitCode !== 0) return readinessResult();
+        const p = JSON.parse(r.output);
+        diagnostic='tool-mismatch';
+        if (p.version !== linuxCodexProfile.codex || p.node !== linuxCodexProfile.node || p.guest !== true
+            || p.platform !== 'linux' || p.arch !== 'x64') return readinessResult();
+        diagnostic='login-unavailable'; if (p.login !== true) return readinessResult();
+        if ([...containers.values()].some(c=>!c.absent)) { diagnostic='cleanup-unresolved'; return readinessResult(); }
+        ready = true; diagnostic='ready';
+      } catch { /* Fixed diagnostic above; never expose raw process or filesystem errors. */ }
+      return readinessResult();
+    },
+    async start(v) {
+      try {
+      if (!ready || retired || states.has(v.execution)) fail('not-ready');
+      ready = false;
+      const auth = physical(), e = v.executionIdentity; loginFile(auth);
+      if (v.environment !== environment.id || v.instance !== instanceId || v.agent !== 'codex'
+          || e.id !== v.execution || e.request !== v.request || skillForRole(e.role) !== e.skill
+          || !same(v.workspace,{path:instance.workspace,access:e.role === 'deliver'?'write':'read'})
+          || !same(v.agentLogin,{owner:environment.id,space:environment.loginSpace}) || !same(v.processEnvironment,{})
+          || bodyDigest(v.instructions.content) !== v.instructions.identity || v.binding.instructions !== v.instructions.identity) fail('input');
+      if (typeof v.instructions.content !== 'string' || Buffer.byteLength(v.instructions.content) > 1048576) fail('input-bound');
+      const dir = join(scratch,randomUUID()); mkdirSync(dir,{recursive:true,mode:0o700});
+      const input = join(dir,'input'); mkdirSync(input,{mode:0o700});
+      writeFileSync(join(input,'instructions.md'),v.instructions.content,{flag:'wx',mode:0o400});
+      const context = JSON.parse(canonicalJSON(task(e)));
+      if (typeof context.prompt !== 'string' || !context.prompt.trim() || !context.inputs) fail('task');
+      const properties = {version:{type:'integer',enum:[1]},outcome:{type:'string',enum:outcomesForRole(e.role)},
+        failureClass:{type:'string',enum:['none','implementation_defect','shape_defect','authority_gap','external_failure']},
+        summary:{type:'string'},conflicts:{type:'array',items:{type:'object',additionalProperties:false,
+          properties:Object.fromEntries(['scopeHash','shapeHash','scopeQuote','shapeQuote','evidenceReference'].map(k=>[k,{type:'string'}])),
+          required:['scopeHash','shapeHash','scopeQuote','shapeQuote','evidenceReference']}}};
+      const schema = {type:'object',properties,required:Object.keys(properties),additionalProperties:false};
+      writeFileSync(join(input,'schema.json'),JSON.stringify(schema),{flag:'wx',mode:0o400});
+      const prompt = context.prompt;
+      if (Buffer.byteLength(prompt) > 524288 || Buffer.byteLength(JSON.stringify(context.inputs)) > 262144) fail('input-bound');
+      writeFileSync(join(input,'request.json'),JSON.stringify({access:v.workspace.access,prompt,timeout,
+        context:{version:1,stage:e.role,execution:e,binding:v.binding,inputs:context.inputs}}),{flag:'wx',mode:0o400});
+      const s = await reserve(name=>[...base(name,auth),...mount(instance.workspace,'/work',e.role === 'deliver'),
+        ...mount(input,'/input'),image,'/entry.mjs','execute'],'role',s=>{
+          Object.assign(s,{request:v.request,dir}); states.set(v.execution,s); });
+      if (s.failed) throw Error('codex:start-unresolved');
+      s.launched = true;
+      // Attach is a tracked promise, not a detached host process. Timeout kills only the CLI;
+      // container inspection and stop are still required before reuse/cleanup.
+      s.pending = command(['start','--attach',s.name],timeout+5000).then(r=>{s.output=r;s.pending=null;});
+      return {status:'started'};
+      } catch {
+        if (states.has(v.execution)) throw Error('codex:start-unresolved');
+        return {status:'rejected'};
+      }
+    },
+    async collect(v) {
+      const s=query(v); let c;
+      try { c=await inspect(s); } catch {
+        return !s.pending && await missing(s) ? {status:'complete',exitCode:1,evidence:null} : {status:'pending',exitCode:null,evidence:null};
+      }
+      if (c.State.Running || s.pending) return {status:'pending',exitCode:null,evidence:null};
+      let evidence = null;
+      if (!s.failed && s.output?.ok && c.State.ExitCode === 0 && !secrets.some(secret=>s.output.output.includes(secret))) { try { evidence=JSON.parse(s.output.output); } catch {} }
+      return {status:'complete',exitCode:s.failed || !s.output?.ok ? 1 : c.State.ExitCode,evidence};
+    },
+    async stop(v) {
+      const s=query(v);
+      try { await inspect(s); } catch { return {status:'unknown'}; }
+      const r=await command(['stop','--time','2',s.name],10000);
+      return {status:r.ok?'requested':'unknown'};
+    },
+    async termination(v) {
+      const s=query(v);
+      try { const c=await inspect(s); return {status:s.pending?'unknown':c.State.Running?'running':c.State.Status === 'exited' || c.State.Status === 'created'?'terminated':'unknown'}; }
+      catch { return {status:!s.pending && await missing(s)?'terminated':'unknown'}; }
+    },
+    async cleanup(v) {
+      if (!same(v.resources,resources) || v.environment !== environment.id || v.instance !== instanceId) fail('cleanup');
+      for (const s of containers.values()) if (!await remove(s)) return {status:'unresolved',residuals:resources};
+      try {
+        physical(); deleting=true;
+        for (const p of resources) rmSync(p,{recursive:true,force:true});
+        const residuals=resources.filter(existsSync);
+        if (residuals.length) return {status:'failed',residuals};
+        retired=true;return {status:'completed',residuals:[]};
+      } catch { return {status:'failed',residuals:resources.filter(existsSync)}; }
+    }
+  });
+}

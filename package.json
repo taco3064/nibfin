@@ -51,7 +51,10 @@
     "src/relay.mjs",
     "docs/relay.md",
     "src/registration.mjs",
-    "docs/registration.md"
+    "docs/registration.md",
+    "src/codex.mjs",
+    "src/codex-entry.mjs",
+    "docs/codex.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process';
 import {grantFixture} from './grant-fixture.mjs';
 import {bodyDigest} from '../src/index.mjs';
 
-export const packageFiles = ['src/registration.mjs', 'docs/registration.md', 'src/relay.mjs', 'docs/relay.md', 'src/dynamic.mjs', 'docs/dynamic.md', 'src/operations.mjs', 'src/concurrency.mjs', 'docs/operations.md', 'src/selection.mjs', 'docs/selection.md', 'src/workspace.mjs', 'docs/workspace.md', 'src/runners.mjs', 'src/instructions.mjs', 'docs/instructions.md', 'skills/shape/SKILL.md', 'skills/deliver/SKILL.md', 'skills/accept/SKILL.md', 'src/actions.mjs', 'src/deployment.mjs', 'docs/deployment.md', 'src/lifecycle.mjs', 'docs/lifecycle.md', 'src/authorization.mjs', 'docs/authorization.md', 'src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs', 'src/custody-upload.mjs', 'src/custody.mjs', 'src/custody-zip.mjs', 'docs/custody.md'];
+export const packageFiles = ['src/codex.mjs', 'src/codex-entry.mjs', 'docs/codex.md', 'src/registration.mjs', 'docs/registration.md', 'src/relay.mjs', 'docs/relay.md', 'src/dynamic.mjs', 'docs/dynamic.md', 'src/operations.mjs', 'src/concurrency.mjs', 'docs/operations.md', 'src/selection.mjs', 'docs/selection.md', 'src/workspace.mjs', 'docs/workspace.md', 'src/runners.mjs', 'src/instructions.mjs', 'docs/instructions.md', 'skills/shape/SKILL.md', 'skills/deliver/SKILL.md', 'skills/accept/SKILL.md', 'src/actions.mjs', 'src/deployment.mjs', 'docs/deployment.md', 'src/lifecycle.mjs', 'docs/lifecycle.md', 'src/authorization.mjs', 'docs/authorization.md', 'src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs', 'src/custody-upload.mjs', 'src/custody.mjs', 'src/custody-zip.mjs', 'docs/custody.md'];
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 // Read the actual tar payload without extracting attacker-controlled paths.
@@ -73,12 +73,12 @@ export function consumeArchive(archivePath) {
       {cwd: consumer, env, stdio: 'pipe'});
     writeFileSync(join(consumer, 'custody-fixture.mjs'), readFileSync(join(root, 'tooling/custody-fixture.mjs'), 'utf8').replace("'../src/index.mjs'", "'@nibfin/core'"));
     writeFileSync(join(consumer, 'actions-fixture.mjs'), readFileSync(join(root, 'tooling/actions-fixture.mjs'), 'utf8').replace("'../src/index.mjs'", "'@nibfin/core'"));
-    for (const fixture of ['relay-fixture.mjs','operations-fixture.mjs','selection-fixture.mjs','grant-fixture.mjs','dynamic-fixture.mjs']) {
+    for (const fixture of ['codex-fixture.mjs','relay-fixture.mjs','operations-fixture.mjs','selection-fixture.mjs','grant-fixture.mjs','dynamic-fixture.mjs']) {
       writeFileSync(join(consumer, fixture), readFileSync(join(root, 'tooling', fixture), 'utf8').replaceAll("'../src/index.mjs'", "'@nibfin/core'"));
     }
-    for (const file of ['registration.test.mjs','relay.test.mjs','operations.test.mjs','concurrency.test.mjs']) {
+    for (const file of ['codex.test.mjs','registration.test.mjs','relay.test.mjs','operations.test.mjs','concurrency.test.mjs']) {
       writeFileSync(join(consumer, file), readFileSync(join(root, 'test', file), 'utf8')
-        .replaceAll("'../src/index.mjs'", "'@nibfin/core'").replace("'../tooling/custody-fixture.mjs'", "'./custody-fixture.mjs'").replace("'../tooling/operations-fixture.mjs'", "'./operations-fixture.mjs'").replace("'../tooling/relay-fixture.mjs'", "'./relay-fixture.mjs'"));
+        .replaceAll("'../src/index.mjs'", "'@nibfin/core'").replace("'../tooling/codex-fixture.mjs'", "'./codex-fixture.mjs'").replace("'../tooling/custody-fixture.mjs'", "'./custody-fixture.mjs'").replace("'../tooling/operations-fixture.mjs'", "'./operations-fixture.mjs'").replace("'../tooling/relay-fixture.mjs'", "'./relay-fixture.mjs'"));
       const result = execFileSync(process.execPath, ['--test', file], {cwd:consumer,env,encoding:'utf8'});
       if (!result.includes('# fail 0')) throw Error('Installed controlled operation contract failed');
     }

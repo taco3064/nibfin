@@ -65,7 +65,10 @@
     "src/publisher.mjs",
     "docs/publisher.md",
     "src/shape.mjs",
-    "docs/shape.md"
+    "docs/shape.md",
+    "src/claude.mjs",
+    "src/claude-entry.mjs",
+    "docs/claude.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

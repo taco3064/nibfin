@@ -4,13 +4,13 @@ import {mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync} from 'node:
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createLinuxCodexBackend, createAgentLifecycle, selectInstructions, bodyDigest,
-  skillForRole, outcomesForRole, linuxCodexProfile} from '../src/index.mjs';
-export function codexFixture(role='shape', custom) {
+  skillForRole, outcomesForRole, linuxCodexProfile, createLinuxClaudeBackend, linuxClaudeProfile} from '../src/index.mjs';
+export function codexFixture(role='shape', custom, agent='codex') {
   const root=mkdtempSync(join(tmpdir(),'nibfin-codex-')), hash='a'.repeat(64);
-  const environment={id:'member',agent:'codex',loginSpace:join(root,'login'),instances:[0,1].map(n=>({id:'instance-'+n,
+  const environment={id:'member',agent,loginSpace:join(root,'login'),instances:[0,1].map(n=>({id:'instance-'+n,
     workspace:join(root,'work'+n),registration:join(root,'registration'+n),service:join(root,'service'+n)}))};
   for (const p of [environment.loginSpace,...environment.instances.flatMap(i=>[i.workspace,i.registration,i.service])]) mkdirSync(p);
-  writeFileSync(join(environment.loginSpace,'auth.json'),JSON.stringify({auth_mode:'chatgpt',tokens:{access_token:'LOGIN-SENTINEL'}}));
+  writeFileSync(join(environment.loginSpace,agent==='claude'?'anthropic-api-key.json':'auth.json'),JSON.stringify(agent==='claude'?{auth_mode:'anthropic-api-key',api_key:'LOGIN-SENTINEL'}:{auth_mode:'chatgpt',tokens:{access_token:'LOGIN-SENTINEL'}}));
   const skill=skillForRole(role), repository=custom?{[skill]:{mode:'override',content:custom}}:{};
   const approvals=custom?{repository:{[skill]:{configurationIdentity:bodyDigest(JSON.stringify(repository[skill]))}}}:{};
   const instructions=selectInstructions({role,skill,repository,approvals});
@@ -59,7 +59,7 @@ export function codexFixture(role='shape', custom) {
     }
     if (op === 'start') {
       const c=containers.get(args.at(-1)); c.State={Running:true,Status:'running',ExitCode:0};
-      const probe={node:linuxCodexProfile.node,platform:'linux',arch:'x64',guest:true,version:flags.tool ?? linuxCodexProfile.codex,login:flags.login ?? true};
+      const probe={diagnostic:flags.diagnostic ?? 'ready',node:linuxCodexProfile.node,platform:'linux',arch:'x64',guest:true,version:flags.tool ?? (agent==='claude'?linuxClaudeProfile.claude:linuxCodexProfile.codex),login:flags.login ?? true};
       let output=probe;
       if (!c.probe) {
         const mount=c.mounts.find(m=>m.includes('dst=/input,'));
@@ -67,6 +67,10 @@ export function codexFixture(role='shape', custom) {
         const request=JSON.parse(readFileSync(join(input,'request.json')));
         output={...request.context,result};
         if (flags.mutate) flags.mutate(output);
+        if(agent==='claude') {
+          output={type:'result',subtype:'success',is_error:false,structured_output:output.result,session_id:'UNTRUSTED-CLI-SESSION'};
+          if(flags.envelope)flags.envelope(output);
+        }
       }
       const text=flags.output !== undefined && !c.probe?flags.output:JSON.stringify(output);
       // Each start crosses an actual child-process boundary with the supplied clean env.
@@ -78,9 +82,17 @@ export function codexFixture(role='shape', custom) {
       const completion=new Promise(resolveResult=>{
         let stdout='', size=0;
         child.stdout.on('data',b=>{size+=b.length;if(size>command.limit){child.kill('SIGKILL');}else stdout+=b;});
-        child.on('exit',code=>{
+        child.on('exit',async code=>{
           children.delete(child);c.State={Running:false,Status:'exited',ExitCode:code??137};
-          resolveResult({ok:code===0 && size<=command.limit,output:code===0 && size<=command.limit?stdout:''});
+          if(agent==='claude' && !c.probe && code===0 && size<=command.limit) {
+            try {
+              const {claudeResult}=await import(new URL('claude-entry.mjs',import.meta.resolve('@nibfin/core')));
+              const source=c.mounts.find(m=>m.includes('dst=/input,')).match(/src=([^,]+)/)[1];
+              const request=JSON.parse(readFileSync(join(source,'request.json')));
+              stdout=JSON.stringify(claudeResult(stdout,request.context,['LOGIN-SENTINEL']));
+            } catch {stdout='';}
+          }
+          resolveResult({ok:code===0 && size<=command.limit,output:(code===0 || command.failureOutput) && size<=command.limit?stdout:''});
         });
       });
       child.stdin.end(text);
@@ -92,7 +104,7 @@ export function codexFixture(role='shape', custom) {
   };
   const config={root,image,socket:'/run/user/1000/docker.sock',environment,instanceId:'instance-0',
     process:processBoundary,timeout:1000,task:()=>({prompt:'SYNTHETIC task; hostile repo $(touch /escape); no credentials',inputs})};
-  const backend=createLinuxCodexBackend(config);
+  const backend=(agent==='claude'?createLinuxClaudeBackend:createLinuxCodexBackend)(config);
   const life=createAgentLifecycle({environment,instanceId:'instance-0',backend,current:()=>structuredClone(current)});
   const input={execution,binding,instructions:{identity:instructions.identity,content:instructions.content},visibility:'public',ownership:'personal'};
   const wait=()=>new Promise(resolveWait=>setTimeout(resolveWait,10));

@@ -58,7 +58,10 @@
     "examples/scope.json",
     "src/ci.mjs",
     "src/publication.mjs",
-    "docs/publication.md"
+    "docs/publication.md",
+    "src/codex.mjs",
+    "src/codex-entry.mjs",
+    "docs/codex.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

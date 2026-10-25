@@ -1,5 +1,7 @@
 # Nibfin Core
 
+[English documentation](https://taco3064.github.io/nibfin/)
+
 This repository owns the single Nibfin Core implementation. The current baseline
 provides a standalone ESM package, canonical GitHub identity helpers, explicit
 Grant preparation/signing/verification APIs, approved authority export/import and

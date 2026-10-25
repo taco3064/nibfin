@@ -30,8 +30,8 @@ export function operationsFixture(input = operationInput()) {
   function effectData() {
     if(input.kind==='comment')return {id:'81',body:input.payload.body,user:{id:'7'},created_at:'2026-10-24T12:00:00Z',
       updated_at:'2026-10-24T12:00:00Z',issue_url:`https://api.github.com${root}/issues/${b.number}`};
-    if (input.kind === 'dispatch') return {id: '70', workflow_id: '50', event: 'workflow_dispatch',
-      display_title: 'nibfin-operation:request-1', head_sha: b.head, repository: {id: '42'}, status: 'queued'};
+    if (input.kind === 'dispatch') return {id: '70', workflow_id: input.target.id, event: 'workflow_dispatch',
+      display_title: 'nibfin-operation:'+input.correlation, head_sha: b.head, repository: {id: b.repositoryId}, status: 'queued'};
     if (['pr', 'merge'].includes(input.kind)) return {id: '60', number: 102, title: input.payload.title, body: input.payload.body,
       head: {ref: input.payload.head, sha: b.head, repo: {id: '42'}}, base: {ref: input.kind === 'merge' ? b.baseRef : input.payload.base, sha: b.base, repo: {id: '42'}},
       merged: input.kind === 'merge', state: input.kind === 'merge' ? 'closed' : 'open', merge_commit_sha: 'd'.repeat(40)};
@@ -49,7 +49,7 @@ export function operationsFixture(input = operationInput()) {
       return response({id: input.target.id});
     }
     if (state.failRead && !r.endpoint.includes('/artifacts') && r.endpoint !== root) return response({}, 500);
-    if (r.endpoint === root) return response({id: '42', full_name: b.repository, private: false});
+    if (r.endpoint === root) return response({id: b.repositoryId, full_name: b.repository, private: false});
     const all = [...records.values()].map(x => x.metadata);
     if (/\/actions\/runs\/\d+\/artifacts\?per_page=100$/.test(r.endpoint)) {
       const runId=r.endpoint.match(/\/runs\/(\d+)\//)[1], filtered=all.filter(a=>a.workflow_run.id===runId);
@@ -73,8 +73,10 @@ export function operationsFixture(input = operationInput()) {
   };
   const provider = createGithubProvider({transport, attempts: 1});
   const grantInput = grantFixture(bodyDigest);
-  for (const work of grantInput.work) work.repository.id = '42';
-  grantInput.permissions[0].repository.id = '42'; grantInput.permissions[0].operations = [input.kind];
+  for (const work of grantInput.work) {work.repository.id=b.repositoryId;work.repository.name=b.repository;}
+  Object.assign(grantInput.work[0],{number:b.number,issueId:b.issueId});
+  grantInput.work=grantInput.work.filter((w,i)=>i===0||w.number!==b.number&&w.issueId!==b.issueId);
+  grantInput.permissions[0].repository.id = b.repositoryId; grantInput.permissions[0].repository.name=b.repository; grantInput.permissions[0].operations = [input.kind];
   if(input.kind==='merge')grantInput.policy.merge.method=input.payload.merge_method;
   const keys = generateKeyPairSync('ed25519');
   const context = grantContext(grantInput, keys.publicKey.export({type:'spki',format:'pem'}));
@@ -91,7 +93,7 @@ export function operationsFixture(input = operationInput()) {
       if (r.method !== 'GET') return transport(r);
       calls.push({...r,checkpoint:true});
       await state.onAuthorizationRead?.(r);
-      const data = r.endpoint === root ? {id:'42',full_name:b.repository,private:false,visibility:'public',owner:{login:'example-org',type:state.ownership??'Organization'}}
+      const data = r.endpoint === root ? {id:b.repositoryId,full_name:b.repository,private:false,visibility:'public',owner:{login:b.repository.split('/')[0],type:state.ownership??'Organization'}}
         : r.endpoint === root+'/issues/'+b.number ? {id:'61',node_id:b.issueId,number:Number(b.number),repository_url:'https://api.github.com'+root,assignees:[{id:'7',login:'member'}]}
         : r.endpoint.endsWith('/permission') ? {permission:state.allowed?'write':'read',user:{id:'7',login:'member'}}
         : {id:'7',login:'member'};
@@ -103,7 +105,7 @@ export function operationsFixture(input = operationInput()) {
   }, now: () => Date.parse(state.expired ? '2031-01-01' : '2026-10-24')});
   const publication = async ({intent, phase, expected}) => ({
     runtime: {facility: '@actions/artifact@2.3.2', available: true, repository: b.repository,
-      repositoryId: '42', runId: expected.runId, attempt: expected.attempt},
+      repositoryId: b.repositoryId, runId: expected.runId, attempt: expected.attempt},
     client: {uploadArtifact: async (name, paths, directory) => {
       calls.push({phase, name});
       // Submission may outlive cancellation. Missing artifact history must not
@@ -120,10 +122,10 @@ export function operationsFixture(input = operationInput()) {
       const bytes = zipFixture(entries), id = String(next++);
       records.set(id, {bytes, metadata: {id, name, size_in_bytes: bytes.length, expired: false,
         expires_at: '2030-01-01T00:00:00Z', digest: `sha256:${byteDigest(bytes)}`,
-        workflow_run: {id: expected.runId, repository_id: '42'}}});
+        workflow_run: {id: expected.runId, repository_id: b.repositoryId}}});
       const manifest = JSON.parse(entries.find(([p]) => p === 'custody-manifest.json')[1]);
       const refs = history.get(intent.correlation) ?? {};
-      refs[phase] = {ref:{repository: b.repository, repositoryId: '42', runId: expected.runId, artifactId: id,
+      refs[phase] = {ref:{repository: b.repository, repositoryId: b.repositoryId, runId: expected.runId, artifactId: id,
         manifestIdentity: contentIdentity(manifest), archiveDigest: byteDigest(bytes)},source:{runId:expected.runId,attempt:expected.attempt}};
       history.set(intent.correlation, refs);
       return {id, digest: byteDigest(bytes)};

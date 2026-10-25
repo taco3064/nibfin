@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process';
 import {grantFixture} from './grant-fixture.mjs';
 import {bodyDigest} from '../src/index.mjs';
 
-export const packageFiles = ['src/ci.mjs', 'src/portfolio.mjs', 'instructions/scope.md', 'docs/scope.md', 'examples/scope.json', 'src/registration.mjs', 'docs/registration.md', 'src/relay.mjs', 'docs/relay.md', 'src/dynamic.mjs', 'docs/dynamic.md', 'src/operations.mjs', 'src/concurrency.mjs', 'docs/operations.md', 'src/selection.mjs', 'docs/selection.md', 'src/workspace.mjs', 'docs/workspace.md', 'src/runners.mjs', 'src/instructions.mjs', 'docs/instructions.md', 'skills/shape/SKILL.md', 'skills/deliver/SKILL.md', 'skills/accept/SKILL.md', 'src/actions.mjs', 'src/deployment.mjs', 'docs/deployment.md', 'src/lifecycle.mjs', 'docs/lifecycle.md', 'src/authorization.mjs', 'docs/authorization.md', 'src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs', 'src/custody-upload.mjs', 'src/custody.mjs', 'src/custody-zip.mjs', 'docs/custody.md'];
+export const packageFiles = ['src/publication.mjs', 'docs/publication.md', 'src/ci.mjs', 'src/portfolio.mjs', 'instructions/scope.md', 'docs/scope.md', 'examples/scope.json', 'src/registration.mjs', 'docs/registration.md', 'src/relay.mjs', 'docs/relay.md', 'src/dynamic.mjs', 'docs/dynamic.md', 'src/operations.mjs', 'src/concurrency.mjs', 'docs/operations.md', 'src/selection.mjs', 'docs/selection.md', 'src/workspace.mjs', 'docs/workspace.md', 'src/runners.mjs', 'src/instructions.mjs', 'docs/instructions.md', 'skills/shape/SKILL.md', 'skills/deliver/SKILL.md', 'skills/accept/SKILL.md', 'src/actions.mjs', 'src/deployment.mjs', 'docs/deployment.md', 'src/lifecycle.mjs', 'docs/lifecycle.md', 'src/authorization.mjs', 'docs/authorization.md', 'src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs', 'src/custody-upload.mjs', 'src/custody.mjs', 'src/custody-zip.mjs', 'docs/custody.md'];
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 // Read the actual tar payload without extracting attacker-controlled paths.
@@ -76,7 +76,7 @@ export function consumeArchive(archivePath) {
     for (const fixture of ['relay-fixture.mjs','operations-fixture.mjs','selection-fixture.mjs','grant-fixture.mjs','dynamic-fixture.mjs']) {
       writeFileSync(join(consumer, fixture), readFileSync(join(root, 'tooling', fixture), 'utf8').replaceAll("'../src/index.mjs'", "'@nibfin/core'"));
     }
-    for (const file of ['portfolio.test.mjs','registration.test.mjs','relay.test.mjs','operations.test.mjs','concurrency.test.mjs']) {
+    for (const file of ['publication.test.mjs','portfolio.test.mjs','registration.test.mjs','relay.test.mjs','operations.test.mjs','concurrency.test.mjs']) {
       writeFileSync(join(consumer, file), readFileSync(join(root, 'test', file), 'utf8')
         .replaceAll("'../src/index.mjs'", "'@nibfin/core'").replace("'../tooling/custody-fixture.mjs'", "'./custody-fixture.mjs'").replace("'../tooling/operations-fixture.mjs'", "'./operations-fixture.mjs'").replace("'../tooling/relay-fixture.mjs'", "'./relay-fixture.mjs'"));
       const result = execFileSync(process.execPath, ['--test', file], {cwd:consumer,env,encoding:'utf8'});
@@ -281,7 +281,7 @@ console.log('Installed archive consumer passed (real Grant signatures and reject
     writeFileSync(join(consumer, 'deployment.test.mjs'), readFileSync(join(root, 'test/deployment.test.mjs')));
     const deployment = execFileSync(process.execPath, ['--test', 'deployment.test.mjs'], {cwd: consumer, env, encoding: 'utf8'});
     if (!deployment.includes('# fail 0')) throw Error('Installed deployment contract failed');
-    return smoke + '\nInstalled relay/controlled operation/concurrency public contracts passed\nInstalled deployment public contract: 5 tests passed; installed workspace contract: 6 tests passed';
+    return smoke + '\nInstalled publication/restart/relay/controlled operation/concurrency public contracts passed\nInstalled deployment public contract: 5 tests passed; installed workspace contract: 6 tests passed';
   } catch (error) {
     throw new Error(`Archive consumer failed: ${error.message}\n${error.stderr?.toString() ?? ''}`, {cause: error});
   } finally {

@@ -696,3 +696,8 @@ submission, independent readback and restart recovery. The journal has no
 provider or authorization capability. `src/publication.mjs` and
 `docs/publication.md` are mandatory archive entries; installed-consumer checks
 run the retained publication/restart tests against the installed package.
+
+The Linux/Codex backend is documented in [codex.md](codex.md). Its package includes
+the fixed container entrypoint and explicit version/profile checks. Installed
+consumer tests use credential-free controlled process fixtures; native support
+remains Unverified pending #121's actual integration observations.

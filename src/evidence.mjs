@@ -186,7 +186,7 @@ export function createEvidence(current) {
 const CHAIN = ['publication', 'deliver', 'pre-accept-hooks', 'accept', 'pre-commit-hooks',
   'pr', 'ci', 'shaper-review', 'merge', 'final', 'closure', 'delivered'];
 export function verifyEvidenceChain(input, current, through = 'delivered') {
-  if (!['final', 'closure', 'delivered'].includes(through)) fail('through');
+  if (!['merge', 'final', 'closure', 'delivered'].includes(through)) fail('through');
   const stages = CHAIN.slice(0, CHAIN.indexOf(through) + 1);
   fields(input, 'version receipts');
   if (input.version !== 1) fail('version');

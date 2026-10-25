@@ -291,3 +291,8 @@ and installed package consumption only. No live Actions/OIDC acquisition, hosted
 fixture account, deployment or `actions-source-proof.json` is claimed or required
 here. #121 owns live Actions/OIDC/predecessor integration; #123 owns actual rerun,
 attempt separation and rejection/recovery scenarios.
+
+`verifyEvidenceChain` also supports `through: 'merge'` for post-merge incident
+attribution before successful Final Proofs exist. It verifies the complete prefix
+through Merge with the same independent-stage and linkage checks. It does not
+produce completion or relax Closure/Completion proof requirements.

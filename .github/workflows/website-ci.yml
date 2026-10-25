@@ -9,6 +9,8 @@ jobs:
   website:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      quality-artifact-id: ${{ steps.quality.outputs.artifact-id }}
     defaults:
       run:
         working-directory: website
@@ -25,7 +27,8 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run evidence:theme
       - run: npm run evidence:site
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - id: quality
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: ${{ always() }}
         with:
           name: website-quality-${{ github.run_id }}-${{ github.run_attempt }}
@@ -63,7 +66,8 @@ jobs:
           node-version: '22.23.3'
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
-          name: website-quality-${{ github.run_id }}-${{ github.run_attempt }}
+          artifact-ids: ${{ needs.website.outputs.quality-artifact-id }}
+          merge-multiple: true
           path: website/out
       - run: node tooling/pages-configuration.mjs
         env:

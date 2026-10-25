@@ -19,3 +19,7 @@
 - 此次僅安裝入口與完成接入檢查；尚未簽署新產品開發 Grant，也未執行產品開發或 E2E。
 
 執行時需保持指定筆電、WSL、Docker、私有 Runner 與事件通道在線。GitHub 的必要檢查與分支保護決定是否允許合併；未來新增 CI／部署流程時，須同步核對 Kairo 的完成通知清單與新授權中的責任。
+
+## CI completion wakeup
+
+`Kairo CI completion` watches the product CI workflows and sends the current managed PR's Issue identity to the existing signed `Kairo Issue lifecycle` entrypoint. The notifier reads provider metadata only: it never checks out or executes PR code or downloads artifacts. Its repository-scoped Actions token can dispatch the public entrypoint, not access the private controller. Core independently rechecks the current Issue, exact Candidate, Acceptance, Review, required CI and protected merge. Both successful and failed CI conclusions wake reconciliation; an obsolete PR head is ignored.

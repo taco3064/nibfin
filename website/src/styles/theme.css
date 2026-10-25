@@ -1,22 +1,126 @@
 @layer theme, base, components, utilities;
+@import '@fontsource-variable/dm-sans';
+@import '@fontsource-variable/space-grotesk';
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/utilities.css' layer(utilities);
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 @source '../../node_modules/flowbite-react/dist';
+
+/* Semantic source of truth. Starlight resolves data-theme, including system mode. */
 :root {
-  --sl-color-accent-low: #292047;
-  --sl-color-accent: #8b70d4;
-  --sl-color-accent-high: #d7c9ff;
-  --sl-color-bg: #10142b;
-  --sl-font: system-ui, sans-serif;
+  --nf-indigo: #10142b;
+  --nf-violet: #b39cff;
+  --nf-body: 'DM Sans Variable', system-ui, sans-serif;
+  --nf-heading: 'Space Grotesk Variable', system-ui, sans-serif;
+  --nf-space-sm: 0.5rem;
+  --nf-space-md: 1rem;
+  --nf-nav-gap: var(--nf-space-md);
+  --nf-brand-size: clamp(1rem, 2vw, 1.5rem);
+  --nf-space-lg: clamp(1rem, 3vw, 1.5rem);
+  --nf-radius: 0.375rem;
+  --nf-focus-width: 3px;
+  --nf-focus-offset: 3px;
+  --nf-title-size: clamp(1.75rem, 3vw, 2.625rem);
+  --nf-section-size: clamp(1.5rem, 2.5vw, 2.1875rem);
+  --nf-surface: var(--nf-indigo);
+  --nf-raised: #1b2040;
+  --nf-text: #e9e7f5;
+  --nf-heading-color: #ffffff;
+  --nf-muted: #bcb8d0;
+  --nf-border: #87829e;
+  --nf-link: var(--nf-violet);
+  --nf-hover: #d5c7ff;
+  --nf-selected: var(--nf-violet);
+  --nf-on-selected: var(--nf-indigo);
+  --nf-status-bg: #302650;
+  --nf-status-text: #e4d9ff;
+  --nf-focus: #d5c7ff;
+  --nf-overlay: #10142bcc;
 }
 :root[data-theme='light'] {
-  --sl-color-accent-low: #e8dfff;
-  --sl-color-accent: #6746af;
-  --sl-color-accent-high: #382061;
-  --sl-color-bg: #ffffff;
+  --nf-surface: #ffffff;
+  --nf-raised: #f2effa;
+  --nf-text: #25223b;
+  --nf-heading-color: var(--nf-indigo);
+  --nf-muted: #58526c;
+  --nf-border: #777086;
+  --nf-link: #5930a0;
+  --nf-hover: #3c1b75;
+  --nf-selected: #5930a0;
+  --nf-on-selected: #ffffff;
+  --nf-status-bg: #eee7ff;
+  --nf-status-text: #452578;
+  --nf-focus: #5930a0;
+  --nf-overlay: #10142b99;
 }
-:focus-visible { outline: 3px solid var(--sl-color-accent); outline-offset: 3px; }
+
+/* Explicit framework adapter; neutral ramps also cover native docs controls. */
+:root, :root[data-theme='light'] {
+  --sl-font: var(--nf-body);
+  --sl-text-h1: var(--nf-title-size);
+  --sl-text-h2: var(--nf-section-size);
+  --sl-color-white: var(--nf-heading-color);
+  --sl-color-gray-1: var(--nf-text);
+  --sl-color-gray-2: var(--nf-text);
+  --sl-color-gray-3: var(--nf-muted);
+  --sl-color-gray-4: var(--nf-border);
+  --sl-color-gray-5: var(--nf-border);
+  --sl-color-gray-6: var(--nf-raised);
+  --sl-color-gray-7: var(--nf-raised);
+  --sl-color-black: var(--nf-surface);
+  --sl-color-accent-low: var(--nf-status-bg);
+  --sl-color-accent: var(--nf-link);
+  --sl-color-accent-high: var(--nf-link);
+  --sl-color-text: var(--nf-text);
+  --sl-color-text-accent: var(--nf-link);
+  --sl-color-text-invert: var(--nf-on-selected);
+  --sl-color-bg: var(--nf-surface);
+  --sl-color-bg-nav: var(--nf-raised);
+  --sl-color-bg-sidebar: var(--nf-surface);
+  --sl-color-bg-inline-code: var(--nf-raised);
+  --sl-color-bg-accent: var(--nf-selected);
+  --sl-color-hairline: var(--nf-border);
+  --sl-color-hairline-light: var(--nf-border);
+  --sl-color-hairline-shade: var(--nf-border);
+  --sl-color-backdrop-overlay: var(--nf-overlay);
+  --sl-content-pad-x: var(--nf-space-lg);
+  --sl-content-gap-y: var(--nf-space-md);
+  --sl-nav-pad-x: var(--nf-space-lg);
+  --sl-nav-gap: var(--nf-nav-gap);
+}
+@media (max-width: 49.999rem) {
+  :root { --nf-nav-gap: var(--nf-space-sm); }
+}
+.site-title { font-size: var(--nf-brand-size); }
+h1, h2, h3, h4, h5, h6, .site-title { font-family: var(--nf-heading); }
+/* Starlight's fixed inline Cancel allowance consumes the text field at 200% text size. */
+@media (max-width: 25rem) {
+  site-search button[data-close-modal] { position: static; align-self: flex-end; height: auto; }
+  #starlight__search { --sl-search-cancel-space: 0rem; }
+}
+#starlight__search input::placeholder { color: var(--nf-muted); opacity: 1; }
+.sl-markdown-content { overflow-wrap: anywhere; }
+.sl-markdown-content a:hover { color: var(--nf-hover); }
+:focus-visible {
+  outline: var(--nf-focus-width) solid var(--nf-focus) !important;
+  outline-offset: var(--nf-focus-offset) !important;
+}
+/* Flowbite Badge retains its own structure; the supported theme prop selects this adapter. */
+.nf-status {
+  color: var(--nf-status-text);
+  background: var(--nf-status-bg);
+  border: 1px solid var(--nf-border);
+  border-radius: var(--nf-radius);
+  padding: var(--nf-space-sm) var(--nf-space-md);
+  font-family: var(--nf-body);
+  line-height: 1.5;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; }
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation: none !important;
+    transition: none !important;
+  }
 }

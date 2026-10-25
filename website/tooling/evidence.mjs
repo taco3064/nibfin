@@ -35,5 +35,5 @@ writeFileSync('out/build-evidence.json', JSON.stringify({
   npm: spawnSync('npm', ['--version'], { encoding: 'utf8' }).stdout.trim(),
   sourceHashAlgorithm: 'SHA-256 of exact file bytes (not a Core body digest)', inputs, packages, commands,
   archive: { path: 'website/out/site.tar.gz', sha256: hash(readFileSync('out/site.tar.gz')) },
-  limits: 'Static and local verification only. Browser E2E and Pages deployment belong to #132.'
+  limits: 'Build verification only. Issue #129 separately retains local rendered theme evidence; live Pages integration remains outside this build report.'
 }, null, 2) + '\n');

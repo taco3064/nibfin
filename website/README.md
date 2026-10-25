@@ -31,7 +31,7 @@ status on Overview through Astro's React renderer. It is server-rendered only:
 there is no interaction to justify hydration, browser state or a second theme
 switcher. Tailwind's dark variant follows Starlight's `data-theme` attribute.
 The [official Astro integration guide](https://flowbite-react.com/docs/guides/astro)
-documents server rendering without a client directive. The static badge uses Flowbite's color classes and contains a textual
+documents server rendering without a client directive. The static badge uses the shared semantic color adapter and contains a textual
 status, so status does not depend on color alone.
 
 Blueprint's module-first root is `src/modules`. `status` owns release-status
@@ -84,6 +84,71 @@ This is a truthful English shell, not a verified product installation guide.
 Public repositories with individual or organization owners and multiple
 collaborators are the product scope; private support is excluded. No release,
 Agent/platform combination, provider lifecycle or deployment is certified here.
-#132 owns integrated desktop/mobile/light/dark and keyboard/focus/browser checks,
-real route/asset/search behavior and actual Pages deployment. Output is configured
+#129 owns local desktop/mobile/light/dark and keyboard/focus theme checks.
+#132 owns live route/asset/search integration and actual Pages deployment. Output is configured
 for `https://taco3064.github.io/nibfin/`; no live deployment is claimed.
+
+## Shared Indigo/Violet theme (#129)
+
+`theme.css` owns the `--nf-*` semantic values: surfaces, text, muted copy, links,
+selected colors, status, meaningful borders and focus, plus spacing and typography.
+Its explicit `--sl-*` adapter covers Starlight's native documentation controls.
+Flowbite's supported Badge `theme` prop selects `nf-status`, which consumes the
+same root tokens. No common primitive exceptions or new interactive islands are
+introduced. At narrow widths, the native Starlight Cancel control stacks above
+its search field: the framework's fixed inline allowance otherwise consumes the
+text area at 200% text enlargement. This changes layout only and retains native
+search and dismissal behavior. Starlight retains navigation, search, menu and theme-selection behavior.
+
+Exact locked Fontsource variable packages serve Latin DM Sans and Space Grotesk
+from the generated local assets, without a font CDN request. DM Sans is body text;
+Space Grotesk is headings/site title. Font display is swap; blocked or unavailable
+fonts fall back to system-ui/sans-serif. This small dependency addition supplies
+font bytes through the existing locked build, rather than a runtime service.
+
+Local rendered theme proof belongs to #129, independently of #132's later live
+Pages integration. `out/theme-evidence.json` and `out/theme-screenshots.tar.gz`
+retain the local proof; build evidence alone does not establish theme acceptance.
+
+### Reproducing local theme checks
+
+After `npm run evidence`, run `npm run evidence:theme`. Playwright 1.56.1 is a
+locked development dependency. Supply an installed Chromium executable through
+`THEME_BROWSER_PATH`, or install Playwright's matching Chromium in verifier-owned
+scratch storage. Missing browser/runtime libraries are a failing prerequisite.
+The checker starts a loopback-only server for the built `/nibfin/` site, records
+computed samples and retains screenshots. It rejects stale build/source identities
+and checks real font loading, reflow, preference persistence, contrast, keyboard
+search focus restoration and reduced motion. It never publishes or deploys.
+
+This execution used Chromium 141.0.7390.0 from the exact npm package
+`@sparticuz/chromium@141.0.0`, with its bundled `al2023.tar.br` runtime libraries
+extracted into verifier scratch (no host package installation). The regular
+Playwright browser CDN was unavailable (403). To reproduce that fallback, install
+that package outside the source tree, use its exported `executablePath()` and
+bundled `inflate()` helper, and set `LD_LIBRARY_PATH` to the extracted `al2023/lib`.
+Use writable `TMPDIR` with room for the extracted browser. The actual invocation
+was `THEME_BROWSER_PATH=/work/website/.cache/browser/chromium
+LD_LIBRARY_PATH=/work/website/.cache/browser/al2023/lib TMPDIR=/work/website/.cache/browser npm run evidence:theme`
+(on one shell line). These are tool paths, not product runtime dependencies.
+
+Inspect the retained captures for clipping, overlap and readable hierarchy;
+automated metrics do not replace visual review. The 200% text test doubles the
+root font size at 320 CSS pixels rather than changing screenshot pixel density.
+Hover, selected, open-search and keyboard focus observations belong to the
+rendered report. Static Badge has no hover/disabled/action contract; the native
+search control is only disabled transiently before initialization. No dummy
+controls are added to manufacture states.
+
+
+### Candidate capture cleanup
+
+After the final build, rendered checks and visual review, run `npm run candidate:clean`
+from `website/`. Core rejects symlinks anywhere in an isolated workspace, including
+ignored npm executable links and temporary browser/font links. The cleanup first
+checks current source identities and required archive digests, removes only the
+website's generated `node_modules`, `.astro`, `dist` and `.cache` directories, then
+checks the entire owning workspace for remaining symlinks or unsupported file types.
+It preserves all four mandatory `out/` artifacts and records the handoff observation
+in the theme report. Do not remove `out/`. Reinstall locked dependencies and rebuild
+before running verification again after cleanup; caches are never delivery evidence.

@@ -145,23 +145,21 @@ that source. Publication is restricted to the actual owning Actions runtime.
 No role success, authorization, independent Acceptance or completion follows from
 artifact existence or custody success.
 
-The maintained actual-SDK transport regression is mandatory in `npm run check`.
-Supply an isolated test runtime containing @actions/artifact 2.3.2 and its installed
-dependencies via `NIBFIN_ARTIFACT_SDK_ROOT` (directory containing node_modules).
-Missing runtime fails explicitly, never skips this test. The maintained Core CI
-workflow provisions the exact SDK version under runner.temp and exports this
-variable before running the full suite. Local verifiers provision the same
-disposable test resource before offline verification, preserving its generated lockfile:
+Routine `npm run check` uses narrow official-interface client doubles and requires
+no artifact SDK download. The separately runnable actual-SDK regression is
+`npm run test:artifact-sdk`; it requires a genuine host-installed @actions/artifact
+2.3.2 runtime via NIBFIN_ARTIFACT_SDK_ROOT (directory containing node_modules).
+Missing runtime fails explicitly in that suite. Core CI continues to provision
+and run it. This separation does not remove or replace the production dependency,
+its exact version check or actual SDK integration.
 
 ```sh
-npm install --prefix /path/to/sdk-runtime --save-exact --ignore-scripts --no-audit --no-fund @actions/artifact@2.3.2
-NIBFIN_ARTIFACT_SDK_ROOT=/path/to/sdk-runtime npm run check
+NIBFIN_ARTIFACT_SDK_ROOT=/path/to/approved-sdk-runtime npm run test:artifact-sdk
+npm run check
 npm run verify:archive
 ```
 
-The regression uses the real generated RPC client, ZIP builder and Azure HTTP
-pipeline, intercepting only HTTP transports. It verifies successful publication
-and readback, exactly one CreateArtifact/FinalizeArtifact POST on truncated JSON
-or transport loss, and one failed blob PUT without replay. It sends no network
-requests or credentials. The packaged consumer retains a separate self-contained
-local fixture round trip through public APIs and rejects an altered Attempt.
+The SDK regression uses real generated RPC, ZIP and Azure serialization with HTTP
+transport interception. Local boundary tests prove module contracts, not live
+artifact transport. Do not claim the optional local SDK suite ran without its
+actual runtime. Production hosts still need the pinned SDK and network access.

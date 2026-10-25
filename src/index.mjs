@@ -61,3 +61,5 @@ export {concurrencyVersion, nativeConcurrency, nativeExecutionPlan, parallelIssu
 export {createDependencyEvaluator} from './dynamic.mjs';
 
 export {issueWakeup, createEventRelay} from './relay.mjs';
+
+export {createRegistrationHost, createRegistrationArtifactChannel, registrationArtifactReader, openRegistrationResponse} from './registration.mjs';

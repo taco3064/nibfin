@@ -49,11 +49,14 @@
     "src/dynamic.mjs",
     "docs/dynamic.md",
     "src/relay.mjs",
-    "docs/relay.md"
+    "docs/relay.md",
+    "src/registration.mjs",
+    "docs/registration.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",
-    "verify:archive": "node tooling/archive.mjs"
+    "verify:archive": "node tooling/archive.mjs",
+    "test:artifact-sdk": "node --test test-sdk/*.test.mjs"
   },
   "dependencies": {
     "jose": "6.2.13"

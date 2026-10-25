@@ -15,9 +15,8 @@ execution permission. Public visibility does not authorize untrusted fork/PR cod
 to run on credential-bearing self-hosted Runners.
 
 Use Node.js 22.x and npm 10.x (development baseline: Node 22.23.3, npm 10.9.9).
-The runtime dependency is pinned JOSE; no build compiler is needed. Provision the
-isolated artifact SDK test runtime as described in [custody.md](docs/custody.md)
-and set `NIBFIN_ARTIFACT_SDK_ROOT` before running checks:
+The runtime dependency is pinned JOSE; no build compiler is needed. Routine local checks use narrow artifact-client boundary doubles and require no
+artifact SDK download:
 
 ```sh
 npm ci --registry=https://registry.npmjs.org --ignore-scripts --no-audit --no-fund
@@ -34,3 +33,10 @@ behavior; independent Acceptance and repository CI remain separate gates.
 The [approved-export contract](docs/authority.md) documents full representation,
 independent approval, cycle binding and dependent-evidence invalidation. It uses
 locally supplied exports and does not connect to live Notion.
+
+The [protected registration contract](docs/registration.md) provides Owner opt-in,
+fresh member eligibility and encrypted short-lived responses through Actions
+artifacts. #122 owns actual protected-host/channel integration proof. Production
+artifact hosts still need the genuine pinned SDK in [custody.md](docs/custody.md).
+Its separate `npm run test:artifact-sdk` regression requires an existing approved
+runtime via `NIBFIN_ARTIFACT_SDK_ROOT`; Core CI provisions and runs that suite.

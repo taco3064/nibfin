@@ -5,6 +5,7 @@ on:
       - 'src/**'
       - 'skills/**'
       - 'test/**'
+      - 'test-sdk/**'
       - 'tooling/**'
       - 'docs/**'
       - 'README.md'
@@ -18,6 +19,7 @@ on:
       - 'src/**'
       - 'skills/**'
       - 'test/**'
+      - 'test-sdk/**'
       - 'tooling/**'
       - 'docs/**'
       - 'README.md'
@@ -43,5 +45,6 @@ jobs:
       - run: npm ci --registry=https://registry.npmjs.org --ignore-scripts --no-audit --no-fund
       - name: Provision pinned artifact SDK test runtime
         run: npm install --prefix "$NIBFIN_ARTIFACT_SDK_ROOT" --registry=https://registry.npmjs.org --save-exact --ignore-scripts --no-audit --no-fund @actions/artifact@2.3.2
+      - run: npm run test:artifact-sdk
       - run: npm run check
       - run: npm run verify:archive

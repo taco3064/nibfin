@@ -84,7 +84,9 @@
     "src/candidate-publication.mjs",
     "docs/candidate-publication.md",
     "src/final-review.mjs",
-    "docs/final-review.md"
+    "docs/final-review.md",
+    "src/completion.mjs",
+    "docs/completion.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

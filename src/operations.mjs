@@ -16,8 +16,8 @@ async function bounded(work, signal) {
     })]);
   } finally {signal.removeEventListener('abort', abort);}
 }
-// Both effects establish Shape publication; remote presence alone is noncausal.
-const publicationEffect = v => v.kind === 'issue-body' || v.kind === 'label';
+// Publication and completed-close require submission custody; presence alone is noncausal.
+const publicationEffect = (v,causalClose) => v.kind === 'issue-body' || v.kind === 'label' || causalClose && v.kind === 'close';
 const unknown = (refs = {}, reason = 'readback') => ({outcome: 'unknown', continuation: false, refs, reason});
 
 /** Construct the exact supported HTTP request; callers cannot supply endpoints/predicates. */
@@ -179,10 +179,11 @@ async function observe(provider, v, signal, allowAbsent = false, reconcilePR = f
  * traceable custody references, or positively attests a new request. Never infer
  * newness from a missing artifact. Writes must use createAuthorizationBoundary.
  */
-export function createControlledOperations({authorization, provider, custody, publication, locate, execution, beforeSubmit = async () => {}, reconcileExistingPR = false, timeoutMs = 30000} = {}) {
+export function createControlledOperations({authorization, provider, custody, publication, locate, execution, beforeSubmit = async () => {}, reconcileExistingPR = false, causalClose = false, timeoutMs = 30000} = {}) {
   if (typeof authorization?.request !== 'function' || typeof provider?.request !== 'function'
       || typeof provider?.collection !== 'function' || typeof custody?.retrieve !== 'function'
       || typeof publication !== 'function' || typeof locate !== 'function') throw Error('operations:capability');
+  if (typeof causalClose !== 'boolean') fail();
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 86400000) throw Error('operations:timeout');
   if (!exact(execution, 'runId attempt')) fail();
   githubId(execution.runId); githubId(execution.attempt);
@@ -209,14 +210,14 @@ export function createControlledOperations({authorization, provider, custody, pu
     return entry;
   }
   async function submit(v, refs, signal) {
-    const boundary = v.kind==='merge' ? authorization.withMutationGuard(async()=>{
+    const boundary = ['merge','close','label'].includes(v.kind) ? authorization.withMutationGuard(async()=>{
       await beforeSubmit(structuredClone(v)); return !signal.aborted;
     }) : authorization;
     const result = await bounded(boundary.request({...requestFor(v), context: structuredClone(v.binding), signal}), signal);
     // An attempt precedes the guard and is not submission provenance. Retain the
     // boundary's actual result separately, including unknown/lost responses. If
     // retention is interrupted, recovery fails closed rather than inventing proof.
-    if (publicationEffect(v)) refs.submission = await retain(v, 'submission', {
+    if (publicationEffect(v,causalClose)) refs.submission = await retain(v, 'submission', {
       attempt: refs.attempt, submission: {outcome: result.outcome, diagnostic: result.diagnostic}
     }, signal);
     return result;
@@ -231,14 +232,14 @@ export function createControlledOperations({authorization, provider, custody, pu
       if (prior?.outcome === 'found') {
         refs = structuredClone(prior.refs);
         await recover(refs.intent, v, 'intent', signal);
-        if (publicationEffect(v) && !refs.attempt) return unknown(refs, 'missing-attempt');
+        if (publicationEffect(v,causalClose) && !refs.attempt) return unknown(refs, 'missing-attempt');
         // Even a retained success is re-observed; no local result cache authorizes continuation.
         if (refs.attempt) await recover(refs.attempt, v, 'attempt', signal);
         const result = refs.result ? await recover(refs.result, v, 'result', signal) : null;
-        if (publicationEffect(v) && result?.outcome === 'confirmed-no-effect'
+        if (publicationEffect(v,causalClose) && result?.outcome === 'confirmed-no-effect'
             && same(result.attempt, refs.attempt) && retryAfterNoEffect !== true)
           return unknown(refs, 'known-no-effect');
-        if (publicationEffect(v) && retryAfterNoEffect !== true) {
+        if (publicationEffect(v,causalClose) && retryAfterNoEffect !== true) {
           if (!refs.submission) return unknown(refs, 'missing-submission');
           const submitted = await recover(refs.submission, v, 'submission', signal);
           if (!same(submitted.attempt, refs.attempt)) return unknown(refs, 'submission-attempt');
@@ -278,5 +279,10 @@ export function createControlledOperations({authorization, provider, custody, pu
         ...(observation ? {observation} : {})};
     } catch { return unknown(refs, 'identity-or-custody'); }
   }
-  return Object.freeze({execute});
+  return Object.freeze({execute,causalClose});
+}
+
+/** Independent official GET readback, without submission or authorization. */
+export function observeControlledOperation(provider, input, signal) {
+  return observe(provider, controlledIntent(input), signal);
 }

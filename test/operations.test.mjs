@@ -181,7 +181,7 @@ test('readback tolerates changing Run status and extra detail fields, but reject
   const f=operationsFixture(operationInput('dispatch')); f.state.total=2;
   assert.equal((await f.fresh().execute(f.input)).outcome,'unknown'); assert.equal(f.writes().length,1);
 });
-test('Merge independently binds destination branch and exact Base through initial and recovered readback', async () => {
+test('Merge binds reviewed Base separately from destination history through recovered readback', async () => {
   const control=operationsFixture(operationInput('merge'));
   const success=await control.fresh().execute(control.input);
   assert.equal(success.outcome,'confirmed-success'); assert.equal(success.continuation,true);
@@ -190,7 +190,6 @@ test('Merge independently binds destination branch and exact Base through initia
   const conflicts=[
     {ref:'unintended-branch',sha:'e'.repeat(40),repo:{id:'42'}},
     {ref:'unintended-branch',sha:'c'.repeat(40),repo:{id:'42'}},
-    {ref:'main',sha:'e'.repeat(40),repo:{id:'42'}},
     {sha:'c'.repeat(40),repo:{id:'42'}}, {ref:'main',repo:{id:'42'}}
   ];
   for(const base of conflicts) {

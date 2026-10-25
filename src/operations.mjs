@@ -137,12 +137,23 @@ async function observe(provider, v, signal, allowAbsent = false, reconcilePR = f
     r = await read(`${root}/pulls/${v.target.number}`);
     const d = r.data;
     if (d.id !== v.target.id || String(d.number) !== v.target.number || d.base?.repo?.id !== v.binding.repositoryId
-        || d.base?.ref !== v.binding.baseRef || d.base?.sha !== v.binding.base
+        || d.base?.ref !== v.binding.baseRef || !sha(d.base?.sha)
         || d.head?.repo?.id !== v.binding.repositoryId || d.head?.sha !== v.binding.head
         || d.merged !== true || d.state !== 'closed' || !sha(d.merge_commit_sha)) throw Error('merge');
     const commit = await read(`${root}/commits/${d.merge_commit_sha}`);
     if (commit.data?.sha !== d.merge_commit_sha) throw Error('commit');
-    return {effect: 'merged', id: d.id, mergeCommit: d.merge_commit_sha, baseRef: d.base.ref, base: d.base.sha,
+    const destination = await read(`${root}/branches/${encodeURIComponent(v.binding.baseRef)}`);
+    const tip = destination.data?.commit?.sha;
+    if(destination.data?.name !== v.binding.baseRef || !sha(tip)) throw Error('destination');
+    const membership = await read(`${root}/compare/${d.merge_commit_sha}...${tip}`);
+    const m=membership.data;
+    if(m?.base_commit?.sha!==d.merge_commit_sha || m.merge_base_commit?.sha!==d.merge_commit_sha
+      || !['ahead','identical'].includes(m.status) || !Number.isSafeInteger(m.behind_by) || m.behind_by!==0
+      || !Number.isSafeInteger(m.ahead_by) || m.ahead_by<0
+      || (m.status==='identical')!==(tip===d.merge_commit_sha)
+      || (tip===d.merge_commit_sha?m.ahead_by!==0:m.ahead_by<1)) throw Error('destination-history');
+    return {effect: 'merged', id: d.id, mergeCommit: d.merge_commit_sha, baseRef: d.base.ref, base: v.binding.base, destinationTip:tip,
+      history:contentIdentity({commit:commit.data,destination:destination.data,membership:m}),
       endpoint: `${root}/pulls/${v.target.number}`, observedAt: r.observedAt, identity: contentIdentity(d)};
   }
   r = await read(`${root}/issues/${v.target.number}`);
@@ -198,7 +209,10 @@ export function createControlledOperations({authorization, provider, custody, pu
     return entry;
   }
   async function submit(v, refs, signal) {
-    const result = await bounded(authorization.request({...requestFor(v), context: structuredClone(v.binding), signal}), signal);
+    const boundary = v.kind==='merge' ? authorization.withMutationGuard(async()=>{
+      await beforeSubmit(structuredClone(v)); return !signal.aborted;
+    }) : authorization;
+    const result = await bounded(boundary.request({...requestFor(v), context: structuredClone(v.binding), signal}), signal);
     // An attempt precedes the guard and is not submission provenance. Retain the
     // boundary's actual result separately, including unknown/lost responses. If
     // retention is interrupted, recovery fails closed rather than inventing proof.

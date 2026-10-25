@@ -59,6 +59,9 @@ export function operationsFixture(input = operationInput()) {
     if (r.endpoint.startsWith(`${root}/actions/workflows/`)) return response({total_count:state.total ?? (state.effect ? 1 : 0),workflow_runs: state.runs ?? (state.effect ? [d] : [])}, state.status, headers);
     if (r.endpoint === `${root}/pulls?state=all&per_page=100`) return response(state.prs ? state.prs(d) : state.effect ? [d] : [], state.status, headers);
     if (r.endpoint.includes('/labels')) return response(state.effect ? (input.payload.labels ?? []).map(name=>({id:'80',name})) : [], state.status, headers);
+    if (r.endpoint.includes('/branches/')) return response(state.destination ?? {name:input.binding.baseRef,commit:{sha:state.tip??'d'.repeat(40)}},state.status);
+    if (r.endpoint.includes('/compare/')) return response(state.membership ?? {base_commit:{sha:'d'.repeat(40)},merge_base_commit:{sha:'d'.repeat(40)},
+      status:state.tip&&state.tip!=='d'.repeat(40)?'ahead':'identical',behind_by:0,ahead_by:state.tip?1:0},state.status);
     if (r.endpoint.includes('/commits/')) return response({sha: 'd'.repeat(40)}, state.status);
     return response(state.effect ? (state.detail ? state.detail(d) : d) : {id: input.target.id, state: 'open'}, state.status);
   };
@@ -66,6 +69,7 @@ export function operationsFixture(input = operationInput()) {
   const grantInput = grantFixture(bodyDigest);
   for (const work of grantInput.work) work.repository.id = '42';
   grantInput.permissions[0].repository.id = '42'; grantInput.permissions[0].operations = [input.kind];
+  if(input.kind==='merge')grantInput.policy.merge.method=input.payload.merge_method;
   const keys = generateKeyPairSync('ed25519');
   const context = grantContext(grantInput, keys.publicKey.export({type:'spki',format:'pem'}));
   context.request.operation = input.kind;

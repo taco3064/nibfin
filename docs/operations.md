@@ -89,13 +89,16 @@ rules use fresh GETs and exact repository identity, not a caller predicate:
   This proves a correlated Run exists, not that the Run/stage succeeded.
 - PR: exactly one fully paginated PR matches title/body correlation, head/base
   refs and SHAs and both repository IDs; exact-number detail agrees.
-- Merge: exact PR identity/head/repository and the retained destination branch
-  (`binding.baseRef`) and Base SHA (`binding.base`) agree with independent PR
-  readback. The PR is merged with a valid merge SHA, whose independent commit
-  retrieval agrees. Missing, retargeted or advanced base evidence remains unknown,
-  including during recovery; head equality alone cannot establish success.
-  Core must revalidate a changed Base/Candidate and all invalidated gates before
-  issuing a fresh request. Never rewrite the old retained intent to accept drift.
+- Merge: exact PR identity/head/repository and destination branch (`binding.baseRef`)
+  agree with independent merged/closed PR readback and resulting-commit retrieval.
+  The retained `binding.base` is the reviewed pre-merge Base, not the destination's
+  post-merge tip. An independent destination branch read and exact-SHA GitHub
+  comparison must prove the resulting commit belongs to that history. Rebase and
+  squash may produce a SHA different from Head; later destination advances are
+  allowed when membership is proven. Missing, retargeted or contradictory history
+  remains unknown, including during recovery. Before a fresh submission Core
+  revalidates changed Base/Candidate and invalidated gates; it never rewrites an
+  old intent. See [final-review.md](final-review.md) for the complete composition.
 - Close: exact Issue ID/node ID/number/repository is closed with completed reason
   and a closure timestamp. A not-planned closure cannot match.
 - Label: exact Issue identity plus a complete separate labels listing contains
@@ -205,3 +208,8 @@ Related correlation/head-ref mismatches and duplicate PRs remain unresolved.
 Discovery failure is never treated as absence. After an empty complete discovery,
 the pre-submit guard runs again before the guarded provider request. Re-entry of
 an attempted operation only reads back; it does not repeat an uncertain POST.
+
+Merge also requires `authorization.withMutationGuard`: the existing operation
+guard runs again after awaited authorization reads, immediately before transport.
+The boundary enforces the signed method and destination Base policy. Recovery
+with an existing attempt remains read-only and uses the original custody records.

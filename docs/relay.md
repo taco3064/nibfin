@@ -148,9 +148,11 @@ independent of Runner registration level and optional registration convenience;
 no private-product support or registration behavior is added.
 
 Verify with Node 22/npm 10: `npm ci --ignore-scripts --no-audit --no-fund`, then
-`node --test test/relay.test.mjs`. For the full `npm run check`, provision the exact
-isolated SDK per [custody.md](custody.md) and set NIBFIN_ARTIFACT_SDK_ROOT. Run
-`npm run verify:archive`; out/nibfin-core.tgz is a mandatory ignored deliverable.
+`node --test test/relay.test.mjs`. The full `npm run check` uses local boundary doubles without an SDK download.
+The separate `npm run test:artifact-sdk` requires the genuine runtime described
+in [custody.md](custody.md) via NIBFIN_ARTIFACT_SDK_ROOT. Run
+`npm run verify:archive`; it writes local out/nibfin-core.tgz. The current
+Issue Shape determines whether that output is a required Candidate artifact.
 Archive verification compares all included bytes and runs the relay contract
 suite using the installed public package in credential-free offline scratch.
 Independent reviewers use their own disposable files/processes; submitted

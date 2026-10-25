@@ -47,7 +47,7 @@ npm run check
 npm run verify:archive
 ```
 
-The real custody SDK transport regression additionally requires the isolated test
+The separately runnable `npm run test:artifact-sdk` custody SDK regression requires the isolated test
 runtime described in [custody.md](custody.md), exposed through
 `NIBFIN_ARTIFACT_SDK_ROOT`. Locked installation fetches JOSE from the registry;
 `npm ci --offline` is supported after provisioning its integrity-checked cache.
@@ -584,3 +584,8 @@ The public native Issue/approved Dispatch relay is documented in
 controlled dispatch, retained custody and current Core gates. Installed archive
 consumers exercise the real adapter; these fixtures establish local contracts,
 not live event delivery or stage success.
+
+Protected Owner-side registration and encrypted response consumption are exported
+through [registration.md](registration.md). Archive consumers run positive and
+negative registration cases through the installed package. This proves a local
+module contract; #122 retains actual protected-host/channel integration proof.

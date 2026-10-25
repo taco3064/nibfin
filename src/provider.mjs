@@ -87,6 +87,8 @@ function classify(response) {
   return null;
 }
 function requirement(method, path) {
+  if (method === 'POST' && /^\/repos\/[^/]+\/[^/]+\/actions\/runners\/registration-token$/.test(path)) return 'administration:write';
+  if (method === 'POST' && /^\/orgs\/[^/]+\/actions\/runners\/registration-token$/.test(path)) return 'organization_self_hosted_runners:write';
   if (method === 'GET' && /^\/repos\/[^/]+\/[^/]+\/actions\/runners(?:\?|$)/.test(path)) return 'administration:read';
   return 'unknown';
 }

@@ -83,6 +83,12 @@ export function createAuthorizationBoundary({getCheckpoint, now = Date.now, maxC
       // Never accept a request/clock supplied by Grant context in place of this checkpoint.
       const grant = verifyGrant(c.grant, {...c.grantContext, now: finished, request});
       if (!grant.ok) return denied('grant_' + grant.category);
+      if(intent.method && request.operation==='merge') {
+        const m=c.grantContext.expectedPolicy.merge;
+        if(intent.method!=='PUT'||(!intent.endpoint.startsWith(prefix+'/pulls/')||!/^\/pulls\/[1-9][0-9]*\/merge$/.test(intent.endpoint.slice(prefix.length)))
+          ||intent.body?.merge_method!==m.method||intent.context?.baseRef!==m.baseBranch||m.protected!==true)
+          return denied('merge_policy');
+      }
       if (!fresh(now()) || signal?.aborted) return denied(signal?.aborted ? 'cancelled' : 'stale');
       return {ok: true, observation: {source: identity, startedAt: started, observedAt: finished,
         repositoryId: request.repository.id, issueId: request.issueId, memberId: c.member.id,
@@ -94,5 +100,14 @@ export function createAuthorizationBoundary({getCheckpoint, now = Date.now, maxC
     try {return await beforeMutation(intent) === true && !intent.signal?.aborted;} catch {return false;}
   }});
   return Object.freeze({eligibility: (intent = {}, {signal} = {}) => check(intent, signal),
-    request: provider.request, reconcile: provider.reconcile});
+    request: provider.request, reconcile: provider.reconcile,
+    // Add a Core-owned operation guard after all awaited authorization reads.
+    withMutationGuard(guard) {
+      if(typeof guard!=='function') throw Error('Invalid mutation guard');
+      return createGithubProvider({...providerOptions,now,authorize:async intent=>{
+        if(!(await check(intent,intent.signal)).ok) return false;
+        try {return await beforeMutation(intent)===true && await guard(intent)===true && !intent.signal?.aborted;}
+        catch {return false;}
+      }});
+    }});
 }

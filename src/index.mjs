@@ -87,3 +87,5 @@ export {createAcceptFlow} from './accept.mjs';
 
 export {createRepairFlow,invalidateRepairEvidence} from './repair.mjs';
 export {createCandidatePublication, createPublicationGit} from './candidate-publication.mjs';
+
+export {observeFinalReview,createFinalReview,createProtectedMerge} from './final-review.mjs';

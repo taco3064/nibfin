@@ -10,7 +10,7 @@ const token = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test
 const id = value => typeof value === 'string' && /^[1-9][0-9]*$/.test(value);
 function endpoint(value) {
   if (typeof value !== 'string' || !/^\/(?:[a-zA-Z0-9_/?=&.-]|%2[fF])+$/.test(value)
-      || value.includes('..') || value.includes('//')) throw Error('unsupported');
+      || value.includes('..') && !(/^\/repos\/[A-Za-z0-9_-]+\/[A-Za-z0-9_.-]+\/compare\/[a-f0-9]{40}\.\.\.[a-f0-9]{40}$/.test(value) && !value.split('/compare/')[0].includes('..')) || value.includes('//')) throw Error('unsupported');
   const url = new URL(value, origin);
   if (url.origin !== origin || decodeURIComponent(url.pathname).includes('//') || decodeURIComponent(url.pathname).split('/').some(part => part === '.' || part === '..')) throw Error('unsupported');
   return url.pathname + url.search;

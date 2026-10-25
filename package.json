@@ -82,7 +82,9 @@
     "src/repair.mjs",
     "docs/repair.md",
     "src/candidate-publication.mjs",
-    "docs/candidate-publication.md"
+    "docs/candidate-publication.md",
+    "src/final-review.mjs",
+    "docs/final-review.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

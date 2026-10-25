@@ -67,3 +67,5 @@ export {createRegistrationHost, createRegistrationArtifactChannel, registrationA
 export {scopeInstructions, checkPortfolio} from './portfolio.mjs';
 
 export {observeGithubCI} from './ci.mjs';
+
+export {publicationManifest, openPublicationJournal} from './publication.mjs';

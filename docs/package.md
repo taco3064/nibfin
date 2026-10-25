@@ -686,3 +686,13 @@ reads afresh; cross-API atomicity, permanent approval and future success are not
 guaranteed. Native strict/base requirements are reported for the protected Merge
 consumer to enforce. Local fixture and installed archive tests verify this
 reader; live protected-PR/CI integration and recovery belong to #121 and #123.
+
+## Scope publication journal
+
+`publicationManifest(manifest)` and `openPublicationJournal(options)` are exported
+from `@nibfin/core`. The installed [journal contract](publication.md) specifies
+explicit durable POSIX storage, exact plan/correlation binding, intent before
+submission, independent readback and restart recovery. The journal has no
+provider or authorization capability. `src/publication.mjs` and
+`docs/publication.md` are mandatory archive entries; installed-consumer checks
+run the retained publication/restart tests against the installed package.

@@ -9,10 +9,10 @@ const writes = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const token = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(value);
 const id = value => typeof value === 'string' && /^[1-9][0-9]*$/.test(value);
 function endpoint(value) {
-  if (typeof value !== 'string' || !/^\/[a-zA-Z0-9_/?=&.-]+$/.test(value)
+  if (typeof value !== 'string' || !/^\/(?:[a-zA-Z0-9_/?=&.-]|%2[fF])+$/.test(value)
       || value.includes('..') || value.includes('//')) throw Error('unsupported');
   const url = new URL(value, origin);
-  if (url.origin !== origin) throw Error('unsupported');
+  if (url.origin !== origin || decodeURIComponent(url.pathname).includes('//') || decodeURIComponent(url.pathname).split('/').some(part => part === '.' || part === '..')) throw Error('unsupported');
   return url.pathname + url.search;
 }
 // Node 22's reviver source retains numeric spelling before lossy Number conversion.

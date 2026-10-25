@@ -595,3 +595,94 @@ portfolio checker, template/reference (docs/scope.md) and examples/scope.json.
 `scopeInstructions` and `checkPortfolio` are exported from @nibfin/core; Scope
 is separate from protected Skill selection. Archive verification runs real
 positive and rejection cases through a fresh installed consumer.
+
+## Current branch policy and exact-head CI observations
+
+`observeGithubCI({provider, expected, actions = [], maxPages = 50})` is exported
+from the inert package entry. Supply a `createGithubProvider` instance; all reader
+traffic uses GET. The reader is an observation capability, separate from
+protected evidence creation, Owner authorization and Merge eligibility.
+
+`expected` binds `repository` (`owner/name`), decimal-string `repositoryId` and
+`prId`, positive integer `pr`, 40-character lowercase SHA-1 `head` and `baseSha`,
+`baseRepositoryId`, and `baseBranch`. Public individual and organization owners
+use the same contract. The target base must belong to that repository. Supported
+branch spelling is ASCII letters, digits, `_`, `.`, `-`, `/`, without `..`;
+unsupported inputs fail before requests. IDs are never converted to Numbers.
+
+Each optional `actions` item supplies trusted `context`, decimal-string `appId`,
+`sourceRepository`, `sourceRepositoryId`, immutable `revision`, Git `blob` SHA-1,
+`path` (`.github/workflows/*.yml` or `.yaml`), `event`, decimal-string `runId`,
+positive integer `attempt`, and `job` name. This bounded verifier supports local
+workflow files executed from the exact head revision in the expected repository.
+Reusable/cross-repository workflow sources require another verification
+capability; they cannot silently satisfy a pin here. The caller selects trusted
+requirements, never provider text. Source bytes are fetched through Contents at
+that immutable revision and independently hashed using Git's blob header.
+
+```js
+import {createGithubProvider, observeGithubCI} from '@nibfin/core';
+const observation = await observeGithubCI({
+  provider: createGithubProvider(), // trusted process-account stored gh login
+  expected: {
+    repository: 'example-org/project', repositoryId: '42', prId: '43', pr: 7,
+    head: 'a'.repeat(40), baseSha: 'b'.repeat(40),
+    baseRepositoryId: '42', baseBranch: 'main'
+  }
+}); // illustrative coordinates; no claim these provider resources exist
+```
+
+The result contains `qualifies`, `status`, `policy`, `evaluations`, `provenance`
+and `checkpointOnly: true`. Invalid/unreadable observations also include a fixed
+`reason`. Status is `satisfied`, `pending`, `failed`, `stale`, `unsupported` or
+`unknown`. Every evaluation identifies its requirement, reason and selected
+identity/conclusion evidence. Policy includes required contexts/App identities,
+classic/ruleset provenance, `strict` latest-base requirements, non-CI
+`limitations`, and an identity of the effective observed policy. Provenance
+records requested endpoints, times and sanitized provider diagnostics. Raw check
+output, URLs, provider error bodies and logs are not returned as diagnostics.
+These observations are not authenticated Core CI receipts.
+
+Classic checks and applicable active branch rules are combined. Explicit null
+App/integration bindings mean unrestricted source. Legacy contexts without check
+bindings remain required. Unrestricted competing Apps or duplicate check results
+are unknown, rather than choosing a green result. Status histories use the latest
+`created_at`; conflicting same-time results are unknown. Where both a status and
+check share an unrestricted context, both must succeed under native policy.
+A pinned App cannot be satisfied by an unassociated commit status. The Checks API
+`filter=latest` supplies native latest check runs; unresolved duplicates fail
+closed. Neutral/skipped conclusions satisfy native policy but cannot satisfy
+pinned Actions actual-success requirements. Run, attempt, head, source content,
+job and the job API's `check_run_url` association must all match a successful
+execution. Job attempt provenance comes from the attempt-specific jobs endpoint
+and the verified current run attempt, not a mandatory per-job `run_attempt`
+field (absent from the documented response). Contradictory attempt metadata, if
+supplied, is rejected. Details URLs, OIDC and logs supply no alternative success path.
+
+Permissions follow the endpoints: repository metadata, Pull requests read,
+Administration read for classic protection, Checks read, Commit statuses read,
+Actions read and Contents read for pinned workflow bytes. Applicable branch
+rules require Metadata read. See the official [protection API](https://docs.github.com/en/rest/branches/branch-protection),
+[active branch rules API](https://docs.github.com/en/rest/repos/rules?apiVersion=2026-03-10),
+[check runs API](https://docs.github.com/en/rest/checks/runs?apiVersion=2026-03-10),
+[workflow runs API](https://docs.github.com/en/rest/actions/workflow-runs?apiVersion=2026-03-10)
+and [jobs API](https://docs.github.com/en/rest/actions/workflow-jobs?apiVersion=2026-03-10).
+The fixtures in `test/ci-fixture.mjs` cite these response contracts and document
+synthetic substitutions; all tests use the actual provider's raw HTTP boundary.
+
+A protection 404 is accepted as absent only with a fresh unprotected branch
+observation and successful applicable-rules read. On protected branches it
+remains unknown, including configurations with rulesets but no readable classic
+protection. A readable classic protection with no required status checks allows
+rulesets to supply the entire CI policy. Known non-CI rules are observable
+limitations, never claims that every Merge gate is met; unknown rule types or
+unknown status-check parameters prevent qualification.
+
+Each collection follows same-endpoint pagination with fixed filters, page bounds
+and count checks where the API supplies totals. Failed later pages, malformed
+links, loops, truncation and exhausted bounds cannot qualify. The reader refreshes
+PR/base/policy and each pinned run before returning success. Each invocation
+reads afresh; cross-API atomicity, permanent approval and future success are not
+guaranteed. Native strict/base requirements are reported for the protected Merge
+consumer to enforce. Local fixture and installed archive tests verify this
+reader; live protected-PR/CI integration and recovery belong to #121 and #123.

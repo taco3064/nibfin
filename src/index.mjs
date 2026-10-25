@@ -65,3 +65,5 @@ export {issueWakeup, createEventRelay} from './relay.mjs';
 export {createRegistrationHost, createRegistrationArtifactChannel, registrationArtifactReader, openRegistrationResponse} from './registration.mjs';
 
 export {scopeInstructions, checkPortfolio} from './portfolio.mjs';
+
+export {observeGithubCI} from './ci.mjs';

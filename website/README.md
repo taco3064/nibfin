@@ -76,8 +76,8 @@ artifact inventory. Core binds the artifacts to the final Candidate. The record
 has no self-referential Candidate digest. Re-run evidence after changing inputs.
 
 The workflow uses the website lockfile on GitHub-hosted runners, read-only
-contents permission and checkout without persisted credentials. It runs local
-checks and creates evidence; it neither deploys nor installs Core. Repository
+contents permission and checkout without persisted credentials. Its PR job runs local
+checks and creates evidence; its separate protected-main job deploys Pages. It does not install Core. Repository
 protections and independent delivery gates remain in force.
 
 This is a truthful English shell, not a verified product installation guide.
@@ -149,6 +149,56 @@ ignored npm executable links and temporary browser/font links. The cleanup first
 checks current source identities and required archive digests, removes only the
 website's generated `node_modules`, `.astro`, `dist` and `.cache` directories, then
 checks the entire owning workspace for remaining symlinks or unsupported file types.
-It preserves all four mandatory `out/` artifacts and records the handoff observation
+It preserves all six mandatory `out/` artifacts and records the handoff observation
 in the theme report. Do not remove `out/`. Reinstall locked dependencies and rebuild
 before running verification again after cleanup; caches are never delivery evidence.
+
+## Integrated site quality and Pages (#132)
+
+After integration, this suite owns full assembled-site browser proof, including
+upstream theme reuse. Run `npm run evidence`, `npm run evidence:theme`, then
+`npm run evidence:site`. All three must succeed on the same source inventory and
+`out/site.tar.gz`. The final `npm run candidate:clean` preserves all six declared
+build/theme/site artifacts. Browser installation uses the locked Playwright
+version; the documented Chromium fallback is verifier tooling only.
+
+The site harness loads/reloads seven routes at desktop/mobile light/dark sizes,
+checks resources and metadata, and performs real indexed search with two terms,
+result navigation, no-results recovery and focus restoration. The theme harness
+adds keyboard, contrast, 320px reflow, 200% text enlargement, reduced motion and
+font fallback checks. Inspect screenshots as well as reports. Added source files,
+changed configuration, modified archives and added/changed output invalidate proof.
+The build embeds a non-secret `build-identity.json`; live verification compares
+its exact bytes and referenced resource digests to the retained build.
+
+The independent Website CI uses read-only PR jobs and uploads quality evidence
+with failure diagnostics. Only a push of protected main may upload Pages content
+and enter the `github-pages` deployment job. A successful quality job is a native
+`needs` prerequisite; Pages deployments share non-cancelling concurrency. Official
+configure/upload/deploy Actions are pinned to immutable revisions. The official
+Pages packaging action receives the already verified `dist`, without rebuilding.
+See [GitHub's custom workflow requirements](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
+
+Before deployment an authorized administrator must configure Pages publishing as
+GitHub Actions and the github-pages environment with exactly one branch policy:
+branch `main`. Retain required environment approval rules and repository main
+protections. This code never provisions or changes those settings. The deployment
+job reads Pages, main protection and environment/branch policy through official
+read APIs; unavailable read permission or incorrect settings fails closed. Do not
+substitute a fabricated response or grant broader credentials to the PR job.
+
+After official deployment succeeds, the job extracts the retained archive and
+runs `npm run evidence:live`, with the official `PAGES_URL`, successful
+`DEPLOYMENT_RESULT`, and actual GitHub repository/SHA/run/attempt environment.
+The target is fixed to https://taco3064.github.io/nibfin/. Identity propagation
+waits are bounded to two minutes, followed by browser route/resource/search
+checks. Only successful verification writes `out/live-evidence.json`; failures
+write diagnostics and fail the job. Live reports and screenshots are separately
+downloadable. Core must read back the actual run, artifact, deployment and final
+proof before closure; a successful deploy action alone is insufficient.
+
+No deployment has been performed by editing this source. A failed/unknown deploy
+must be reconciled through Core and GitHub readback, without assuming rollback or
+blindly repeating a write. Missing configuration, permission or live evidence is
+unverified. No Core/Action/CLI release or controller credential is needed for a
+website-only change. Existing repository checks and protected merge gates apply.

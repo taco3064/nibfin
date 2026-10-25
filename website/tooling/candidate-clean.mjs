@@ -1,9 +1,15 @@
 import assert from 'node:assert/strict';
+import { verifyBuild } from './build-identity.mjs';
 import { createHash } from 'node:crypto';
 import { lstatSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve, relative, join } from 'node:path';
 const hash = path => createHash('sha256').update(readFileSync(path)).digest('hex');
-const build = JSON.parse(readFileSync('out/build-evidence.json'));
+const build = verifyBuild();
+const site = JSON.parse(readFileSync('out/site-evidence.json'));
+assert.equal(site.status, 'passed');
+assert.deepEqual(site.inputs, build.inputs);
+assert.equal(site.buildArchive.sha256, build.archive.sha256);
+assert.equal(hash('out/site-screenshots.tar.gz'), site.screenshotArchive.sha256);
 const theme = JSON.parse(readFileSync('out/theme-evidence.json'));
 // Only discard generated work after the required final-source evidence exists.
 assert.deepEqual(theme.inputs, build.inputs, 'Build/theme input identities differ');
@@ -25,7 +31,7 @@ function scan(dir) {
   }
 }
 scan(root);
-for (const path of ['build-evidence.json', 'site.tar.gz', 'theme-evidence.json', 'theme-screenshots.tar.gz']) assert(lstatSync(`out/${path}`).isFile());
+for (const path of ['build-evidence.json', 'site.tar.gz', 'theme-evidence.json', 'theme-screenshots.tar.gz', 'site-evidence.json', 'site-screenshots.tar.gz']) assert(lstatSync(`out/${path}`).isFile());
 theme.handoff = { command: 'npm run candidate:clean', removedGeneratedDirectories: generated, workspaceScan: { regularFiles: files, symlinks: 0 }, reason: 'Core isolated workspace capture rejects symlinks, including ignored dependency/tool links. Required artifacts remain regular files.' };
 writeFileSync('out/theme-evidence.json', JSON.stringify(theme, null, 2) + '\n');
-console.log(`Candidate handoff: ${files} regular files, zero symlinks; all four required artifacts preserved.`);
+console.log(`Candidate handoff: ${files} regular files, zero symlinks; all six required artifacts preserved.`);

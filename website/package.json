@@ -20,7 +20,9 @@
     "evidence": "node tooling/evidence.mjs",
     "check": "npm run typecheck && npm run lint && npm run blueprint && npm run content && npm test && npm run test:boundaries && npm run build && npm run links",
     "evidence:theme": "node tooling/theme-evidence.mjs",
-    "candidate:clean": "node tooling/candidate-clean.mjs"
+    "candidate:clean": "node tooling/candidate-clean.mjs",
+    "evidence:site": "node tooling/site-evidence.mjs",
+    "evidence:live": "node tooling/site-evidence.mjs --live"
   },
   "dependencies": {
     "@astrojs/react": "4.4.2",

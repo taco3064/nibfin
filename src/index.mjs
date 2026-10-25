@@ -71,3 +71,5 @@ export {observeGithubCI} from './ci.mjs';
 export {publicationManifest, openPublicationJournal} from './publication.mjs';
 
 export {createLinuxCodexBackend, linuxCodexProfile, codexProcess} from './codex.mjs';
+
+export {publishPortfolio} from './publisher.mjs';

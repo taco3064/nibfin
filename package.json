@@ -61,7 +61,9 @@
     "docs/publication.md",
     "src/codex.mjs",
     "src/codex-entry.mjs",
-    "docs/codex.md"
+    "docs/codex.md",
+    "src/publisher.mjs",
+    "docs/publisher.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

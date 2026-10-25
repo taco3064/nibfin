@@ -7,10 +7,18 @@ import { spawnSync } from 'node:child_process';
 import { parse } from 'yaml';
 import { validateConfiguration } from '../tooling/pages-configuration.mjs';
 const workflow = parse(readFileSync('../.github/workflows/website-ci.yml', 'utf8'));
-test('website filters isolate docs from Core and deploy requires successful quality on protected main', () => {
-  const paths = workflow.on.pull_request.paths;
-  const matches = path => paths.some(p => p.endsWith('/**') ? path.startsWith(p.slice(0,-2)) : path === p);
-  assert(matches('website/src/content/docs/guides.mdx')); assert(matches('.github/workflows/website-ci.yml')); assert(!matches('src/index.mjs'));
+test('required Core and website checks run for every PR; deployment requires successful quality on protected main', () => {
+  const core = parse(readFileSync('../.github/workflows/core-ci.yml', 'utf8'));
+  for (const ci of [workflow, core]) {
+    assert(Object.hasOwn(ci.on, 'pull_request'));
+    for (const event of ['pull_request', 'push']) {
+      assert.equal(ci.on[event]?.paths, undefined, 'A required workflow must not skip changed paths');
+      assert.equal(ci.on[event]?.['paths-ignore'], undefined);
+    }
+    assert.deepEqual(ci.on.push.branches, ['main']);
+  }
+  assert.equal(workflow.jobs.website.if, undefined);
+  assert.equal(core.jobs.core.if, undefined);
   assert.deepEqual(workflow.permissions, { contents: 'read' });
   assert.equal(workflow.jobs.deploy.needs, 'website');
   assert.match(workflow.jobs.deploy.if, /event_name == 'push'.*refs\/heads\/main.*ref_protected/);
@@ -23,6 +31,16 @@ test('website filters isolate docs from Core and deploy requires successful qual
   assert(!steps[pages].if.includes('always'));
   assert(steps.filter(s => s.run?.includes('evidence')).every(s => !s['continue-on-error']));
   for (const job of Object.values(workflow.jobs)) for (const step of job.steps) if (step.uses) assert.match(step.uses, /@[a-f0-9]{40}$/);
+});
+
+test('deployment retries consume the immutable artifact ID from the completed build job', () => {
+  const upload = workflow.jobs.website.steps.find(s => s.id === 'quality');
+  assert(upload.uses.startsWith('actions/upload-artifact@'));
+  assert.equal(workflow.jobs.website.outputs['quality-artifact-id'], '${{ steps.quality.outputs.artifact-id }}');
+  const download = workflow.jobs.deploy.steps.find(s => s.uses?.startsWith('actions/download-artifact@'));
+  assert.equal(download.with['artifact-ids'], '${{ needs.website.outputs.quality-artifact-id }}');
+  assert.equal(download.with['merge-multiple'], true);
+  assert.equal(download.with.name, undefined, 'A deploy retry must not derive an artifact name from its current run_attempt');
 });
 test('configuration rejects non-Actions source, unprotected main and permissive environments', () => {
   const good = { pages: { build_type: 'workflow' }, branch: { name: 'main', protected: true }, environment: { deployment_branch_policy: { custom_branch_policies: true } }, policies: { branch_policies: [{ name: 'main', type: 'branch' }] } };

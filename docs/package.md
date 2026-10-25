@@ -710,3 +710,7 @@ protection/disclosure capabilities, exact raw Issue requests, native reciprocal
 dependency reads and recovery/handoff schemas. Its retained composition tests
 also run against a fresh installed archive. Local fixtures are not live GitHub
 publication evidence; that observation remains owned by #124.
+
+The public package also exports `createLinuxClaudeBackend` and `linuxClaudeProfile`;
+see [Claude adapter](claude.md) for the explicit API-key selection, fixed CLI and
+Linux prerequisites, process contract, and unrun native/model evidence.

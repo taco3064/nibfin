@@ -75,3 +75,5 @@ export {createLinuxCodexBackend, linuxCodexProfile, codexProcess} from './codex.
 export {publishPortfolio} from './publisher.mjs';
 
 export {createShapeFlow} from './shape.mjs';
+
+export {createLinuxClaudeBackend, linuxClaudeProfile} from './claude.mjs';

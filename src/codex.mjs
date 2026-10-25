@@ -29,14 +29,20 @@ export function codexProcess(command) {
         else chunks.push(data);
       });
       child.on('error', () => finish({ok:false,output:''}));
-      child.on('close', code => finish({ok:code === 0,output:code === 0 ? Buffer.concat(chunks).toString('utf8') : ''}));
+      child.on('close', code => finish({ok:code === 0,output:code === 0 || command.failureOutput ? Buffer.concat(chunks).toString('utf8') : ''}));
       timer = setTimeout(() => { child.kill('SIGKILL'); finish({ok:false,output:''}); },command.timeout);
     } catch { finish({ok:false,output:''}); }
   });
 }
 
 /** Construction is inert. Configuration belongs to trusted Core, never model input. */
-export function createLinuxCodexBackend(config) {
+export function createLinuxCodexBackend(config) { return createLinuxBackend(config); }
+
+// Shared transport seam. Profiles are trusted adapter code, never role input.
+export function createLinuxBackend(config, profile = null) {
+  const agent = profile?.agent ?? 'codex';
+  const selectedEntry = profile?.entry ?? entry;
+  const selectedProfile = profile?.identity ?? linuxCodexProfile;
   const {root, image, socket, environment:original, instanceId, process:run = codexProcess,
     timeout = 300000, task} = config;
   if (Object.keys(config).some(k => !['root','image','socket','environment','instanceId','process','timeout','task'].includes(k))) fail('configuration');
@@ -45,18 +51,18 @@ export function createLinuxCodexBackend(config) {
       || typeof task !== 'function' || typeof run !== 'function' || !Number.isInteger(timeout) || timeout < 50 || timeout > 3600000) fail('profile');
   const environment = createAgentEnvironments().describe(original);
   const instance = environment.instances.find(i => i.id === instanceId);
-  if (environment.agent !== 'codex' || !instance) fail('environment');
+  if (environment.agent !== agent || !instance) fail('environment');
   const resources = [instance.workspace,instance.registration,instance.service];
   const all = [environment.loginSpace,...environment.instances.flatMap(i => [i.workspace,i.registration,i.service])];
   if (all.some(p => !safePath(p) || !within(root,p))) fail('resource-root');
-  const scratch = join(instance.service,'codex');
+  const scratch = join(instance.service,agent);
   const states = new Map(), containers = new Map(), pins = new Map();
   let deleting = false;
   let diagnostic = 'not-checked', ready = false, retired = false;
   async function command(args, ms = 15000, limit = 1048576) {
     try {
       const response = await run(Object.freeze({file:'/usr/bin/docker',args:Object.freeze(['--host',`unix://${socket}`,...args]),
-        env:cleanEnv,timeout:ms,limit}));
+        env:cleanEnv,timeout:ms,limit,...(profile?{failureOutput:true}:{})}));
       if (!response || typeof response.ok !== 'boolean' || typeof response.output !== 'string'
           || Buffer.byteLength(response.output) > limit) return {ok:false,output:''};
       return response;
@@ -74,7 +80,7 @@ export function createLinuxCodexBackend(config) {
       if (realpathSync(p) !== p) fail('path-alias');
       for (let part=p; part !== '/'; part=dirname(part)) if (lstatSync(part).isSymbolicLink()) fail('path-alias');
     };
-    checkPath(root); checkPath(entry);
+    checkPath(root); checkPath(selectedEntry);
     const ownedRoot=lstatSync(root);
     if (!ownedRoot.isDirectory() || ownedRoot.uid !== process.getuid() || (ownedRoot.mode & 0o077)) fail('resource-owner');
     // realpath cannot detect bind mounts of unrelated host data on the same device.
@@ -84,7 +90,7 @@ export function createLinuxCodexBackend(config) {
       return point.replace(/\\([0-7]{3})/g,(_,octal)=>String.fromCharCode(parseInt(octal,8)));
     });
     if (mountpoints.some(p=>p === root || within(root,p))) fail('mounted-resource');
-    if (!safePath(entry)) fail('entry-path');
+    if (!safePath(selectedEntry)) fail('entry-path');
     const walk = (p,dev) => {
       if (++count > 50000) fail('filesystem-bound');
       const s = lstatSync(p), id = `${s.dev}:${s.ino}`;
@@ -92,7 +98,7 @@ export function createLinuxCodexBackend(config) {
           || (s.isFile() && s.nlink !== 1) || seen.has(id)) fail('unsafe-filesystem');
       seen.add(id);
       if (s.isDirectory()) for (const name of readdirSync(p)) {
-        if (name === '.codex') fail('project-configuration');
+        if (name === '.codex' || profile?.forbidden.includes(name)) fail('project-configuration');
         walk(join(p,name),dev);
       }
     };
@@ -105,7 +111,7 @@ export function createLinuxCodexBackend(config) {
       walk(p,s.dev); pins.set(p,identity);
     }
     // Only the selected member's file is mounted; no config, keychain or home mount.
-    const auth = join(environment.loginSpace,'auth.json');
+    const auth = join(environment.loginSpace,profile?.authName ?? 'auth.json');
     return auth;
   }
   function loginFile(auth) {
@@ -113,7 +119,8 @@ export function createLinuxCodexBackend(config) {
     diagnostic='login-invalid'; const s=lstatSync(auth);
     if (!s.isFile() || s.nlink !== 1 || s.size === 0 || s.size > 65536) fail('login-invalid');
     diagnostic='login-denied'; const bytes=readFileSync(auth,'utf8');
-    diagnostic='login-invalid'; const value=JSON.parse(bytes);
+    diagnostic='login-invalid'; if (profile) return profile.login(bytes);
+    const value=JSON.parse(bytes);
     if (value.auth_mode !== 'chatgpt' || !value.tokens || typeof value.tokens.access_token !== 'string'
         || !value.tokens.access_token || value.OPENAI_API_KEY) fail('login-invalid');
     return Object.freeze(Object.values(value.tokens).filter(v=>typeof v === 'string' && v.length));
@@ -125,9 +132,9 @@ export function createLinuxCodexBackend(config) {
       '--read-only','--user','0:0','--no-healthcheck','--ipc','private','--cgroupns','private','--cap-drop','ALL','--security-opt','no-new-privileges','--pids-limit','128',
       '--memory','1g','--cpus','2','--network','bridge','--log-driver','none',
       '--tmpfs','/tmp:rw,nosuid,nodev,size=64m,mode=1777','--workdir','/work',
-      '--env','HOME=/tmp/home','--env','CODEX_HOME=/tmp/home/.codex',
-      '--env','PATH=/usr/local/bin:/usr/bin:/bin',...mount(auth,'/tmp/home/.codex/auth.json'),
-      ...mount(entry,'/entry.mjs'),'--entrypoint','/usr/local/bin/node'];
+      '--env','HOME=/tmp/home',...(profile ? ['--env','CLAUDE_CONFIG_DIR=/tmp/home/.claude'] : ['--env','CODEX_HOME=/tmp/home/.codex']),
+      '--env','PATH=/usr/local/bin:/usr/bin:/bin',...mount(auth,profile?.authTarget ?? '/tmp/home/.codex/auth.json'),
+      ...mount(selectedEntry,'/entry.mjs'),'--entrypoint','/usr/local/bin/node'];
   }
   async function inspect(s) {
     const data = await json(['inspect',s.name]);
@@ -164,13 +171,13 @@ export function createLinuxCodexBackend(config) {
   }
   function query(v) {
     const s = states.get(v.execution);
-    if (!s || v.request !== s.request || v.environment !== environment.id || v.instance !== instanceId || v.agent !== 'codex') fail('query');
+    if (!s || v.request !== s.request || v.environment !== environment.id || v.instance !== instanceId || v.agent !== agent) fail('query');
     return s;
   }
   const readinessResult = () => ({login:ready?'available':'unavailable',tool:ready?'available':'unavailable',
     isolation:ready?'verified':'unsupported',read:ready?'verified':'unsupported',write:ready?'verified':'unsupported',
-    evidence:[`profile:${linuxCodexProfile.id}`,`diagnostic:${diagnostic}`],
-    limitations:['Local fixtures do not establish measured native support; #121 owns native evidence']});
+    evidence:[`profile:${selectedProfile.id}`,`diagnostic:${diagnostic}`],
+    limitations:[profile ? 'Claude native/model execution is Unverified; fixtures establish process contracts only' : 'Local fixtures do not establish measured native support; #121 owns native evidence']});
   return Object.freeze({
     diagnostic:()=>diagnostic,
     async readiness() {
@@ -179,9 +186,9 @@ export function createLinuxCodexBackend(config) {
         if (retired || process.platform !== 'linux' || process.arch !== 'x64') { diagnostic='unsupported-host'; return readinessResult(); }
         diagnostic='unsafe-mount'; const auth = physical(); loginFile(auth);
         diagnostic='runtime-unavailable';
-        if (await json(['version','--format','{{json .Client.Version}}']) !== linuxCodexProfile.docker) return readinessResult();
+        if (await json(['version','--format','{{json .Client.Version}}']) !== selectedProfile.docker) return readinessResult();
         const info = await json(['info','--format','{{json .}}']);
-        if (info.ServerVersion !== linuxCodexProfile.docker || info.OSType !== 'linux' || info.Architecture !== 'x86_64'
+        if (info.ServerVersion !== selectedProfile.docker || info.OSType !== 'linux' || info.Architecture !== 'x86_64'
             || info.CgroupVersion !== '2' || !['MemoryLimit','PidsLimit','CpuCfsQuota','CpuCfsPeriod'].every(k=>info[k] === true)
             || !info.SecurityOptions?.includes('name=rootless') || !info.SecurityOptions?.includes('name=seccomp,profile=builtin'))
           return readinessResult();
@@ -210,7 +217,10 @@ export function createLinuxCodexBackend(config) {
         if (!r.ok || c.State.ExitCode !== 0) return readinessResult();
         const p = JSON.parse(r.output);
         diagnostic='tool-mismatch';
-        if (p.version !== linuxCodexProfile.codex || p.node !== linuxCodexProfile.node || p.guest !== true
+        if (profile && p.diagnostic !== 'ready') {
+          diagnostic=profile.diagnostics.includes(p.diagnostic)?p.diagnostic:'probe-failed'; return readinessResult();
+        }
+        if (p.version !== (profile?.version ?? selectedProfile.codex) || p.node !== selectedProfile.node || p.guest !== true
             || p.platform !== 'linux' || p.arch !== 'x64') return readinessResult();
         diagnostic='login-unavailable'; if (p.login !== true) return readinessResult();
         if ([...containers.values()].some(c=>c.kind === 'probe' && !c.absent)) { diagnostic='cleanup-unresolved'; return readinessResult(); }
@@ -223,7 +233,7 @@ export function createLinuxCodexBackend(config) {
       if (!ready || retired || states.has(v.execution)) fail('not-ready');
       ready = false;
       const auth = physical(), e = v.executionIdentity, secrets = loginFile(auth);
-      if (v.environment !== environment.id || v.instance !== instanceId || v.agent !== 'codex'
+      if (v.environment !== environment.id || v.instance !== instanceId || v.agent !== agent
           || e.id !== v.execution || e.request !== v.request || skillForRole(e.role) !== e.skill
           || !same(v.workspace,{path:instance.workspace,access:e.role === 'deliver'?'write':'read'})
           || !same(v.agentLogin,{owner:environment.id,space:environment.loginSpace}) || !same(v.processEnvironment,{})
@@ -266,6 +276,14 @@ export function createLinuxCodexBackend(config) {
       }
       if (c.State.Running || s.pending) return {status:'pending',exitCode:null,evidence:null};
       let evidence = null;
+      if (profile && !s.failed && (!s.output?.ok || c.State.ExitCode !== 0)) {
+        diagnostic='provider-failure';
+        try {
+          const failure=JSON.parse(s.output.output);
+          if (Object.keys(failure).join(',') === 'diagnostic' && ['login-rejected','provider-failure','invalid-result'].includes(failure.diagnostic))
+            diagnostic=failure.diagnostic;
+        } catch { /* Never forward raw CLI output. */ }
+      }
       if (!s.failed && s.output?.ok && c.State.ExitCode === 0) { try {
         const parsed=JSON.parse(s.output.output), pending=[parsed];
         while (pending.length) {

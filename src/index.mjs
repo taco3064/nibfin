@@ -73,3 +73,5 @@ export {publicationManifest, openPublicationJournal} from './publication.mjs';
 export {createLinuxCodexBackend, linuxCodexProfile, codexProcess} from './codex.mjs';
 
 export {publishPortfolio} from './publisher.mjs';
+
+export {createShapeFlow} from './shape.mjs';

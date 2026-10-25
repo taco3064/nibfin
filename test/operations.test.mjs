@@ -211,3 +211,27 @@ test('Merge independently binds destination branch and exact Base through initia
     assert.equal((await f.fresh().execute(f.input)).outcome,'unknown'); assert.equal(f.writes().length,0);
   }
 });
+
+test('label: interrupted authorized retry reconciles latest submission rather than preceding denial',async()=>{
+  const f=operationsFixture(operationInput('label'));f.state.allowed=false;
+  assert.equal((await f.fresh().execute(f.input)).outcome,'confirmed-no-effect');
+  f.state.allowed=true;f.state.retainFail='result';
+  assert.equal((await f.fresh().execute(f.input,{retryAfterNoEffect:true})).outcome,'unknown');
+  assert.equal(f.writes().length,1);
+  f.state.retainFail=false;
+  assert.equal((await f.fresh().execute(f.input)).outcome,'confirmed-success');
+  assert.equal(f.writes().length,1);
+});
+
+test('label: submission receipt must bind the current valid attempt',async()=>{
+  const f=operationsFixture(operationInput('label'));f.state.allowed=false;
+  const denied=await f.fresh().execute(f.input);
+  f.state.allowed=true;
+  const submitted=await f.fresh().execute(f.input,{retryAfterNoEffect:true});
+  assert.equal(submitted.outcome,'confirmed-success');
+  // Both attempts are genuine custody records for this exact intent, but only
+  // the later one was submitted. A receipt cannot attest another attempt.
+  f.history.get(f.input.correlation).attempt=denied.refs.attempt;
+  assert.equal((await f.fresh().execute(f.input)).outcome,'unknown');
+  assert.equal(f.writes().length,1);
+});

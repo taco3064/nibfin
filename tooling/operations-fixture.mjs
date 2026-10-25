@@ -58,7 +58,7 @@ export function operationsFixture(input = operationInput()) {
     const headers = state.incomplete ? {link: `<https://evil.example/page>; rel="next"`} : {};
     if (r.endpoint.startsWith(`${root}/actions/workflows/`)) return response({total_count:state.total ?? (state.effect ? 1 : 0),workflow_runs: state.runs ?? (state.effect ? [d] : [])}, state.status, headers);
     if (r.endpoint === `${root}/pulls?state=all&per_page=100`) return response(state.effect ? [d] : [], state.status, headers);
-    if (r.endpoint.includes('/labels')) return response(state.effect ? [{id: '80', name: 'delivered'}] : [], state.status, headers);
+    if (r.endpoint.includes('/labels')) return response(state.effect ? (input.payload.labels ?? []).map(name=>({id:'80',name})) : [], state.status, headers);
     if (r.endpoint.includes('/commits/')) return response({sha: 'd'.repeat(40)}, state.status);
     return response(state.effect ? (state.detail ? state.detail(d) : d) : {id: input.target.id, state: 'open'}, state.status);
   };
@@ -110,7 +110,7 @@ export function operationsFixture(input = operationInput()) {
       return {id, digest: byteDigest(bytes)};
     }}
   });
-  const fresh = (source={runId:'100',attempt:'1'}) => {execution=source; return createControlledOperations({authorization, provider, custody: custody(), publication, execution,
+  const fresh = (source={runId:'100',attempt:'1'}, beforeSubmit) => {execution=source; return createControlledOperations({authorization, provider, custody: custody(), publication, execution, beforeSubmit,
     locate: ({identity, correlation}) => state.historyUnavailable ? {outcome:'unavailable'} : history.has(correlation)
       ? {outcome: 'found', refs: structuredClone(history.get(correlation))} : {outcome: 'new', identity}});};
   return {input, state, calls, records, history, fresh, writes: () => calls.filter(r => r.method && r.method !== 'GET')};

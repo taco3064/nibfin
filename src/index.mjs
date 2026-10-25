@@ -84,3 +84,5 @@ export {createHookRunner, hookProcess, verifyHookReceipt} from './hooks.mjs';
 
 export {compareStageCollection} from './evidence.mjs';
 export {createAcceptFlow} from './accept.mjs';
+
+export {createRepairFlow,invalidateRepairEvidence} from './repair.mjs';

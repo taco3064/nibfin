@@ -78,7 +78,9 @@
     "src/hooks.mjs",
     "docs/hooks.md",
     "src/accept.mjs",
-    "docs/accept.md"
+    "docs/accept.md",
+    "src/repair.mjs",
+    "docs/repair.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

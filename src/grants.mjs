@@ -83,7 +83,13 @@ function work(v) {
   snapshot(v.observation);
 }
 function policy(v) {
-  fields(v, 'core runtime agent skills ci merge maxParallel', 'policy');
+  fields(v, 'core runtime agent skills ci merge maxParallel' + (Object.hasOwn(v,'repair')?' repair':''), 'policy');
+  if (Object.hasOwn(v,'repair')) {
+    fields(v.repair,'mode maxRepairs','repair');
+    if (!['until-conformant','bounded'].includes(v.repair.mode)
+      || (v.repair.mode==='until-conformant' ? v.repair.maxRepairs!==null
+        : !Number.isSafeInteger(v.repair.maxRepairs) || v.repair.maxRepairs<0)) fail('repair');
+  }
   for (const key of ['core', 'runtime', 'agent']) token(v[key]);
   object(v.skills, 'skills');
   equal(Object.keys(v.skills).sort(), ['accept', 'deliver', 'shape'], 'skills');

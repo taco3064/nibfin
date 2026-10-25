@@ -1,4 +1,4 @@
-import {resolve, isAbsolute, parse, sep} from 'node:path';
+import {resolve, isAbsolute, parse, sep, posix} from 'node:path';
 import {bodyDigest, canonicalJSON, skillForRole, validateStageResult, compareEvidence} from './index.mjs';
 
 const fail = reason => { throw new TypeError(`lifecycle:${reason}`); };
@@ -13,8 +13,17 @@ function fields(v, names) {
       || Object.keys(v).sort().join(' ') !== names.split(' ').sort().join(' ')) fail('fields');
 }
 function text(v) { if (typeof v !== 'string' || !v.trim() || /[\x00-\x1f]/.test(v)) fail('string'); }
-function location(v) { text(v); if (!isAbsolute(v) || resolve(v) !== v || parse(v).root === v) fail('absolute-resource'); }
-const overlaps = (a, b) => a === b || a.startsWith(b + sep) || b.startsWith(a + sep);
+function location(v) {
+  text(v);
+  // Guest Linux descriptors retain POSIX identity on Windows hosts. No I/O here.
+  const linux = v.startsWith('/') && !v.includes('\\');
+  if (linux ? posix.normalize(v) !== v || v === '/' || v.startsWith('//')
+    : !isAbsolute(v) || resolve(v) !== v || parse(v).root === v) fail('absolute-resource');
+}
+const overlaps = (a, b) => {
+  const delimiter = a.startsWith('/') && b.startsWith('/') ? '/' : sep;
+  return a === b || a.startsWith(b + delimiter) || b.startsWith(a + delimiter);
+};
 
 /** A trusted caller owns this registry; descriptors never discover credentials. */
 export function createAgentEnvironments() {

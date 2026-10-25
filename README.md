@@ -40,3 +40,5 @@ artifacts. #122 owns actual protected-host/channel integration proof. Production
 artifact hosts still need the genuine pinned SDK in [custody.md](docs/custody.md).
 Its separate `npm run test:artifact-sdk` regression requires an existing approved
 runtime via `NIBFIN_ARTIFACT_SDK_ROOT`; Core CI provisions and runs that suite.
+
+The [Windows-hosted WSL adapter](docs/wsl.md) implements the protected Linux/Codex backend bridge with local contract tests. Native Windows and Windows-hosted WSL execution remain Unverified; platform integration evidence belongs to gh-nibfin#28.

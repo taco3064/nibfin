@@ -71,7 +71,10 @@
     "docs/claude.md",
     "src/gemini.mjs",
     "src/gemini-entry.mjs",
-    "docs/gemini.md"
+    "docs/gemini.md",
+    "src/wsl.mjs",
+    "src/wsl-guest.mjs",
+    "docs/wsl.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

@@ -132,7 +132,7 @@ export function createLinuxBackend(config, profile = null) {
       '--read-only','--user','0:0','--no-healthcheck','--ipc','private','--cgroupns','private','--cap-drop','ALL','--security-opt','no-new-privileges','--pids-limit','128',
       '--memory','1g','--cpus','2','--network','bridge','--log-driver','none',
       '--tmpfs','/tmp:rw,nosuid,nodev,size=64m,mode=1777','--workdir','/work',
-      '--env','HOME=/tmp/home',...(profile ? ['--env','CLAUDE_CONFIG_DIR=/tmp/home/.claude'] : ['--env','CODEX_HOME=/tmp/home/.codex']),
+      '--env','HOME=/tmp/home',...(profile?.agent === 'claude' ? ['--env','CLAUDE_CONFIG_DIR=/tmp/home/.claude'] : profile ? [] : ['--env','CODEX_HOME=/tmp/home/.codex']),
       '--env','PATH=/usr/local/bin:/usr/bin:/bin',...mount(auth,profile?.authTarget ?? '/tmp/home/.codex/auth.json'),
       ...mount(selectedEntry,'/entry.mjs'),'--entrypoint','/usr/local/bin/node'];
   }
@@ -177,7 +177,7 @@ export function createLinuxBackend(config, profile = null) {
   const readinessResult = () => ({login:ready?'available':'unavailable',tool:ready?'available':'unavailable',
     isolation:ready?'verified':'unsupported',read:ready?'verified':'unsupported',write:ready?'verified':'unsupported',
     evidence:[`profile:${selectedProfile.id}`,`diagnostic:${diagnostic}`],
-    limitations:[profile ? 'Claude native/model execution is Unverified; fixtures establish process contracts only' : 'Local fixtures do not establish measured native support; #121 owns native evidence']});
+    limitations:[profile ? `${agent} native/model execution is Unverified; fixtures establish process contracts only` : 'Local fixtures do not establish measured native support; #121 owns native evidence']});
   return Object.freeze({
     diagnostic:()=>diagnostic,
     async readiness() {
@@ -251,6 +251,7 @@ export function createLinuxBackend(config, profile = null) {
           required:['scopeHash','shapeHash','scopeQuote','shapeQuote','evidenceReference']}}};
       const schema = {type:'object',properties,required:Object.keys(properties),additionalProperties:false};
       writeFileSync(join(input,'schema.json'),JSON.stringify(schema),{flag:'wx',mode:0o400});
+      if (profile?.prepare) profile.prepare(input,v.instructions.content,schema,v.workspace.access);
       const prompt = context.prompt;
       if (Buffer.byteLength(prompt) > 524288 || Buffer.byteLength(JSON.stringify(context.inputs)) > 262144) fail('input-bound');
       writeFileSync(join(input,'request.json'),JSON.stringify({access:v.workspace.access,prompt,timeout,

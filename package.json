@@ -68,7 +68,10 @@
     "docs/shape.md",
     "src/claude.mjs",
     "src/claude-entry.mjs",
-    "docs/claude.md"
+    "docs/claude.md",
+    "src/gemini.mjs",
+    "src/gemini-entry.mjs",
+    "docs/gemini.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

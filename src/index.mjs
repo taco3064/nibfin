@@ -77,3 +77,4 @@ export {publishPortfolio} from './publisher.mjs';
 export {createShapeFlow} from './shape.mjs';
 
 export {createLinuxClaudeBackend, linuxClaudeProfile} from './claude.mjs';
+export {createLinuxGeminiBackend, linuxGeminiProfile} from './gemini.mjs';

@@ -42,6 +42,10 @@ test('deployment retries consume the immutable artifact ID from the completed bu
   assert.equal(download.with['artifact-ids'], '${{ needs.website.outputs.quality-artifact-id }}');
   assert.equal(download.with['merge-multiple'], true);
   assert.equal(download.with.name, undefined, 'A deploy retry must not derive an artifact name from its current run_attempt');
+  const guard = workflow.jobs.deploy.steps.find(s => s.name === 'Require the immutable build artifact ID');
+  assert.equal(guard.env.QUALITY_ARTIFACT_ID, download.with['artifact-ids']);
+  for (const id of ['', 'all', '12,34']) assert.notEqual(spawnSync('/bin/sh', ['-c', guard.run], { env: { ...process.env, QUALITY_ARTIFACT_ID: id } }).status, 0);
+  assert.equal(spawnSync('/bin/sh', ['-c', guard.run], { env: { ...process.env, QUALITY_ARTIFACT_ID: '123456' } }).status, 0);
 });
 
 test('live resource verification maps directory URLs to exact archived index files', () => {

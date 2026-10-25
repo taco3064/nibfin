@@ -1,0 +1,43 @@
+{
+  "name": "@nibfin/website",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0 <23",
+    "npm": ">=10 <11"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "typecheck": "astro check",
+    "lint": "eslint src --max-warnings 0",
+    "blueprint": "blueprint inspect",
+    "content": "node tooling/content.mjs",
+    "test": "node --test test/*.test.mjs",
+    "test:boundaries": "node tooling/boundaries.mjs",
+    "build": "astro build",
+    "links": "node tooling/links.mjs",
+    "evidence": "node tooling/evidence.mjs",
+    "check": "npm run typecheck && npm run lint && npm run blueprint && npm run content && npm test && npm run test:boundaries && npm run build && npm run links"
+  },
+  "dependencies": {
+    "astro": "5.18.2",
+    "@astrojs/starlight": "0.37.6",
+    "@astrojs/react": "4.4.2",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "flowbite-react": "0.12.17",
+    "tailwindcss": "4.1.18",
+    "@tailwindcss/vite": "4.1.18"
+  },
+  "devDependencies": {
+    "@kekkai/blueprint": "4.2.0",
+    "typescript": "5.9.3",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "@astrojs/check": "0.9.6",
+    "eslint": "9.39.1",
+    "typescript-eslint": "8.48.1",
+    "cheerio": "1.1.2"
+  }
+}

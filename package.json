@@ -88,7 +88,9 @@
     "src/completion.mjs",
     "docs/completion.md",
     "src/recovery.mjs",
-    "docs/recovery.md"
+    "docs/recovery.md",
+    "src/fanout.mjs",
+    "docs/fanout.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

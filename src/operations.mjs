@@ -47,10 +47,24 @@ export function controlledIntent(input) {
     if (v.kind === 'merge') githubId(t.number);
   }
   if (v.kind === 'dispatch') {
-    if (t.workflow !== t.id || t.number !== null || !exact(p, 'ref inputs') || !sha(p.ref)
+    if (t.workflow !== t.id || t.number !== null || !exact(p, 'ref inputs' + (p.refIdentity ? ' refIdentity' : '') + (p.handoff ? ' handoff' : ''))
+        || (p.refIdentity ? !exact(p.refIdentity, 'sha workflowDigest') || !sha(p.refIdentity.sha) || !hash(p.refIdentity.workflowDigest)
+          || typeof p.ref !== 'string' || !/^[A-Za-z0-9_][A-Za-z0-9_./-]{0,119}$/.test(p.ref) || sha(p.ref) || p.ref.startsWith('refs/')
+          || p.ref.includes('..') || p.ref.includes('//') || /[/.]$/.test(p.ref) || p.ref.split('/').some(s=>s.endsWith('.lock')) : !sha(p.ref))
         || !p.inputs || typeof p.inputs !== 'object' || Array.isArray(p.inputs)
         || Object.values(p.inputs).some(x => typeof x !== 'string')
         || p.inputs.nibfin_correlation !== v.correlation) fail();
+    if (p.handoff && (!p.refIdentity || !exact(p.handoff, 'source origin target workflow')
+        || canonicalJSON(p.handoff).length>8192 || !exact(p.inputs,'nibfin_request nibfin_correlation')
+        || p.inputs.nibfin_request!==v.correlation || v.source.request!==v.correlation
+        || v.correlation!=='fanout-'+contentIdentity({...p.handoff,binding:b})
+        || !hash(p.handoff.origin?.identity) || !name(p.handoff.origin?.cycle)
+        || p.handoff.source?.repositoryId!==v.source.repositoryId
+        || !same(v.source,{...p.handoff.origin?.provenance,request:v.correlation})
+        || p.handoff.target?.repositoryId!==b.repositoryId || p.handoff.target?.issueId!==b.issueId
+        || p.handoff.target?.repository!==b.repository || p.handoff.target?.number!==b.number
+        || p.handoff.workflow?.id!==t.workflow || p.handoff.workflow?.ref!==p.ref
+        || p.handoff.workflow?.sha!==p.refIdentity.sha || p.handoff.workflow?.digest!==p.refIdentity.workflowDigest)) fail();
   } else if (v.kind === 'comment') {
     githubId(t.number);
     if (!exact(p, 'body') || typeof p.body !== 'string' || p.body.length > 8192
@@ -89,7 +103,7 @@ function requestFor(v) {
   return {method: ({dispatch: 'POST', pr: 'POST', merge: 'PUT', close: 'PATCH', reopen:'PATCH', comment:'POST', label: 'POST', 'issue-body': 'PATCH'})[v.kind],
     endpoint: root + ({dispatch: `/actions/workflows/${t.workflow}/dispatches`, pr: '/pulls',
       merge: `/pulls/${t.number}/merge`, comment:`/issues/${t.number}/comments`, reopen:`/issues/${t.number}`, close: `/issues/${t.number}`, 'issue-body': `/issues/${t.number}`, label: `/issues/${t.number}/labels`})[v.kind],
-    operation: v.kind, target: t.id, correlation: v.correlation, body: v.payload};
+    operation: v.kind, target: t.id, correlation: v.correlation, body: v.kind === 'dispatch' ? {ref:v.payload.ref,inputs:v.payload.inputs} : v.payload};
 }
 function custodyBinding(v, phase, source) {
   const b = v.binding;
@@ -138,7 +152,7 @@ async function observe(provider, v, signal, allowAbsent = false, reconcilePR = f
       ? d.body === v.payload.body && d.title === v.payload.title && d.head?.ref === v.payload.head
         && d.base?.ref === v.payload.base && d.head?.sha === v.binding.head && d.base?.sha === v.binding.base
         && d.base?.repo?.id === v.binding.repositoryId && d.head?.repo?.id === v.binding.repositoryId
-      : d.workflow_id === v.target.id && d.event === 'workflow_dispatch' && d.head_sha === v.payload.ref
+      : d.workflow_id === v.target.id && d.event === 'workflow_dispatch' && d.head_sha === (v.payload.refIdentity?.sha ?? v.payload.ref)
         && d.display_title === `nibfin-operation:${v.correlation}` && d.repository?.id === v.binding.repositoryId;
     const matches = result.data.filter(matchesEffect);
     if (v.kind === 'pr' && (allowAbsent || reconcilePR)) {
@@ -233,7 +247,7 @@ export function createControlledOperations({authorization, provider, custody, pu
     return entry;
   }
   async function submit(v, refs, signal) {
-    const boundary = ['merge','close','label','comment','reopen'].includes(v.kind) ? authorization.withMutationGuard(async()=>{
+    const boundary = ['dispatch','merge','close','label','comment','reopen'].includes(v.kind) ? authorization.withMutationGuard(async()=>{
       await beforeSubmit(structuredClone(v)); return !signal.aborted;
     }) : authorization;
     const result = await bounded(boundary.request({...requestFor(v), context: structuredClone(v.binding), signal}), signal);

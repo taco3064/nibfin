@@ -24,7 +24,7 @@ export async function completionFixture(deployment) {
   const close=operationsFixture(inputs.close),label=operationsFixture(inputs.label);
   const state={closed:false,ownership:'Organization',event:'200',at:'2026-10-24T12:00:00Z',actor:'7',
     reason:'completed',failed:false,private:false,postMerge:true,auth:true,dependencies:true,mutations:[],
-    records:new Map(),history:new Map(),attempted:new Set(),hooks:{},next:1200};
+    stageExpectations:{},records:new Map(),history:new Map(),attempted:new Set(),hooks:{},next:1200};
   const root='/repos/'+target.repository;
   const issue=()=>({id:'61',node_id:'I_101',number:101,repository_url:'https://api.github.com'+root,
     state:state.closed?'closed':'open',state_reason:state.closed?state.reason:null,closed_at:state.closed?state.at:null,...state.issueMetadata});
@@ -111,6 +111,7 @@ export async function completionFixture(deployment) {
       const r=structuredClone(freshChain.receipts[name]);r.inputs.readback=contentIdentity(record);
       if(name==='closure')r.inputs.final=contentIdentity(pin.receipts.final);
       else r.inputs.closure=contentIdentity(state.closure);
+      state.stageExpectations[name]=context(r);
       if(name==='closure')state.closure=r;
       return context(r);
     },postMerge:async()=>{await state.hooks.postMerge?.();return state.postMerge?pin.receipts.final.inputs.postMerge:{};}});

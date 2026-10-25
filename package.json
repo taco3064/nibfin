@@ -55,7 +55,8 @@
     "src/portfolio.mjs",
     "instructions/scope.md",
     "docs/scope.md",
-    "examples/scope.json"
+    "examples/scope.json",
+    "src/ci.mjs"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

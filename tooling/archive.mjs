@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process';
 import {grantFixture} from './grant-fixture.mjs';
 import {bodyDigest} from '../src/index.mjs';
 
-export const packageFiles = ['src/portfolio.mjs', 'instructions/scope.md', 'docs/scope.md', 'examples/scope.json', 'src/registration.mjs', 'docs/registration.md', 'src/relay.mjs', 'docs/relay.md', 'src/dynamic.mjs', 'docs/dynamic.md', 'src/operations.mjs', 'src/concurrency.mjs', 'docs/operations.md', 'src/selection.mjs', 'docs/selection.md', 'src/workspace.mjs', 'docs/workspace.md', 'src/runners.mjs', 'src/instructions.mjs', 'docs/instructions.md', 'skills/shape/SKILL.md', 'skills/deliver/SKILL.md', 'skills/accept/SKILL.md', 'src/actions.mjs', 'src/deployment.mjs', 'docs/deployment.md', 'src/lifecycle.mjs', 'docs/lifecycle.md', 'src/authorization.mjs', 'docs/authorization.md', 'src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs', 'src/custody-upload.mjs', 'src/custody.mjs', 'src/custody-zip.mjs', 'docs/custody.md'];
+export const packageFiles = ['src/ci.mjs', 'src/portfolio.mjs', 'instructions/scope.md', 'docs/scope.md', 'examples/scope.json', 'src/registration.mjs', 'docs/registration.md', 'src/relay.mjs', 'docs/relay.md', 'src/dynamic.mjs', 'docs/dynamic.md', 'src/operations.mjs', 'src/concurrency.mjs', 'docs/operations.md', 'src/selection.mjs', 'docs/selection.md', 'src/workspace.mjs', 'docs/workspace.md', 'src/runners.mjs', 'src/instructions.mjs', 'docs/instructions.md', 'skills/shape/SKILL.md', 'skills/deliver/SKILL.md', 'skills/accept/SKILL.md', 'src/actions.mjs', 'src/deployment.mjs', 'docs/deployment.md', 'src/lifecycle.mjs', 'docs/lifecycle.md', 'src/authorization.mjs', 'docs/authorization.md', 'src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs', 'src/custody-upload.mjs', 'src/custody.mjs', 'src/custody-zip.mjs', 'docs/custody.md'];
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 // Read the actual tar payload without extracting attacker-controlled paths.
@@ -188,6 +188,27 @@ const runnerProvider = createGithubProvider({transport:async r => {
 }});
 assert.equal((await observeRunners(runnerProvider,runnerInput)).outcome,'matched');
 assert.equal((await observeRunners(runnerProvider,{...runnerInput,target:{...runnerTarget,id:'01'}})).outcome,'unavailable');
+
+// Installed package boundary: actual provider responses, native CI success and failure.
+const {observeGithubCI} = await import('@nibfin/core');
+const ciExpected = {repository:'example-org/core',repositoryId:'42',prId:'43',pr:7,
+  head:'a'.repeat(40),baseSha:'b'.repeat(40),baseRepositoryId:'42',baseBranch:'main'};
+let ciConclusion = 'success';
+const ciProvider = createGithubProvider({transport:async r=>{
+  assert.equal(r.method,'GET');
+  const p=r.endpoint.slice('/repos/example-org/core'.length);
+  const data = p===''?{id:42,full_name:'example-org/core',private:false,visibility:'public',owner:{type:'Organization'}}:
+    p==='/pulls/7'?{id:43,number:7,head:{sha:ciExpected.head},base:{sha:ciExpected.baseSha,ref:'main',repo:{id:42}}}:
+    p==='/branches/main'?{name:'main',protected:true,commit:{sha:ciExpected.baseSha}}:
+    p==='/branches/main/protection'?{required_status_checks:{strict:true,contexts:['build'],checks:[{context:'build',app_id:15368}]}}:
+    p.startsWith('/commits/')&&p.includes('/check-runs?')?{total_count:1,check_runs:[{id:44,name:'build',head_sha:ciExpected.head,app:{id:15368},status:'completed',conclusion:ciConclusion}]}:
+    p.startsWith('/rules/branches/')||p.endsWith('/statuses?per_page=100')?[]:null;
+  assert.notEqual(data,null,'Unexpected CI endpoint');
+  return {status:200,body:JSON.stringify(data)};
+}});
+assert.equal((await observeGithubCI({provider:ciProvider,expected:ciExpected})).qualifies,true);
+ciConclusion='failure';
+assert.equal((await observeGithubCI({provider:ciProvider,expected:ciExpected})).status,'failed');
 const entry = realpathSync(fileURLToPath(import.meta.resolve('@nibfin/core')));
 assert.equal(entry, process.cwd() + '/node_modules/@nibfin/core/src/index.mjs');
 const input = ${JSON.stringify(grantFixture(bodyDigest))};

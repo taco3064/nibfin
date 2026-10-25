@@ -1,5 +1,5 @@
 import {randomUUID} from 'node:crypto';
-import {githubId, repositoryCoordinates, canonicalJSON, contentIdentity, prepareCustodyManifest, publishCustody} from './index.mjs';
+import {githubId, repositoryCoordinates, canonicalJSON, bodyDigest, contentIdentity, prepareCustodyManifest, publishCustody} from './index.mjs';
 
 const same = (a, b) => canonicalJSON(a) === canonicalJSON(b);
 const hash = v => typeof v === 'string' && /^[a-f0-9]{64}$/.test(v);
@@ -16,13 +16,15 @@ async function bounded(work, signal) {
     })]);
   } finally {signal.removeEventListener('abort', abort);}
 }
+// Both effects establish Shape publication; remote presence alone is noncausal.
+const publicationEffect = v => v.kind === 'issue-body' || v.kind === 'label';
 const unknown = (refs = {}, reason = 'readback') => ({outcome: 'unknown', continuation: false, refs, reason});
 
 /** Construct the exact supported HTTP request; callers cannot supply endpoints/predicates. */
 export function controlledIntent(input) {
   const v = JSON.parse(canonicalJSON(input));
   if (!exact(v, 'version kind correlation source binding target payload') || v.version !== 1
-      || !['dispatch', 'pr', 'merge', 'close', 'label'].includes(v.kind) || !name(v.correlation)) fail();
+      || !['dispatch', 'pr', 'merge', 'close', 'label', 'issue-body'].includes(v.kind) || !name(v.correlation)) fail();
   const b = v.binding;
   if (!exact(b, 'repository repositoryId issueId number cycle scopeHash shapeHash authorization runId attempt candidate base head'
       + (v.kind === 'merge' ? ' baseRef' : ''))
@@ -39,7 +41,7 @@ export function controlledIntent(input) {
   if (!exact(v.target, 'id number workflow') || !v.payload || typeof v.payload !== 'object' || Array.isArray(v.payload)) fail();
   githubId(v.target.id);
   const p = v.payload, t = v.target;
-  if (['close', 'label'].includes(v.kind) && (t.number !== b.number || t.workflow !== null)) fail();
+  if (['close', 'label', 'issue-body'].includes(v.kind) && (t.number !== b.number || t.workflow !== null)) fail();
   if (['pr', 'merge'].includes(v.kind)) {
     if (!sha(b.head) || !sha(b.base) || !hash(b.candidate)) fail();
     if (v.kind === 'merge') githubId(t.number);
@@ -49,6 +51,9 @@ export function controlledIntent(input) {
         || !p.inputs || typeof p.inputs !== 'object' || Array.isArray(p.inputs)
         || Object.values(p.inputs).some(x => typeof x !== 'string')
         || p.inputs.nibfin_correlation !== v.correlation) fail();
+  } else if (v.kind === 'issue-body') {
+    githubId(t.number);
+    if (!exact(p, 'body') || typeof p.body !== 'string' || !p.body.trim() || bodyDigest(p.body) !== b.shapeHash) fail();
   } else if (v.kind === 'close') {
     githubId(t.number);
     if (!exact(p, 'state state_reason') || p.state !== 'closed' || p.state_reason !== 'completed') fail();
@@ -74,9 +79,9 @@ export function controlledIntent(input) {
 }
 function requestFor(v) {
   const root = `/repos/${v.binding.repository}`, t = v.target;
-  return {method: ({dispatch: 'POST', pr: 'POST', merge: 'PUT', close: 'PATCH', label: 'POST'})[v.kind],
+  return {method: ({dispatch: 'POST', pr: 'POST', merge: 'PUT', close: 'PATCH', label: 'POST', 'issue-body': 'PATCH'})[v.kind],
     endpoint: root + ({dispatch: `/actions/workflows/${t.workflow}/dispatches`, pr: '/pulls',
-      merge: `/pulls/${t.number}/merge`, close: `/issues/${t.number}`, label: `/issues/${t.number}/labels`})[v.kind],
+      merge: `/pulls/${t.number}/merge`, close: `/issues/${t.number}`, 'issue-body': `/issues/${t.number}`, label: `/issues/${t.number}/labels`})[v.kind],
     operation: v.kind, target: t.id, correlation: v.correlation, body: v.payload};
 }
 function custodyBinding(v, phase, source) {
@@ -139,6 +144,7 @@ async function observe(provider, v, signal) {
   if (d.id !== v.target.id || d.node_id !== v.binding.issueId || String(d.number) !== v.binding.number
       || d.repository_url !== `https://api.github.com${root}` || d.pull_request) throw Error('issue');
   if (v.kind === 'close' && (d.state !== 'closed' || d.state_reason !== 'completed' || !d.closed_at)) throw Error('close');
+  if (v.kind === 'issue-body' && d.body !== v.payload.body) throw Error('body');
   let labelsIdentity;
   if (v.kind === 'label') {
     // The Issue response can truncate labels: independently retrieve the full collection.
@@ -147,7 +153,7 @@ async function observe(provider, v, signal) {
     if (labels.outcome !== 'complete' || !v.payload.labels.every(x => labels.data.some(l => l.name === x))) throw Error('labels');
     labelsIdentity = contentIdentity(labels.data);
   }
-  return {effect: v.kind === 'close' ? 'closed-completed' : 'labels-present', id: d.id,
+  return {effect: v.kind === 'close' ? 'closed-completed' : v.kind === 'issue-body' ? 'body-present' : 'labels-present', id: d.id,
     ...(labelsIdentity ? {labelsIdentity, labelsEndpoint: `${root}/issues/${v.target.number}/labels`} : {}),
     endpoint: `${root}/issues/${v.target.number}`, observedAt: r.observedAt, identity: contentIdentity(d)};
 }
@@ -156,7 +162,7 @@ async function observe(provider, v, signal) {
  * traceable custody references, or positively attests a new request. Never infer
  * newness from a missing artifact. Writes must use createAuthorizationBoundary.
  */
-export function createControlledOperations({authorization, provider, custody, publication, locate, execution, timeoutMs = 30000} = {}) {
+export function createControlledOperations({authorization, provider, custody, publication, locate, execution, beforeSubmit = async () => {}, timeoutMs = 30000} = {}) {
   if (typeof authorization?.request !== 'function' || typeof provider?.request !== 'function'
       || typeof provider?.collection !== 'function' || typeof custody?.retrieve !== 'function'
       || typeof publication !== 'function' || typeof locate !== 'function') throw Error('operations:capability');
@@ -185,6 +191,16 @@ export function createControlledOperations({authorization, provider, custody, pu
     await recover(entry, v, phase, signal);
     return entry;
   }
+  async function submit(v, refs, signal) {
+    const result = await bounded(authorization.request({...requestFor(v), context: structuredClone(v.binding), signal}), signal);
+    // An attempt precedes the guard and is not submission provenance. Retain the
+    // boundary's actual result separately, including unknown/lost responses. If
+    // retention is interrupted, recovery fails closed rather than inventing proof.
+    if (publicationEffect(v)) refs.submission = await retain(v, 'submission', {
+      attempt: refs.attempt, submission: {outcome: result.outcome, diagnostic: result.diagnostic}
+    }, signal);
+    return result;
+  }
   async function execute(input, {signal: caller, retryAfterNoEffect = false} = {}) {
     const signal = AbortSignal.any([AbortSignal.timeout(timeoutMs), ...(caller ? [caller] : [])]);
     let v, prior, refs = {}, submission;
@@ -195,28 +211,41 @@ export function createControlledOperations({authorization, provider, custody, pu
       if (prior?.outcome === 'found') {
         refs = structuredClone(prior.refs);
         await recover(refs.intent, v, 'intent', signal);
+        if (publicationEffect(v) && !refs.attempt) return unknown(refs, 'missing-attempt');
         // Even a retained success is re-observed; no local result cache authorizes continuation.
         if (refs.attempt) await recover(refs.attempt, v, 'attempt', signal);
         const result = refs.result ? await recover(refs.result, v, 'result', signal) : null;
+        if (publicationEffect(v) && result?.outcome === 'confirmed-no-effect'
+            && same(result.attempt, refs.attempt) && retryAfterNoEffect !== true)
+          return unknown(refs, 'known-no-effect');
+        if (publicationEffect(v) && retryAfterNoEffect !== true) {
+          if (!refs.submission) return unknown(refs, 'missing-submission');
+          const submitted = await recover(refs.submission, v, 'submission', signal);
+          if (!same(submitted.attempt, refs.attempt)) return unknown(refs, 'submission-attempt');
+          if (submitted.submission?.outcome === 'failed' && submitted.submission.diagnostic?.kind === 'unauthorized')
+            return unknown(refs, 'known-no-effect');
+        }
         if (retryAfterNoEffect === true) {
           if (result?.outcome !== 'confirmed-no-effect' || result.submission?.diagnostic?.kind !== 'unauthorized'
               || !refs.attempt || !same(result.attempt, refs.attempt))
             return unknown(refs, 'unsafe-retry');
           refs.attempt = await retain(v, 'attempt', {previousResult: refs.result ?? null}, signal);
-          submission = await bounded(authorization.request({...requestFor(v), context: structuredClone(v.binding), signal}), signal);
+          await bounded(Promise.resolve(beforeSubmit(structuredClone(v))), signal);
+          submission = await submit(v, refs, signal);
         }
       } else if (prior?.outcome === 'new' && prior.identity === contentIdentity(v)) {
         refs.intent = await retain(v, 'intent', {}, signal);
         if (signal?.aborted) return unknown(refs, 'cancelled');
         refs.attempt = await retain(v, 'attempt', {previousResult: refs.result ?? null}, signal);
-        submission = await bounded(authorization.request({...requestFor(v), context: structuredClone(v.binding), signal}), signal);
+        await bounded(Promise.resolve(beforeSubmit(structuredClone(v))), signal);
+        submission = await submit(v, refs, signal);
       } else return unknown(refs, 'history');
       let observation;
       try {observation = await observe(provider, v, signal);} catch { /* Unknown effect remains blocked. */ }
       // Only the current boundary's explicit rejection BEFORE transport proves no effect.
       // HTTP failures, provider acknowledgment, cancellation and old state never do.
       const noEffect = submission?.outcome === 'failed' && submission.diagnostic?.kind === 'unauthorized';
-      const outcome = observation ? 'confirmed-success' : noEffect ? 'confirmed-no-effect' : 'unknown';
+      const outcome = noEffect ? 'confirmed-no-effect' : observation ? 'confirmed-success' : 'unknown';
       refs.result = await retain(v, 'result', {outcome, attempt: refs.attempt ?? null, observation: observation ?? null,
         submission: submission ? {outcome: submission.outcome, diagnostic: submission.diagnostic} : null}, signal);
       return {outcome, continuation: outcome === 'confirmed-success', refs,

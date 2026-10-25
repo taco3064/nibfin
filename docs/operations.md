@@ -2,7 +2,7 @@
 
 `controlledIntent` and `createControlledOperations` are inert public Core APIs.
 They cover Workflow Dispatch, PR creation, head-conditional Merge, completed Issue
-Close and additive Label writes. PR update is not exposed by this version. These
+Close, exact Issue Body updates and additive Label writes. PR update is not exposed by this version. These
 are module contracts with local fixture proof, not live integration evidence.
 #122 owns real native exclusion/queue/cancellation observations; #123 owns live
 independent-Run recovery. Neither suite was run for this module.
@@ -10,7 +10,7 @@ independent-Run recovery. Neither suite was run for this module.
 ## Capabilities and exact identity
 
 Construct `createControlledOperations({authorization, provider, custody,
-publication, locate, execution})` with trusted Core capabilities. `authorization` is an
+publication, locate, execution, beforeSubmit})` with trusted Core capabilities. `authorization` is an
 existing `createAuthorizationBoundary` instance; `provider` supplies independent
 GET/collection readback; `custody` is `createArtifactCustody`. `publication` returns
 `{client,runtime}` from the existing Actions artifact upload adapter, optionally
@@ -174,3 +174,27 @@ Node 22/npm 10 and the isolated SDK runtime described in `docs/custody.md`, then
 `npm run verify:archive`. The ignored `out/nibfin-core.tgz` is mandatory Candidate
 content. No repository-managed hooks are configured; Core's two isolated hook
 gates remain applicable. Live #122/#123 observations remain separately owned.
+
+Issue Body publication uses kind `issue-body`, an Issue database target/number,
+and payload `{body}` only. Nonblank exact bytes must hash to binding.shapeHash
+using bodyDigest. Readback checks the target Issue and exact body bytes. A retained
+intent or pre-guard attempt is insufficient publication provenance. Body and additive Label writes
+retain a separate submission receipt only after the authorization boundary returns,
+binding its outcome to the exact attempt. Recovery for both effects requires this receipt; missing
+or mismatched receipts block even when remote bytes or labels match. Known denied no-effect
+submissions cannot later be promoted from matching bytes, even if final result
+retention failed. Lost responses with retained submission receipts can reconcile
+independently observed effects without resubmission. Interruption before receipt
+retention remains unknown and requires trusted investigation, not automatic replay.
+
+The optional trusted beforeSubmit(intent) guard runs after durable intent/attempt
+retention and before authorization.request, including explicitly authorized retries.
+A thrown guard blocks transport and preserves unknown/partial recovery history.
+Shape publication uses it for live Scope/body/evidence/dependency checkpoints.
+GitHub body and label effects remain separate; see shape.md for continuation.
+
+The same receipt rules apply to every additive Label operation, including shaped.
+Legacy Body/Label history without a submission receipt remains unknown; matching
+remote state cannot upgrade it. A prior denial applies to its exact attempt. An
+explicitly authorized retry receives a new attempt and submission receipt, so an
+interrupted final-result retention can reconcile the later submitted effect.

@@ -33,8 +33,6 @@ jobs:
   core:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    env:
-      NIBFIN_ARTIFACT_SDK_ROOT: ${{ runner.temp }}/nibfin-artifact-sdk
     steps:
       - uses: actions/checkout@v4
         with:
@@ -44,7 +42,10 @@ jobs:
           node-version: '22'
       - run: npm ci --registry=https://registry.npmjs.org --ignore-scripts --no-audit --no-fund
       - name: Provision pinned artifact SDK test runtime
-        run: npm install --prefix "$NIBFIN_ARTIFACT_SDK_ROOT" --registry=https://registry.npmjs.org --save-exact --ignore-scripts --no-audit --no-fund @actions/artifact@2.3.2
+        run: |
+          sdk_root="$RUNNER_TEMP/nibfin-artifact-sdk"
+          echo "NIBFIN_ARTIFACT_SDK_ROOT=$sdk_root" >> "$GITHUB_ENV"
+          npm install --prefix "$sdk_root" --registry=https://registry.npmjs.org --save-exact --ignore-scripts --no-audit --no-fund @actions/artifact@2.3.2
       - run: npm run test:artifact-sdk
       - run: npm run check
       - run: npm run verify:archive

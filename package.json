@@ -51,7 +51,11 @@
     "src/relay.mjs",
     "docs/relay.md",
     "src/registration.mjs",
-    "docs/registration.md"
+    "docs/registration.md",
+    "src/portfolio.mjs",
+    "instructions/scope.md",
+    "docs/scope.md",
+    "examples/scope.json"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

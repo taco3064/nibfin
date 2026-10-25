@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "authority": {
+    "source": "example:approved-product",
+    "revision": "1"
+  },
+  "boundary": {
+    "kind": "whole"
+  },
+  "requirements": [
+    {
+      "id": "api",
+      "statement": "Return a reusable read-only portfolio result.",
+      "source": "example:approved-product",
+      "revision": "1"
+    },
+    {
+      "id": "security",
+      "statement": "Preserve credentials and protected delivery boundaries.",
+      "source": "example:approved-product",
+      "revision": "1"
+    },
+    {
+      "id": "docs",
+      "statement": "Package English instructions and API documentation.",
+      "source": "example:approved-product",
+      "revision": "1"
+    },
+    {
+      "id": "release",
+      "statement": "Verify installed consumer behavior before release claims.",
+      "source": "example:approved-product",
+      "revision": "1"
+    }
+  ],
+  "items": [
+    {
+      "id": "core",
+      "repository": "example/core",
+      "ownership": "Core owns the normative portfolio API and its safety validation.",
+      "outcome": "Consumers validate explicit JSON without provider writes.",
+      "verification": "Positive, rejection and immutability fixture assertions.",
+      "estimate": {
+        "lines": 800,
+        "confidence": "medium",
+        "basis": "Checker, safety tests, packaged instructions and reference."
+      }
+    },
+    {
+      "id": "entry",
+      "repository": "example/entry",
+      "ownership": "Entry owns packaging integration, consuming the Core API.",
+      "outcome": "A fresh consumer retrieves instructions and validates portfolios.",
+      "verification": "Install the exact archive and exercise positive/negative cases.",
+      "estimate": {
+        "lines": 200,
+        "confidence": "medium",
+        "basis": "Consumer harness and release correspondence checks."
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "requirement": "api",
+      "items": [
+        "core"
+      ],
+      "rationale": "Return a reusable read-only portfolio result."
+    },
+    {
+      "requirement": "security",
+      "items": [
+        "core"
+      ],
+      "rationale": "Preserve credentials and protected delivery boundaries."
+    },
+    {
+      "requirement": "docs",
+      "items": [
+        "core"
+      ],
+      "rationale": "Package English instructions and API documentation."
+    },
+    {
+      "requirement": "release",
+      "items": [
+        "entry"
+      ],
+      "rationale": "Verify installed consumer behavior before release claims."
+    }
+  ],
+  "exclusions": [],
+  "handoffs": [
+    {
+      "producer": "core",
+      "consumer": "entry",
+      "contract": "@example/core versioned JSON checker and English instruction retrieval.",
+      "verification": "Fresh archive installation exercises both exported functions."
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "entry",
+      "to": "core"
+    }
+  ],
+  "nativeDependencies": [
+    {
+      "from": "entry",
+      "to": "core"
+    }
+  ],
+  "graphCoverage": "complete",
+  "resources": [
+    {
+      "name": "Node 22",
+      "kind": "tool",
+      "status": "unverified",
+      "evidence": "Example only; verify in the target environment."
+    },
+    {
+      "name": "candidate extras",
+      "kind": "artifact",
+      "status": "unknown"
+    },
+    {
+      "name": "commit hooks",
+      "kind": "hook",
+      "status": "unknown"
+    }
+  ],
+  "claims": []
+}

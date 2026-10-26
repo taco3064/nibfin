@@ -99,3 +99,5 @@ export {createCore,coreStages,createDeliverFlow} from './core.mjs';
 
 export {workflowVersion, workflowInput, projectIssue, workflowRoute, createWorkflowEntry} from './workflow.mjs';
 export {workflowFiles, workflowInstallation} from './workflow-install.mjs';
+
+export {releaseHash,releaseVersion,releaseComponents,configuration,validateReleaseCompatibility,verifyRelease} from './release.mjs';

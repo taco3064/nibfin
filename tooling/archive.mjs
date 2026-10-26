@@ -1,4 +1,4 @@
-import {gunzipSync} from 'node:zlib';
+import {inspectPackageArchive} from '../src/archive.mjs';
 import {readFileSync, mkdirSync, renameSync, mkdtempSync, writeFileSync, rmSync, realpathSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {resolve, join, dirname, sep} from 'node:path';
@@ -7,41 +7,10 @@ import {execFileSync} from 'node:child_process';
 import {grantFixture} from './grant-fixture.mjs';
 import {bodyDigest,workflowFiles} from '../src/index.mjs';
 
-export const packageFiles = [...workflowFiles,'src/core.mjs','docs/core.md','src/fanout.mjs','docs/fanout.md','src/recovery.mjs','docs/recovery.md','src/completion.mjs','docs/completion.md','src/final-review.mjs','docs/final-review.md','src/candidate-publication.mjs','docs/candidate-publication.md','src/repair.mjs','docs/repair.md','src/accept.mjs','docs/accept.md','src/hooks.mjs','docs/hooks.md','src/wsl.mjs','src/wsl-guest.mjs','docs/wsl.md','src/gemini.mjs','src/gemini-entry.mjs','docs/gemini.md','src/claude.mjs','src/claude-entry.mjs','docs/claude.md','src/shape.mjs', 'docs/shape.md', 'src/publisher.mjs', 'docs/publisher.md', 'src/codex.mjs', 'src/codex-entry.mjs', 'docs/codex.md', 'src/publication.mjs', 'docs/publication.md', 'src/ci.mjs', 'src/portfolio.mjs', 'instructions/scope.md', 'docs/scope.md', 'examples/scope.json', 'src/registration.mjs', 'docs/registration.md', 'src/relay.mjs', 'docs/relay.md', 'src/dynamic.mjs', 'docs/dynamic.md', 'src/operations.mjs', 'src/concurrency.mjs', 'docs/operations.md', 'src/selection.mjs', 'docs/selection.md', 'src/workspace.mjs', 'docs/workspace.md', 'src/runners.mjs', 'src/instructions.mjs', 'docs/instructions.md', 'skills/shape/SKILL.md', 'skills/deliver/SKILL.md', 'skills/accept/SKILL.md', 'src/actions.mjs', 'src/deployment.mjs', 'docs/deployment.md', 'src/lifecycle.mjs', 'docs/lifecycle.md', 'src/authorization.mjs', 'docs/authorization.md', 'src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs', 'src/custody-upload.mjs', 'src/custody.mjs', 'src/custody-zip.mjs', 'docs/custody.md'];
+export const packageFiles = ['src/archive.mjs','src/release.mjs','docs/releases.md',...workflowFiles,'src/core.mjs','docs/core.md','src/fanout.mjs','docs/fanout.md','src/recovery.mjs','docs/recovery.md','src/completion.mjs','docs/completion.md','src/final-review.mjs','docs/final-review.md','src/candidate-publication.mjs','docs/candidate-publication.md','src/repair.mjs','docs/repair.md','src/accept.mjs','docs/accept.md','src/hooks.mjs','docs/hooks.md','src/wsl.mjs','src/wsl-guest.mjs','docs/wsl.md','src/gemini.mjs','src/gemini-entry.mjs','docs/gemini.md','src/claude.mjs','src/claude-entry.mjs','docs/claude.md','src/shape.mjs', 'docs/shape.md', 'src/publisher.mjs', 'docs/publisher.md', 'src/codex.mjs', 'src/codex-entry.mjs', 'docs/codex.md', 'src/publication.mjs', 'docs/publication.md', 'src/ci.mjs', 'src/portfolio.mjs', 'instructions/scope.md', 'docs/scope.md', 'examples/scope.json', 'src/registration.mjs', 'docs/registration.md', 'src/relay.mjs', 'docs/relay.md', 'src/dynamic.mjs', 'docs/dynamic.md', 'src/operations.mjs', 'src/concurrency.mjs', 'docs/operations.md', 'src/selection.mjs', 'docs/selection.md', 'src/workspace.mjs', 'docs/workspace.md', 'src/runners.mjs', 'src/instructions.mjs', 'docs/instructions.md', 'skills/shape/SKILL.md', 'skills/deliver/SKILL.md', 'skills/accept/SKILL.md', 'src/actions.mjs', 'src/deployment.mjs', 'docs/deployment.md', 'src/lifecycle.mjs', 'docs/lifecycle.md', 'src/authorization.mjs', 'docs/authorization.md', 'src/authority.mjs', 'docs/authority.md', 'README.md', 'docs/package.md', 'package.json', 'src/index.mjs', 'src/grants.mjs', 'src/evidence.mjs', 'docs/evidence.md', 'src/provider.mjs', 'src/obligations.mjs', 'src/custody-upload.mjs', 'src/custody.mjs', 'src/custody-zip.mjs', 'docs/custody.md'];
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-// Read the actual tar payload without extracting attacker-controlled paths.
-export function inspectArchive(archive) {
-  const tar = gunzipSync(archive);
-  const files = new Map();
-  let offset = 0;
-  while (offset + 512 <= tar.length) {
-    const header = tar.subarray(offset, offset + 512);
-    if (header.every(byte => byte === 0)) {
-      if (!tar.subarray(offset).every(byte => byte === 0)) throw new Error('Trailing tar data');
-      return files;
-    }
-    const field = (start, length) => header.subarray(start, start + length).toString().replace(/\0.*$/s, '');
-    const octal = text => {
-      if (!/^[0-7]+$/.test(text.trim())) throw new Error('Invalid tar number');
-      return parseInt(text.trim(), 8);
-    };
-    const checksum = [...header].reduce((sum, byte, index) => sum + (index >= 148 && index < 156 ? 32 : byte), 0);
-    if (checksum !== octal(field(148, 8))) throw new Error('Invalid tar checksum');
-    const name = field(0, 100);
-    const size = octal(field(124, 12));
-    if (field(345, 155) || !['0', ''].includes(field(156, 1)) || !name.startsWith('package/')) {
-      throw new Error(`Unsupported archive entry: ${name}`);
-    }
-    const path = name.slice(8);
-    if (!packageFiles.includes(path) || files.has(path)) throw new Error(`Forbidden or duplicate archive entry: ${path}`);
-    offset += 512;
-    if (offset + size > tar.length) throw new Error('Truncated tar entry');
-    files.set(path, tar.subarray(offset, offset + size));
-    offset += Math.ceil(size / 512) * 512;
-  }
-  throw new Error('Missing tar terminator');
-}
+export const inspectArchive = archive => inspectPackageArchive(archive, packageFiles);
 
 export function verifyArchive(archive, producer = root) {
   const files = inspectArchive(archive);
@@ -57,7 +26,7 @@ export function verifyArchive(archive, producer = root) {
   return [...files.keys()].sort();
 }
 
-export function consumeArchive(archivePath) {
+export function consumeArchive(archivePath, {release = false} = {}) {
   const consumer = mkdtempSync(join(tmpdir(), 'nibfin-consumer-'));
   try {
     if (realpathSync(consumer).startsWith(root + sep)) throw new Error('Consumer is inside producer');
@@ -85,6 +54,12 @@ export function consumeArchive(archivePath) {
         .replaceAll("'../src/index.mjs'", "'@nibfin/core'").replaceAll("'../tooling/workflow-fixture.mjs'", "'./workflow-fixture.mjs'").replaceAll("'../tooling/registration-fixture.mjs'", "'./registration-fixture.mjs'").replace("'../tooling/core-fixture.mjs'", "'./core-fixture.mjs'").replaceAll("'../tooling/fanout-fixture.mjs'", "'./fanout-fixture.mjs'").replace("'../tooling/recovery-fixture.mjs'", "'./recovery-fixture.mjs'").replace("'../tooling/completion-fixture.mjs'", "'./completion-fixture.mjs'").replace("'../tooling/final-review-fixture.mjs'", "'./final-review-fixture.mjs'").replace("'../tooling/candidate-publication-fixture.mjs'", "'./candidate-publication-fixture.mjs'").replace("'../tooling/repair-fixture.mjs'", "'./repair-fixture.mjs'").replaceAll("'../tooling/evidence-fixture.mjs'", "'./evidence-fixture.mjs'").replace("'../tooling/grant-fixture.mjs'", "'./grant-fixture.mjs'").replace("'../tooling/accept-fixture.mjs'", "'./accept-fixture.mjs'").replace("'../tooling/wsl-fixture.mjs'", "'./wsl-fixture.mjs'").replace("'../tooling/shape-fixture.mjs'", "'./shape-fixture.mjs'").replace("'../tooling/dynamic-fixture.mjs'", "'./dynamic-fixture.mjs'").replace("'../tooling/codex-fixture.mjs'", "'./codex-fixture.mjs'").replace("'../tooling/custody-fixture.mjs'", "'./custody-fixture.mjs'").replace("'../tooling/operations-fixture.mjs'", "'./operations-fixture.mjs'").replace("'../tooling/relay-fixture.mjs'", "'./relay-fixture.mjs'"));
       const result = execFileSync(process.execPath, ['--test', file], {cwd:consumer,env,encoding:'utf8'});
       if (!result.includes('# fail 0')) throw Error('Installed controlled operation contract failed');
+    }
+    if (release) {
+      for (const name of ['release-manifest.json','compatibility.json']) {
+        writeFileSync(join(consumer,name),readFileSync(join(dirname(archivePath),name)));
+      }
+      writeFileSync(join(consumer,'nibfin-core.tgz'),readFileSync(archivePath));
     }
     writeFileSync(join(consumer, 'smoke.mjs'), `
 import assert from 'node:assert/strict';
@@ -279,6 +254,21 @@ const recovered = await custodyTest.fresh().retrieve({ref:retained.ref, expected
 assert.equal(recovered.outcome, 'retrieved');
 assert.deepEqual(recovered.payloads.get('out/ignored.bin'), Buffer.from([0,255,1,128]));
 assert.equal((await custodyTest.fresh().retrieve({ref:retained.ref, expected:{...custodyTest.expected,attempt:'2'}})).outcome, 'failed');
+${release ? `
+const {verifyRelease,releaseComponents,workflowInstallation} = await import('@nibfin/core');
+const fs = await import('node:fs');
+const releaseManifest=JSON.parse(fs.readFileSync('release-manifest.json'));
+const compatibilityBytes=fs.readFileSync('compatibility.json');
+verifyRelease({manifest:releaseManifest,compatibility:JSON.parse(compatibilityBytes),compatibilityBytes,
+  archive:fs.readFileSync('nibfin-core.tgz'),expectedVersion:releaseManifest.version,expectedSource:releaseManifest.source});
+assert.deepEqual(releaseComponents(),releaseManifest.components);
+const installation=workflowInstallation({commit:'a'.repeat(40),hostCommit:'b'.repeat(40),hostRepository:'taco3064/nibfin'});
+assert.equal(installation.coreVersion,releaseManifest.version);
+assert.ok(installation.files.size>0);
+assert.throws(()=>verifyRelease({manifest:releaseManifest,compatibility:JSON.parse(compatibilityBytes),compatibilityBytes,
+  archive:fs.readFileSync('nibfin-core.tgz'),expectedVersion:'9.9.9',expectedSource:releaseManifest.source}));
+console.log('Installed release identities, exact pin rejection and workflow installation passed');
+` : ''}
 console.log('Installed archive consumer passed (real Grant signatures and rejection):', entry);
 `);
     const smoke = execFileSync(process.execPath, ['smoke.mjs'], {cwd: consumer, env, encoding: 'utf8'}).trim();

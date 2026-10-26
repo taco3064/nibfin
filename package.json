@@ -102,13 +102,18 @@
     "workflow/action/action.yml",
     "workflow/templates/nibfin-stage.yml",
     "workflow/templates/nibfin-wakeup.yml",
-    "workflow/templates/nibfin-register.yml"
+    "workflow/templates/nibfin-register.yml",
+    "src/release.mjs",
+    "docs/releases.md",
+    "src/archive.mjs"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",
     "verify:archive": "node tooling/archive.mjs",
     "test:artifact-sdk": "node --test test-sdk/*.test.mjs",
-    "test:workflows": "node --test test/workflows.test.mjs"
+    "test:workflows": "node --test test/workflows.test.mjs",
+    "prepare:release": "node tooling/release.mjs",
+    "verify:release": "node tooling/release.mjs --verify"
   },
   "dependencies": {
     "jose": "6.2.13"

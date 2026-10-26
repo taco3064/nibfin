@@ -31,7 +31,7 @@ function changeEntry(archive, oldName, newName) {
 test('real archive, rejection policy and website isolation', () => {
   const fixture = mkdtempSync(join(tmpdir(), 'nibfin-producer-'));
   try {
-    for (const path of ['workflow', '.github', 'package.json', 'package-lock.json', 'README.md', 'docs', 'src', 'skills', 'instructions', 'examples', 'test', 'tooling']) {
+    for (const path of ['workflow', '.github', 'package.json', 'package-lock.json', 'README.md', 'docs', 'src', 'skills', 'instructions', 'examples', 'test', 'test-sdk', 'tooling']) {
       cpSync(resolve(path), join(fixture, path), {recursive: true});
     }
     const env = {...process.env};
@@ -46,7 +46,7 @@ test('real archive, rejection policy and website isolation', () => {
     assert.throws(() => verifyArchive(changeEntry(archive, 'src/index.mjs', 'src/missing.mjs'), fixture), /Forbidden/);
     // A valid subset still fails the mandatory-entry check.
     const tar = gunzipSync(archive);
-    for (const required of packageFiles.filter(path => path.startsWith('src/') || path.startsWith('skills/'))) {
+    for (const required of packageFiles.filter(path => path.startsWith('src/') || path.startsWith('skills/') || path.startsWith('workflow/') || path.startsWith('.github/workflows/nibfin-'))) {
       let offset = 0;
       while (offset < tar.length) {
         const name = tar.subarray(offset, offset + 100).toString().replace(/\0.*$/s, '');
@@ -71,8 +71,8 @@ test('real archive, rejection policy and website isolation', () => {
     assert.match(run(['run', 'check']), /fail 0/);
     const withWebsite = readFileSync(buildArchive(fixture));
     assert.deepEqual(withWebsite, archive);
-    for (const skill of ['shape','deliver','accept']) {
-      const path = join(fixture, 'skills', skill, 'SKILL.md');
+    for (const required of ['skills/shape/SKILL.md','skills/deliver/SKILL.md','skills/accept/SKILL.md','workflow/templates/nibfin-stage.yml','.github/workflows/nibfin-delivery.yml']) {
+      const path = join(fixture, required);
       const original = readFileSync(path);
       writeFileSync(path, Buffer.concat([original, Buffer.from('changed')]));
       assert.throws(() => verifyArchive(archive, fixture), /Archive\/source mismatch/);

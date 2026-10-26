@@ -26,7 +26,7 @@ export function shapeFixture() {
   }});
   const observation={requiredArtifacts:[],scopeEvidenceReference:'fixture-original',hookObservation:{hooks:[],
     areas:hookConfigurationAreas.map(area=>({area,status:'resolved',evidenceReference:'fixture-config',detail:'No installed hooks'}))}};
-  const flow=createShapeFlow({provider,authorization:{eligibility:async()=>({ok:!state.denied,observation:{repositoryId:'42',issueId:'I_101'}})},
+  const capabilities={provider,authorization:{eligibility:async()=>({ok:!state.denied,observation:{repositoryId:'42',issueId:'I_101'}})},
     dependencies:{evaluate:async()=>state.evaluate ? state.evaluate() : ({outcome:state.dependency,target})},dependencyInput:{target,issues:[target]},
     current:()=>structuredClone(pin),obligations:()=>structuredClone(observation),
     evidenceCurrent:id=>({expected:structuredClone(expected.get(id)),consumed:state.replay?[expected.get(id).execution.result]:[]}),
@@ -39,9 +39,9 @@ export function shapeFixture() {
         inputs:{body:bodyDigest(state.proposal),...(role==='shape-validator'?{author:task.author}:{})},
         result:{version:1,outcome:role==='shape'?'ready':'approved',failureClass:'none',summary:'recording fixture',conflicts:[]}};
       expected.set(id,structuredClone(receipt));
-      const backend={readiness:async()=>({login:'available',tool:'available',isolation:'verified',read:'verified',write:'unsupported',
-        evidence:['recording-contract'],limitations:['Not native isolation proof']}),
-        start:async input=>{records.push({input,task});return {status:'started'};},
+      const backend={readiness:async()=>{await state.onReadiness?.();return {login:'available',tool:'available',isolation:'verified',read:'verified',write:'unsupported',
+        evidence:['recording-contract'],limitations:['Not native isolation proof']};},
+        start:async input=>{records.push({input,task});await state.onStart?.();return {status:'started'};},
         collect:async()=>{
           const evidence=structuredClone(receipt);
           if(state.roleFault==='foreign') evidence.execution.id='foreign';
@@ -76,7 +76,8 @@ export function shapeFixture() {
       const ops=f.fresh(undefined,beforeSubmit);
       const result=await ops.execute(intent);
       return result;
-    }})});
-  return {flow,state,pin,calls,records,expected,observation,stores,body,
+    }})};
+  const flow=createShapeFlow(capabilities);
+  return {capabilities,flow,state,pin,calls,records,expected,observation,stores,body,
     writes:()=>calls.filter(r=>r.method && r.method!=='GET')};
 }

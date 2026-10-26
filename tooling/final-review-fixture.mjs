@@ -3,8 +3,8 @@ import {candidatePublicationFixture} from './candidate-publication-fixture.mjs';
 import {operationsFixture,operationInput} from './operations-fixture.mjs';
 import {createFinalReview,createProtectedMerge,observeFinalReview,createGithubProvider,createAgentLifecycle,
   contentIdentity,selectInstructions} from '../src/index.mjs';
-export async function finalReviewFixture({ownership='personal',method='rebase'}={}) {
-  const published=await candidatePublicationFixture({empty:true,ownership}),a=published.a;
+export async function finalReviewFixture({ownership='personal',method='rebase',configure}={}) {
+  const published=await candidatePublicationFixture({empty:true,ownership,configure}),a=published.a;
   const publication=await published.run();if(publication.outcome!=='published')throw Error('fixture publication');
   const pin=structuredClone(published.pin),b=pin.binding;
   const selected=selectInstructions({skill:'shape',role:'shaper-review'});b.instructions=selected.identity;
@@ -18,7 +18,7 @@ export async function finalReviewFixture({ownership='personal',method='rebase'}=
     head,base,readback:contentIdentity(publication.value.pr.observation)});
   pin.evidence.pr=wrap(pr);
   const input=operationInput('merge');Object.assign(input.binding,{...Object.fromEntries(['scopeHash','shapeHash'].map(k=>[k,b[k]])),
-    cycle:pin.target.cycle,head,base,candidate:a.workspace.expected.identity});
+    authorization:b.grant,cycle:pin.target.cycle,head,base,candidate:a.workspace.expected.identity});
   input.payload.sha=head;input.payload.merge_method=method;input.correlation='merge-one';
   const ops=operationsFixture(input),state={fault:null,result:null,pending:false,termination:'terminated',exitCode:0,
     onPrepare:null,onCollect:null,onNative:null,onCurrent:null,onEligibility:null,onDependency:null};

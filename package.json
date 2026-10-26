@@ -90,7 +90,9 @@
     "src/recovery.mjs",
     "docs/recovery.md",
     "src/fanout.mjs",
-    "docs/fanout.md"
+    "docs/fanout.md",
+    "src/core.mjs",
+    "docs/core.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

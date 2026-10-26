@@ -6,8 +6,7 @@ import {createGithubProvider} from '../src/provider.mjs';
 // Attempt jobs: https://docs.github.com/en/rest/actions/workflow-jobs#list-jobs-for-a-workflow-run-attempt
 // Jobs have no documented run_attempt field: the requested endpoint supplies attempt provenance.
 // IDs/coordinates, timestamps and source bytes are synthetic; optional unused fields omitted.
-export function ciFixture(change = () => {}) {
-  const head = 'a'.repeat(40), baseSha = 'b'.repeat(40), repositoryId = '9007199254740993';
+export function ciFixture(change = () => {}, {head='a'.repeat(40),baseSha='b'.repeat(40),repositoryId='9007199254740993'}={}) {
   const expected = {repository:'example-org/core', repositoryId, prId:'9007199254740995', pr:7,
     head, baseSha, baseBranch:'main', baseRepositoryId:repositoryId};
   const source = Buffer.from('name: CI\non: push\njobs: {}\n');

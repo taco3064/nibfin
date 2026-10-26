@@ -6,9 +6,10 @@ import {operationInput,operationsFixture} from './operations-fixture.mjs';
 import {zipFixture} from './custody-fixture.mjs';
 import {createCompletionFlow,observeClosure,observeControlledOperation,createGithubProvider,
   createArtifactCustody,contentIdentity,byteDigest,verifyDeployment,readDeploymentObservation,createDeploymentFinal} from '../src/index.mjs';
-export async function completionFixture(deployment) {
+export async function completionFixture(deployment,configure) {
   const c=chain(true,false,r=>{
-    for(const e of Object.values(r)){e.binding.repositoryId='42';e.binding.issueId='I_101';}
+    for(const e of Object.values(r)){e.binding.repositoryId='42';e.binding.issueId='I_101';configure?.({scopeBody:'original scope',shapeBody:'published shape',binding:e.binding});
+      if(configure)e.execution.request=e.execution.id+'-request';}
     r.final.inputs.postMerge={mode:'not-applicable',identities:[],reason:'No post-merge checks in synthetic policy'};
   });
   const b=c.receipts.final.binding;
@@ -67,7 +68,8 @@ export async function completionFixture(deployment) {
     if(qualified.status!=='qualified')throw Error('invalid deployment fixture');
   }
   const freshChain=chain(true,false,r=>{
-    for(const e of Object.values(r)){e.binding.repositoryId='42';e.binding.issueId='I_101';}
+    for(const e of Object.values(r)){e.binding.repositoryId='42';e.binding.issueId='I_101';configure?.({scopeBody:'original scope',shapeBody:'published shape',binding:e.binding});
+      if(configure)e.execution.request=e.execution.id+'-request';}
     r.merge.inputs.readback=contentIdentity(mergeOperation);
     r.final.inputs.postMerge=c.receipts.final.inputs.postMerge;
     if(deployment)r.final.inputs.deployment=qualified.proof;
@@ -99,7 +101,7 @@ export async function completionFixture(deployment) {
       if(state.lostPublish===phase)throw Error('fixture lost upload response');
       return {id,digest:byteDigest(bytes)};
     }}});
-  const fresh=()=>createCompletionFlow({current:async()=>{await state.hooks.current?.();return pin;},
+  const capabilities={current:async()=>{await state.hooks.current?.();return pin;},
     authorization:{eligibility:async()=>{await state.hooks.authorization?.();return {ok:state.auth,observation:{repositoryId:'42',issueId:'I_101'}};}},
     dependencies:{evaluate:async()=>{await state.hooks.dependencies?.();return {outcome:state.dependencies?'ready':'waiting',target};}},dependencyInput:{target},
     provider,observe,now:deployment?.now??Date.now,operations:async({intent,beforeSubmit,causalClose})=>{
@@ -114,6 +116,7 @@ export async function completionFixture(deployment) {
       state.stageExpectations[name]=context(r);
       if(name==='closure')state.closure=r;
       return context(r);
-    },postMerge:async()=>{await state.hooks.postMerge?.();return state.postMerge?pin.receipts.final.inputs.postMerge:{};}});
-  return {state,pin,fresh,close,label,provider,custody,publication,observe};
+    },postMerge:async()=>{await state.hooks.postMerge?.();return state.postMerge?pin.receipts.final.inputs.postMerge:{};}};
+  const fresh=()=>createCompletionFlow(capabilities);
+  return {capabilities,state,pin,fresh,close,label,provider,custody,publication,observe};
 }

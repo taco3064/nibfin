@@ -32,6 +32,10 @@ files with source and tests an independent offline installation. See
 Core/website/Action/CLI ownership handoff. These local checks establish package
 behavior; independent Acceptance and repository CI remain separate gates.
 
+The [single-stage Core entry](docs/core.md) composes maintained lifecycle owners
+with fresh authorization and native dependency checks. Its retained local proof
+does not certify live Actions execution.
+
 The [approved-export contract](docs/authority.md) documents full representation,
 independent approval, cycle binding and dependent-evidence invalidation. It uses
 locally supplied exports and does not connect to live Notion.

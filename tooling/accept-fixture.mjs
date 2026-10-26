@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {captureWorkspace,createAcceptFlow,createAgentLifecycle,createHookRunner,selectInstructions,
   bodyDigest,contentIdentity,hookConfigurationAreas} from '../src/index.mjs';
-export async function acceptFixture({empty=false,ownership='personal',child=false,rich=false,originalMessage=Buffer.from('candidate message'),repository='owner/public',issueId='I_97'}={}) {
+export async function acceptFixture({empty=false,ownership='personal',child=false,rich=false,originalMessage=Buffer.from('candidate message'),repository='owner/public',issueId='I_97',configure=()=>{}}={}) {
   const root=mkdtempSync(join(tmpdir(),'nibfin-accept-'));
   const h='a'.repeat(64), image='sha256:'+h;
   const git=(...args)=>execFileSync('git',args,{cwd:root,env:{PATH:process.env.PATH,HOME:'/nonexistent',
@@ -29,6 +29,7 @@ export async function acceptFixture({empty=false,ownership='personal',child=fals
   const selected=selectInstructions({skill:'accept',role:'accept'});
   const binding={authority:h,grant:h,policy:h,core:h,runtime:h,instructions:selected.identity,
     repositoryId:'42',issueId,scopeHash:bodyDigest(scopeBody),shapeHash:bodyDigest(shapeBody)};
+  configure({scopeBody,shapeBody,binding});
   const observation={hooks:hooks.map(v=>({...v,evidenceReference:'fixture',applicability:'required',prerequisites:[]})),
     areas:hookConfigurationAreas.map(area=>({area,status:'resolved',evidenceReference:'fixture',detail:'inspected'}))};
   const events=[], records=[], expected=new Map(), lives=[];
@@ -58,7 +59,7 @@ export async function acceptFixture({empty=false,ownership='personal',child=fals
     start:'started',termination:'terminated',pending:false,exitCode:0,result:null,child};
   let n=0;
   const evidenceCurrent=id=>({expected:structuredClone(expected.get(id)),consumed:state.fault==='replay'?[expected.get(id).execution.result]:[]});
-  const flow=createAcceptFlow({current:()=>structuredClone(pin),workspace:()=>w,evidenceCurrent,
+  const capabilities={current:()=>structuredClone(pin),workspace:()=>w,evidenceCurrent,
     prepareRole:async ({role,skill,instructions,task})=>{
       const id=state.fault==='self'?'writer':`review-${++n}`;
       const e=execution(role,id), b={...binding};
@@ -99,8 +100,9 @@ export async function acceptFixture({empty=false,ownership='personal',child=fals
       if(state.fault==='role') input.execution.role='deliver';
       if(state.fault==='instructions')input.instructions.content='foreign';
       state.onPrepare?.({input,task});return {lifecycle,input};
-    }});
-  return {flow,pin,state,records,events,expected,lives,root,git,runner,hookInput,first,evidenceCurrent,
+    }};
+  const flow=createAcceptFlow(capabilities);
+  return {capabilities,captureInput,flow,pin,state,records,events,expected,lives,root,git,runner,hookInput,first,evidenceCurrent,
     get workspace(){return w;},recapture(){w=captureWorkspace(captureInput);return w;},
     snapshot:()=>['.gitignore','binary','ignored',...hooks.map(h=>h.path)].map(p=>readFileSync(join(root,p)).toString('base64')),
     async second(accept){events.push('second-pass');return runner.execute({...hookInput,phase:'pre-commit',executionId:'second',

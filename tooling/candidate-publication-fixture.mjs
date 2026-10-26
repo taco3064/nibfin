@@ -6,8 +6,8 @@ import {join} from 'node:path';
 import {acceptFixture} from './accept-fixture.mjs';
 import {operationsFixture,operationInput} from './operations-fixture.mjs';
 import {createPublicationGit,createCandidatePublication,contentIdentity} from '../src/index.mjs';
-export async function candidatePublicationFixture({empty=false,ownership='personal'}={}) {
-  const a=await acceptFixture({empty,ownership,rich:true,originalMessage:Buffer.from('candidate\r\n\nexact message bytes'),repository:'example-org/core',issueId:'I_101'});
+export async function candidatePublicationFixture({empty=false,ownership='personal',configure}={}) {
+  const a=await acceptFixture({empty,ownership,configure,rich:true,originalMessage:Buffer.from('candidate\r\n\nexact message bytes'),repository:'example-org/core',issueId:'I_101'});
   const h='a'.repeat(64), b=a.pin.binding;
   const execution=(role,id)=>({role,skill:role==='shape-validator'?'shape':role,id,request:id+'-request',result:id+'-result',source:null});
   const evidence=(stage,id,inputs,result=null)=>({version:1,stage,binding:{...b},execution:execution(stage==='publication'?'shape':stage==='pre-commit-hooks'?'deliver':stage,id),inputs,result});
@@ -20,7 +20,7 @@ export async function candidatePublicationFixture({empty=false,ownership='person
   const accepted=await a.flow.run();if(accepted.outcome!=='accepted')throw Error('fixture acceptance');
   const second=await a.second(accepted.evidence);if(!second.ok)throw Error('fixture hooks');
   const secondStage=evidence('pre-commit-hooks','second-stage',{candidate:a.workspace.candidate,phase:'pre-commit',accept:contentIdentity(accepted.evidence),receipt:second.receipt.identity});
-  const input=operationInput('pr');Object.assign(input.binding,{scopeHash:b.scopeHash,shapeHash:b.shapeHash,
+  const input=operationInput('pr');Object.assign(input.binding,{scopeHash:b.scopeHash,shapeHash:b.shapeHash,authorization:b.grant,
     cycle:'one',candidate:a.workspace.expected.identity,base:a.workspace.candidate.base});
   const o=operationsFixture(input);o.state.ownership=ownership==='personal'?'User':'Organization';
   const scratch=mkdtempSync(join(tmpdir(),'nibfin-publication-remote-')),remote=join(scratch,'remote.git');

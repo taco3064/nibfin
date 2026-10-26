@@ -12,7 +12,7 @@ const descriptor = (root='/fixture') => ({id:root,agent:'recording',loginSpace:r
   {id:root+'-two',workspace:root+'/work2',registration:root+'/reg2',service:root+'/svc2'}]});
 const ready = () => ({login:'available',tool:'available',isolation:'verified',read:'verified',write:'verified',
   evidence:['fixture-contract-only'],limitations:['No isolation or OS certification']});
-function setup(role='shape', overrides={}, environment=descriptor()) {
+function setup(role='shape', overrides={}, environment=descriptor(), deferred=false) {
   const execution = {role,skill:skillForRole(role),id:role+'-execution',request:'request',result:'result',source:null};
   const binding = {authority:hash,grant:hash,policy:hash,core:hash,runtime:hash,instructions:bodyDigest('approved'),
     repositoryId:'42',issueId:'I_one',scopeHash:hash,shapeHash:hash};
@@ -27,7 +27,8 @@ function setup(role='shape', overrides={}, environment=descriptor()) {
     collect:()=>({status:'complete',exitCode:0,evidence:clone(expected)}),stop:()=>({status:'requested'}),
     termination:()=>({status:'terminated'}),cleanup:()=>({status:'completed',residuals:[]}),...overrides})
     .map(([k,fn])=>[k,async v=>{calls.push([k,v]);return fn(v);} ]));
-  const life=createAgentLifecycle({environment,instanceId:environment.instances[0].id,backend,current:()=>clone(trusted)});
+  const life=createAgentLifecycle({environment,instanceId:environment.instances[0].id,backend,current:()=>clone(trusted),
+    startCurrent:deferred?()=>({expected:Object.fromEntries(['stage','execution','binding','result'].map(k=>[k,clone(trusted.expected[k])])),consumed:clone(trusted.consumed)}):null});
   const input={execution,binding,instructions:{identity:binding.instructions,content:'approved'},visibility:'public',ownership:'personal'};
   return {life,input,calls,trusted,expected};
 }
@@ -229,4 +230,30 @@ test('AC4/6 regression: retained backend responses cannot mutate observations or
   assert.deepEqual(f.life.observe(id),failed);
   assert.deepEqual(f.life.observe(id).cleanup.residuals,['/fixture/work1']);
   assert.equal((await f.life.cleanup()).status,'completed');
+});
+
+test('Deliver-only deferred Candidate contract cannot authorize other roles or incomplete collection',async()=>{
+  const f=setup('deliver',{},descriptor(),true);
+  delete f.trusted.expected.inputs;
+  assert.equal((await f.life.start(f.input)).start.status,'started');
+  f.trusted.expected.inputs=clone(f.expected.inputs);
+  assert.equal((await f.life.collect(f.input.execution.id)).result.status,'valid');
+  for(const role of ['shape','shape-validator','shape-diagnosis','shaper-review','accept']){
+    const x=setup(role,{},descriptor(),true);await assert.rejects(x.life.start(x.input));assert.equal(x.calls.length,0);
+  }
+  const bad=setup('deliver',{},descriptor(),true);await bad.life.start(bad.input);
+  delete bad.trusted.expected.inputs;
+  assert.equal((await bad.life.collect(bad.input.execution.id)).result.status,'invalid');
+  const replay=setup('deliver',{},descriptor(),true);replay.trusted.consumed.push(replay.input.execution.result);
+  await assert.rejects(replay.life.start(replay.input));assert.equal(replay.calls.length,0);
+});
+
+
+test('cancellation during awaited readiness rejects every role before backend launch',async()=>{
+  for(const role of ['shape','shape-validator','shape-diagnosis','shaper-review','deliver','accept']) {
+    const abort=new AbortController(),f=setup(role,{readiness:async()=>{await Promise.resolve();abort.abort();return ready();}});
+    const result=await f.life.start(f.input,{signal:abort.signal});
+    assert.equal(result.start.status,'rejected');assert.equal(f.calls.filter(([op])=>op==='start').length,0);
+    assert.throws(()=>f.life.observe(f.input.execution.id));
+  }
 });

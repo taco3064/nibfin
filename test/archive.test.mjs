@@ -29,7 +29,7 @@ function changeEntry(archive, oldName, newName) {
 }
 
 test('real archive, rejection policy and website isolation', () => {
-  const fixture = mkdtempSync(join(process.cwd(), '.nibfin-producer-'));
+  const fixture = mkdtempSync(join(tmpdir(), 'nibfin-producer-'));
   try {
     for (const path of ['package.json', 'package-lock.json', 'README.md', 'docs', 'src', 'skills', 'instructions', 'examples', 'test', 'tooling']) {
       cpSync(resolve(path), join(fixture, path), {recursive: true});

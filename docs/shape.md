@@ -69,3 +69,8 @@ verifier-owned custody scratch storage. They prove module wiring and rejection
 behavior only, not real models, native isolation, actual GitHub publication or
 Actions success. Independent Acceptance, Candidate/Hooks, exact-head CI, protected
 Merge and closure remain subsequent Core gates.
+
+`author()` and `validate(authored)` expose separate single-role stages for the
+Core entry. `publish(validated)` remains separate. `propose()` preserves its
+combined convenience API. An unresolved role retains its lifecycle/result;
+`reconcile()` collects that original execution without launching a replacement.

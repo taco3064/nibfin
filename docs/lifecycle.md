@@ -101,3 +101,12 @@ They do not invoke models, register Runners, certify isolation or establish any
 OS-by-Agent support combination. Live provider/platform and full product evidence
 remain separate. Node 22/npm 10 package verification uses disposable executable
 scratch and a separate offline package consumer.
+
+Deliver adapters may supply `startCurrent(id)` returning
+`{expected:{stage:'deliver',execution,binding,result},consumed:[]}`. This optional
+start-only contract pins independent role/authority without predicting output
+Candidate bytes. It is rejected for every other role. `current(id)` remains the
+required complete independent envelope at collection, after protected capture;
+no reduced contract can validate collected results. The default API is unchanged.
+
+`start(input, {signal})` optionally checks cancellation after awaited readiness and before reserving or launching an execution. Cancellation there returns a rejected start. Once backend start begins, cancellation does not prove termination; collect/termination reconciliation remains required.

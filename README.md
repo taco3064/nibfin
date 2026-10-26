@@ -50,3 +50,8 @@ runtime via `NIBFIN_ARTIFACT_SDK_ROOT`; Core CI provisions and runs that suite.
 The [Windows-hosted WSL adapter](docs/wsl.md) implements the protected Linux/Codex backend bridge with local contract tests. Native Windows and Windows-hosted WSL execution remain Unverified; platform integration evidence belongs to gh-nibfin#28.
 
 The [workflow bundle v1](docs/workflows.md) supplies reusable hosted Resolve/member Execute, independent wakeup and protected registration entries, with content-pinned installation plans and local caller fixtures.
+
+The [immutable release contract](docs/releases.md) defines the release CD workflow,
+exact local Candidate assets, installer identity checks and evidence limits.
+Publication success is confirmed after protected Merge; local packaging does not
+certify CLI/platform support or full P1 delivery.

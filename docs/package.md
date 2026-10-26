@@ -714,3 +714,5 @@ publication evidence; that observation remains owned by #124.
 The public package also exports `createLinuxClaudeBackend` and `linuxClaudeProfile`;
 see [Claude adapter](claude.md) for the explicit API-key selection, fixed CLI and
 Linux prerequisites, process contract, and unrun native/model evidence.
+
+See [workflow bundle v1](workflows.md) for `workflowInstallation`, shipped YAML/entry inventory, protected host capabilities and source/installed-consumer proof.

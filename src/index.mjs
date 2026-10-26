@@ -96,3 +96,6 @@ export {observeRecoveryIncident,createRecoveryFlow,recoveryComment} from './reco
 export {createDownstreamFanout, resolveFanoutWakeup} from './fanout.mjs';
 
 export {createCore,coreStages,createDeliverFlow} from './core.mjs';
+
+export {workflowVersion, workflowInput, projectIssue, workflowRoute, createWorkflowEntry} from './workflow.mjs';
+export {workflowFiles, workflowInstallation} from './workflow-install.mjs';

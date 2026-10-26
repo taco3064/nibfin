@@ -1,0 +1,106 @@
+name: Nibfin single stage v1
+on:
+  workflow_call:
+    inputs:
+      issue: {type: string, required: true}
+      nibfin_request: {type: string, required: true}
+      nibfin_correlation: {type: string, required: true}
+    outputs:
+      status:
+        value: ${{ jobs.execute.outputs.status || jobs.compute.outputs.status }}
+permissions: {}
+concurrency:
+  group: nibfin-v1-${{ github.repository_id }}-issue-${{ inputs.issue }}
+  cancel-in-progress: false
+  queue: max
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    environment: nibfin-hosted
+    permissions: {contents: read, actions: read, id-token: write}
+    concurrency:
+      group: nibfin-v1-${{ github.repository_id }}-repository-write
+      cancel-in-progress: false
+      queue: max
+    outputs:
+      execution_mode: ${{ steps.entry.outputs.execution_mode }}
+      selected: ${{ steps.entry.outputs.selected }}
+      runs_on: ${{ steps.entry.outputs.runs_on }}
+      resolution: ${{ steps.entry.outputs.resolution }}
+    steps:
+      - name: Validate immutable installation pins
+        shell: bash
+        env:
+          BUNDLE: ${{ vars.NIBFIN_BUNDLE_COMMIT }}
+          HOST: ${{ vars.NIBFIN_HOST_COMMIT }}
+        run: '[[ "$BUNDLE" =~ ^[a-f0-9]{40}$ && "$HOST" =~ ^[a-f0-9]{40}$ ]]'
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: taco3064/nibfin
+          ref: ${{ vars.NIBFIN_BUNDLE_COMMIT }}
+          persist-credentials: false
+          path: nibfin-bundle
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: ${{ vars.NIBFIN_HOST_REPOSITORY }}
+          ref: ${{ vars.NIBFIN_HOST_COMMIT }}
+          persist-credentials: false
+          path: nibfin-host
+      - id: entry
+        uses: ./nibfin-bundle/workflow/action
+        with:
+          bundle_commit: ${{ vars.NIBFIN_BUNDLE_COMMIT }}
+          host_commit: ${{ vars.NIBFIN_HOST_COMMIT }}
+          mode: resolve
+          read_token: ${{ github.token }}
+          input: ${{ toJSON(inputs) }}
+          host_token: ${{ secrets.NIBFIN_HOST_TOKEN }}
+
+  execute:
+    needs: resolve
+    if: ${{ needs.resolve.result == 'success' && needs.resolve.outputs.selected == 'true' && needs.resolve.outputs.execution_mode == 'execute' }}
+    runs-on: ${{ fromJSON(needs.resolve.outputs.runs_on) }}
+    environment: nibfin-member
+    permissions: {contents: read, id-token: write}
+    concurrency:
+      group: nibfin-v1-${{ github.repository_id }}-repository-write
+      cancel-in-progress: false
+      queue: max
+    outputs:
+      status: ${{ steps.entry.outputs.status }}
+    steps: &execution_steps
+      - name: Validate immutable installation pins
+        shell: bash
+        env:
+          BUNDLE: ${{ vars.NIBFIN_BUNDLE_COMMIT }}
+          HOST: ${{ vars.NIBFIN_HOST_COMMIT }}
+        run: '[[ "$BUNDLE" =~ ^[a-f0-9]{40}$ && "$HOST" =~ ^[a-f0-9]{40}$ ]]'
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: taco3064/nibfin
+          ref: ${{ vars.NIBFIN_BUNDLE_COMMIT }}
+          persist-credentials: false
+          path: nibfin-bundle
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: ${{ vars.NIBFIN_HOST_REPOSITORY }}
+          ref: ${{ vars.NIBFIN_HOST_COMMIT }}
+          persist-credentials: false
+          path: nibfin-host
+      - id: entry
+        uses: ./nibfin-bundle/workflow/action
+        with:
+          bundle_commit: ${{ vars.NIBFIN_BUNDLE_COMMIT }}
+          host_commit: ${{ vars.NIBFIN_HOST_COMMIT }}
+          mode: ${{ needs.resolve.outputs.execution_mode }}
+          input: ${{ toJSON(inputs) }}
+          resolution: ${{ needs.resolve.outputs.resolution }}
+  compute:
+    needs: resolve
+    if: ${{ needs.resolve.result == 'success' && needs.resolve.outputs.selected == 'true' && needs.resolve.outputs.execution_mode == 'compute' }}
+    runs-on: ${{ fromJSON(needs.resolve.outputs.runs_on) }}
+    environment: nibfin-member
+    permissions: {contents: read, id-token: write}
+    outputs:
+      status: ${{ steps.entry.outputs.status }}
+    steps: *execution_steps

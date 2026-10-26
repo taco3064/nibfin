@@ -29,9 +29,9 @@ export async function relayFixture(number='101') {
   const state = {lookup:true, gateCalls:0, authChanges:{}, expectedChanges:{}, sourceClaim:null, observedRun:'100'};
   const native = {name:'issues',payload:{action:'labeled',repositoryId:'42',issueId:input.binding.issueId,number,label:'shaped',stateReason:null}};
   const dispatch = {name:'workflow_dispatch',payload:{nibfin_request:'request-1',nibfin_correlation:'request-1'}};
-  const fresh = (runId='100') => {
+  const configuration = (runId='100') => {
     const operations = f.fresh({runId,attempt:'1'});
-    return createEventRelay({verifier, operations,
+    return {verifier, operations,
       authenticateEvent:async event => {
         if (state.sourceClaim) return state.sourceClaim;
         // Trusted host must independently authenticate the projection as well as
@@ -49,10 +49,11 @@ export async function relayFixture(number='101') {
       },
       loadPredecessor:async () => args,
       currentGate:async () => {state.gateCalls++; return gate;}
-    });
+    };
   };
+  const fresh=(runId='100')=>createEventRelay(configuration(runId));
   return {...f,request,receipt,args,gate,relayState:state, operationState:f.state,
-    native,dispatch,fresh};
+    native,dispatch,fresh,configuration};
 }
 
 /** Local executable configuration fixture. Core supplies resolved identities.

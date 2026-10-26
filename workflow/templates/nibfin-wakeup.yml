@@ -1,0 +1,46 @@
+name: Nibfin Issue wakeup v1
+on:
+  issues:
+    types: [opened, labeled, closed, reopened, edited, unlabeled, assigned, unassigned, milestoned, demilestoned]
+permissions: {}
+concurrency:
+  group: nibfin-v1-${{ github.repository_id }}-issue-${{ github.event.issue.number }}
+  cancel-in-progress: false
+  queue: max
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    environment: nibfin-hosted
+    permissions: {contents: read, actions: read, id-token: write}
+    concurrency:
+      group: nibfin-v1-${{ github.repository_id }}-repository-write
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - name: Validate immutable installation pins
+        shell: bash
+        env:
+          BUNDLE: ${{ vars.NIBFIN_BUNDLE_COMMIT }}
+          HOST: ${{ vars.NIBFIN_HOST_COMMIT }}
+        run: '[[ "$BUNDLE" =~ ^[a-f0-9]{40}$ && "$HOST" =~ ^[a-f0-9]{40}$ ]]'
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: taco3064/nibfin
+          ref: ${{ vars.NIBFIN_BUNDLE_COMMIT }}
+          persist-credentials: false
+          path: nibfin-bundle
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: ${{ vars.NIBFIN_HOST_REPOSITORY }}
+          ref: ${{ vars.NIBFIN_HOST_COMMIT }}
+          persist-credentials: false
+          path: nibfin-host
+      - id: entry
+        uses: ./nibfin-bundle/workflow/action
+        with:
+          bundle_commit: ${{ vars.NIBFIN_BUNDLE_COMMIT }}
+          host_commit: ${{ vars.NIBFIN_HOST_COMMIT }}
+          mode: wake
+          read_token: ${{ github.token }}
+          input: '{}'
+          host_token: ${{ secrets.NIBFIN_HOST_TOKEN }}

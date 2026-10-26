@@ -48,3 +48,5 @@ Its separate `npm run test:artifact-sdk` regression requires an existing approve
 runtime via `NIBFIN_ARTIFACT_SDK_ROOT`; Core CI provisions and runs that suite.
 
 The [Windows-hosted WSL adapter](docs/wsl.md) implements the protected Linux/Codex backend bridge with local contract tests. Native Windows and Windows-hosted WSL execution remain Unverified; platform integration evidence belongs to gh-nibfin#28.
+
+The [workflow bundle v1](docs/workflows.md) supplies reusable hosted Resolve/member Execute, independent wakeup and protected registration entries, with content-pinned installation plans and local caller fixtures.

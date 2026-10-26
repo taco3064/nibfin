@@ -1,0 +1,66 @@
+name: Nibfin trusted entry v1
+description: Call the content-pinned Core with protected host capabilities
+inputs:
+  bundle_commit: {required: true, description: Approved immutable Core bundle commit}
+  host_commit: {required: true, description: Approved immutable host commit}
+  mode: {required: true, description: Fixed workflow entry mode}
+  input: {required: true, description: Bounded scalar input JSON}
+  resolution: {required: false, description: Retained Resolve reference}
+  read_token: {required: false, description: Hosted read-only Workflow identity}
+  host_token: {required: false, description: Hosted management identity only}
+outputs:
+  request:
+    description: Original opaque reconciliation identity on uncertain results
+    value: ${{ steps.entry.outputs.request }}
+  reason:
+    description: Sanitized failure category when unavailable
+    value: ${{ steps.entry.outputs.reason }}
+  execution_mode:
+    description: Core-selected compute or guarded write entry
+    value: ${{ steps.entry.outputs.execution_mode }}
+  status:
+    description: Public-safe status
+    value: ${{ steps.entry.outputs.status }}
+  selected:
+    description: Public-safe selected
+    value: ${{ steps.entry.outputs.selected }}
+  runs_on:
+    description: Public-safe runs_on
+    value: ${{ steps.entry.outputs.runs_on }}
+  resolution:
+    description: Public-safe resolution
+    value: ${{ steps.entry.outputs.resolution }}
+  reference:
+    description: Public-safe reference
+    value: ${{ steps.entry.outputs.reference }}
+  issue:
+    description: Public-safe issue
+    value: ${{ steps.entry.outputs.issue }}
+  response:
+    description: Public-safe response
+    value: ${{ steps.entry.outputs.response }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      with:
+        node-version: '22.23.3'
+    - shell: bash
+      working-directory: ${{ github.action_path }}/../..
+      run: npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+    - shell: bash
+      working-directory: ${{ github.workspace }}/nibfin-host
+      run: npm ci --ignore-scripts --no-audit --no-fund
+    - id: entry
+      shell: bash
+      env:
+        NIBFIN_MODE: ${{ inputs.mode }}
+        NIBFIN_RESOLUTION: ${{ inputs.resolution }}
+        NIBFIN_INPUT: ${{ inputs.input }}
+        NIBFIN_READ_TOKEN: ${{ inputs.read_token }}
+        NIBFIN_HOST_TOKEN: ${{ inputs.host_token }}
+        NIBFIN_BUNDLE_COMMIT: ${{ inputs.bundle_commit }}
+        NIBFIN_HOST_COMMIT: ${{ inputs.host_commit }}
+        NIBFIN_HOST_ROOT: ${{ github.workspace }}/nibfin-host
+        NIBFIN_ENTRY: ${{ github.action_path }}/../../src/workflow-entry.mjs
+      run: node "$NIBFIN_ENTRY"

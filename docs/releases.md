@@ -27,14 +27,18 @@ in `publication-result.json` and the Run's `core-publication-*` artifact.
 ## Configuration and publication
 
 An administrator must enable GitHub immutable Releases before publication. CD
-reads `GET /repos/taco3064/nibfin/immutable-releases`; missing access or a disabled
-setting stops publication. Configure the repository secret `NIBFIN_RELEASE_TOKEN`
-with a restricted GitHub App installation token or fine-grained token authorized
-only for this repository: Contents write (release/assets), Administration read
-(immutability setting), and Pull requests read (merged-source provenance). Branch
+uses `repository-enforced` immutability policy with GitHub's short-lived workflow
+token: Contents write for release/assets and Pull requests read for merge provenance.
+The administrator owns and enables the repository setting; the workflow token
+cannot inspect the Administration-only settings endpoint. Publication must still
+read back an actual immutable release, exact tag, source and asset identities;
+a mutable result fails and is never reported as publication success. No additional
+repository secret is required. Direct callers default to `api-preflight`, which
+also requires Administration read and rejects disabled or inaccessible settings.
+Branch
 protection must require the existing reviews/checks, with no direct-push bypass.
-The job's default token has only Contents read; the publishing credential is
-passed only to the publication step after local checks. This configuration does
+The workflow defaults to Contents read; only its release job requests write.
+The publishing token is passed only to the publication step after local checks. This configuration does
 not enable settings or provision credentials on the Owner's behalf.
 
 CD verifies the public repository identity, protected main branch and the source's

@@ -3,12 +3,13 @@ import {createDownstreamFanout,resolveFanoutWakeup,createDependencyEvaluator,cre
   createCompletion,byteDigest} from '../src/index.mjs';
 import {chain,chainContext} from './evidence-fixture.mjs';
 import {operationInput,operationsFixture} from './operations-fixture.mjs';
-export function fanoutFixture() {
+export function fanoutFixture(source,configure) {
   const make=(repository,repositoryId,issueId,number,databaseId)=>({repository,repositoryId,issueId,number,databaseId});
   const [b,c,d,e,a,z]=[
     make('example-org/source','41','I_B','101','11'),make('example-org/core','42','I_C','101','12'),
     make('person/target','43','I_D','101','13'),make('example-org/other','44','I_E','101','14'),
     make('example-org/source','41','I_A','102','15'),make('example-org/core','42','I_Z','103','16')];
+  if(source){Object.assign(b,source);c.number='102';}
   const nodes=[b,c,d,e,a,z], edges=new Map([[c.issueId,[b,e]],[d.issueId,[b]],[z.issueId,[c]]]);
   const completions=new Map(),contexts=new Map(),calls=[],requests=new Map(),op=new Map();
   const body=n=>({id:n.databaseId,node_id:n.issueId,number:Number(n.number),url:'https://api.github.com/repos/'+n.repository+'/issues/'+n.number,
@@ -16,7 +17,8 @@ export function fanoutFixture() {
   const state={denied:new Set(),private:new Set(),owners:new Map([[d.repository,'User']]),discovery:[c,d],readHook:async()=>{},targetHook:async()=>{},sourceHook:async()=>{}};
   const workflow={id:'50',ref:'main',sha:'b'.repeat(40),path:'.github/workflows/resolve.yml',digest:byteDigest(Buffer.from('trusted workflow'))};
   function complete(n) {
-    const make=()=>chain(false,false,r=>{for(const v of Object.values(r)){v.binding.repositoryId=n.repositoryId;v.binding.issueId=n.issueId;}});
+    const make=()=>chain(false,false,r=>{for(const v of Object.values(r)){v.binding.repositoryId=n.repositoryId;v.binding.issueId=n.issueId;
+      if(n===b&&configure){configure({scopeBody:'original scope',shapeBody:'published shape',binding:v.binding});v.execution.request=v.execution.id+'-request';}}});
     const expected=chainContext(make()),receipt=createCompletion(make(),expected);
     contexts.set(n.issueId,expected);completions.set(n.issueId,receipt);return receipt;
   }

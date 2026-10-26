@@ -15,6 +15,8 @@ export function createShapeFlow({provider, authorization, dependencies, dependen
   require([current,prepareRole,readBody,operations,evidenceCurrent,obligations].every(f=>typeof f==='function')
     && typeof provider?.request==='function' && typeof provider?.collection==='function'
     && typeof authorization?.eligibility==='function' && typeof dependencies?.evaluate==='function','capabilities');
+  let active=null, pendingCandidate=null;
+  const blocked=e=>({outcome:'blocked',finding:finding(e),...(active?{reconciliationRequired:active.input.execution.id}:{})});
   async function checkpoint(pin, stage) {
     const live = clone(await current());
     require(same(live,pin),'current-binding-drift');
@@ -56,7 +58,9 @@ export function createShapeFlow({provider, authorization, dependencies, dependen
     return {issue:contentIdentity(d),labels:contentIdentity(labels.data),shaped:labels.data.some(l=>l.name==='shaped'),
       endpoint:r.endpoint ?? `${root}/issues/${t.number}`,observedAt:r.observedAt};
   }
-  async function role(pin, name, body, author) {
+  async function role(pin, name, body, authorExecution) {
+    const author=authorExecution?.id??null;
+    require(!active,'execution-unresolved');
     await checkpoint(pin,name);
     const selected=selectInstructions({...pin.instructions,skill:'shape',role:name});
     // prepareRole binds task to the existing lifecycle/backend task capability.
@@ -67,12 +71,23 @@ export function createShapeFlow({provider, authorization, dependencies, dependen
     require(input.execution.role===name && input.execution.skill==='shape'
       && input.instructions.identity===selected.identity && input.instructions.content===selected.content,'role-instructions');
     for (const k of shared) require(input.binding[k]===pin.binding[k],'role-binding');
-    require(name==='shape' || input.execution.id!==author,'independence');
+    require(name==='shape' || ['id','request','result'].every(k=>
+      !['id','request','result'].some(j=>input.execution[k]===authorExecution[j])),'independence');
+    active={pin,name,body,author,input:freeze(clone(input)),lifecycle};
     const start=await lifecycle.start(input);
+    if(start.start?.status==='rejected')active=null;
     require(start.start?.status==='started','execution-start');
-    const collected=await lifecycle.collect(input.execution.id);
-    const terminated=await lifecycle.termination(input.execution.id);
-    require(collected.result?.status==='valid' && terminated.termination?.status==='terminated','execution-unresolved');
+    return finishRole();
+  }
+  async function finishRole() {
+    const {pin,name,body,author,input,lifecycle}=active;
+    let collected,terminated;
+    try {collected=active.collected??await lifecycle.collect(input.execution.id);
+      if(['valid','rejected'].includes(collected.result?.status))active.collected=collected;}
+    finally {terminated=await lifecycle.termination(input.execution.id);}
+    require(terminated.termination?.status==='terminated','execution-unresolved');
+    active=null;
+    require(collected.result?.status==='valid','execution-unresolved');
     const receipt=compareEvidence(collected.result.evidence,await evidenceCurrent(input.execution.id));
     require(receipt.stage===name && receipt.execution.id===input.execution.id,'foreign-result');
     const proposed=name==='shape' ? await readBody(input.execution.id) : body;
@@ -98,18 +113,45 @@ export function createShapeFlow({provider, authorization, dependencies, dependen
     require(reconciled.ok,'obligations');
     return {a,v,inventory:parsed.inventory};
   }
-  return Object.freeze({
-    async propose() {
+  const flow={
+    async author() {
       try {
         const pin=intake(clone(await current()));
         await checkpoint(pin,'shape');
         const before=await observe(pin,pin.original.body);
         require(!before.shaped,'already-shaped');
-        const author=await role(pin,'shape',null,null);
-        const validator=await role(pin,'shape-validator',author.body,author.receipt.execution.id);
-        const validation=await validate(pin,author,validator);
-        return {outcome:'validated',original:clone(pin.original),author,validator,inventory:validation.inventory};
-      } catch(e) {return {outcome:'blocked',finding:finding(e)};}
+        return {outcome:'authored',original:clone(pin.original),
+          author:await role(pin,'shape',null,null)};
+      } catch(e) {return blocked(e);}
+    },
+    async validate(candidate) {
+      try {
+        const pin=intake(clone(await current())), c=clone(candidate);
+        require(c.outcome==='authored' && same(c.original,pin.original),'candidate');
+        await checkpoint(pin,'shape-validator');
+        const before=await observe(pin,pin.original.body);
+        require(!before.shaped,'already-shaped');
+        const a=compareEvidence(c.author.receipt,await evidenceCurrent(c.author.receipt.execution.id));
+        require(a.stage==='shape' && a.inputs.body===bodyDigest(c.author.body),'author');
+        for(const k of shared) require(a.binding[k]===pin.binding[k],'stale-evidence');
+        pendingCandidate=c;
+        const validator=await role(pin,'shape-validator',c.author.body,a.execution);
+        const validation=await validate(pin,c.author,validator);
+        return {outcome:'validated',original:clone(pin.original),author:c.author,validator,inventory:validation.inventory};
+      } catch(e) {return blocked(e);}
+    },
+    async propose() {
+      const authored=await (active?flow.reconcile():flow.author());
+      return authored.outcome==='authored' ? flow.validate(authored) : authored;
+    },
+    async reconcile() {
+      try {
+        require(active,'execution-unresolved');const pin=active.pin,name=active.name;
+        const value=await finishRole();
+        if(name==='shape')return {outcome:'authored',original:clone(pin.original),author:value};
+        const c=pendingCandidate,validation=await validate(pin,c.author,value);
+        return {outcome:'validated',original:clone(pin.original),author:c.author,validator:value,inventory:validation.inventory};
+      }catch(e){return blocked(e);}
     },
     async publish(candidate) {
       let phase='validation', bodyResult, labelResult;
@@ -153,5 +195,6 @@ export function createShapeFlow({provider, authorization, dependencies, dependen
         return {outcome:'published',publication,identity:contentIdentity(publication)};
       } catch(e) {return {outcome:'blocked',phase,finding:finding(e),bodyResult,labelResult};}
     }
-  });
+  };
+  return Object.freeze(flow);
 }

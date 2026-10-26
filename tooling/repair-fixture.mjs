@@ -2,8 +2,8 @@
 import {acceptFixture} from './accept-fixture.mjs';
 import {custodyFixture} from './custody-fixture.mjs';
 import {createRepairFlow,createAgentLifecycle,contentIdentity} from '../src/index.mjs';
-export async function repairFixture() {
-  const f=await acceptFixture();
+export async function repairFixture(configure) {
+  const f=await acceptFixture({empty:!!configure,repository:configure?'example-org/core':'owner/public',issueId:configure?'I_101':'I_97',configure});
   f.state.result={version:1,outcome:'changes_required',failureClass:'implementation_defect',summary:'Correct binary output',conflicts:[]};
   const rejection=await f.flow.run();
   if(rejection.outcome!=='rejected') throw Error('fixture rejection');

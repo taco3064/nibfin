@@ -3,8 +3,8 @@ import {chain,chainContext} from './evidence-fixture.mjs';
 import {completionFixture} from './completion-fixture.mjs';
 import {operationInput,operationsFixture} from './operations-fixture.mjs';
 import {createRecoveryFlow,observeRecoveryIncident,recoveryComment,contentIdentity,nativeConcurrency,createCompletion} from '../src/index.mjs';
-export async function recoveryFixture(closed=true) {
-  const f=await completionFixture(),{pin:c,state}=f,t=c.target,b=c.binding;
+export async function recoveryFixture(closed=true,configure) {
+  const f=await completionFixture(undefined,configure),{pin:c,state}=f,t=c.target,b=c.binding;
   state.closed=closed;
   const incident={id:'incident-1',commit:'d'.repeat(40),environment:'production',version:'v1',baseline:'e'.repeat(64),
     deploymentId:'301',statusId:'302',observedAt:1000,maxAgeMs:10000,failure:'deployment-failed',

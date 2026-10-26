@@ -54,12 +54,12 @@ export function createAgentEnvironments() {
 }
 
 /** Backend methods receive only allowlisted, immutable inputs. No host env is forwarded. */
-export function createAgentLifecycle({environment, instanceId, backend, current, resultContext = () => ({}), collectFailures = false}) {
+export function createAgentLifecycle({environment, instanceId, backend, current, startCurrent = null, resultContext = () => ({}), collectFailures = false}) {
   const env = snapshot(environment);
   // Validate even descriptors supplied across a serialization boundary.
   createAgentEnvironments().describe(env);
   const instance = env.instances.find(i => i.id === instanceId);
-  if (!instance || typeof current !== 'function') fail('instance-or-current');
+  if (!instance || typeof current !== 'function' || startCurrent!==null && typeof startCurrent!=='function') fail('instance-or-current');
   for (const op of ['readiness', 'start', 'collect', 'stop', 'termination', 'cleanup']) {
     if (typeof backend[op] !== 'function') fail('backend');
   }
@@ -91,11 +91,19 @@ export function createAgentLifecycle({environment, instanceId, backend, current,
           || v.instructions.identity !== v.binding.instructions) fail('instructions');
       if (v.visibility !== 'public' || !['personal', 'organization'].includes(v.ownership)) fail('product-scope');
       // Existing validator checks all execution and binding fields before any backend call.
-      const expected = current(e.id);
+      const expected = startCurrent ? startCurrent(e.id) : current(e.id);
       validateStageResult(expected.expected.result, {execution:e, binding:v.binding});
       if (canonicalJSON(e) !== canonicalJSON(expected.expected.execution)
           || canonicalJSON(v.binding) !== canonicalJSON(expected.expected.binding)) fail('current-identity');
-      compareEvidence(expected.expected, expected);
+      if(startCurrent) {
+        // Deliver's final Candidate exists only after the Writer has run. Pin the
+        // independent role/authority now; collect still compares the full envelope.
+        fields(expected,'expected consumed');fields(expected.expected,'stage execution binding result');
+        if(e.role!=='deliver'||expected.expected.stage!=='deliver'
+          ||expected.expected.result.outcome!=='ready'||expected.expected.result.failureClass!=='none'
+          ||!Array.isArray(expected.consumed)||expected.consumed.includes(e.result))fail('start-contract');
+        expected.consumed.forEach(text);
+      } else compareEvidence(expected.expected, expected);
       if (executions.has(e.id) || [...executions.values()].some(s => s.termination.status !== 'terminated')) fail('duplicate-or-unresolved');
       const access = e.role === 'deliver' ? 'write' : 'read';
       const requirements = {workspace: access, isolation: 'verified', login: 'available', tool: 'available'};

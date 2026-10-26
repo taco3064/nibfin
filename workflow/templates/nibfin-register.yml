@@ -1,0 +1,16 @@
+name: Nibfin registration request v1
+on:
+  workflow_dispatch:
+    inputs:
+      nibfin_registration: {type: string, required: true}
+      public_key: {type: string, required: true}
+      level: {type: string, default: repository, required: false}
+permissions: {}
+jobs:
+  registration:
+    uses: ./.github/workflows/nibfin-registration.yml
+    permissions: {contents: read, actions: read, id-token: write}
+    with:
+      nibfin_registration: ${{ inputs.nibfin_registration }}
+      public_key: ${{ inputs.public_key }}
+      level: ${{ inputs.level }}

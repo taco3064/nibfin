@@ -1,0 +1,159 @@
+# Workflow bundle v1 (Core 0.1.0)
+
+This is installable source, not a formal release or a live Actions/Runner support
+claim. Node 22.23.3/npm 10 and bash are prerequisites; platform fixtures exercise
+Linux, Windows and macOS label matching without certifying those hosts.
+
+`workflowInstallation({commit,hostRepository,hostCommit})` from `@nibfin/core`
+returns a read-only plan: five real YAML files for `.github/workflows`, protected
+installation variables, and SHA-256 identities for every explicitly packaged Core,
+Skill, entry, composite, template and supporting document. Both commits must be
+approved immutable 40-hex SHAs, never branches/tags. The bundle commit identifies
+this complete source tree; a caller must obtain/verify its archive through the
+approved release/handoff before installation. `out/nibfin-core.tgz` is that exact
+source archive for this candidate, not a claim that a public release URL exists.
+The plan materializes literal checkout/entry commit pins and host repository
+in the five installed files. Inventory hashes identify source bytes, while the
+returned YAML is the deterministic installation rendering. Compare existing files before authorized installation; do not overwrite user edits.
+Retain this plan, archive digest and source commit for Action/CLI read-only consumers.
+No second repository is modified by this module. Changing pins requires applicable
+compatibility checks and fresh authorization; never replace an in-flight Grant's Core.
+
+The production reusable files are `nibfin-delivery.yml` and
+`nibfin-registration.yml`. Templates `nibfin-stage.yml`, `nibfin-wakeup.yml` and
+`nibfin-register.yml` become installed callers. Local reusable references use the
+same caller commit; external callers can instead use
+`taco3064/nibfin/.github/workflows/nibfin-delivery.yml@<approved-40-hex-commit>`.
+No caller checks out its target branch, fork or PR. The only acquisitions are
+`taco3064/nibfin@NIBFIN_BUNDLE_COMMIT` and the separately approved public host
+repository at `NIBFIN_HOST_COMMIT`; checkout credentials are not persisted. The
+entry and composite come from that bundle commit. Checkout/setup-node actions
+are pinned to full SHAs. Protected environments `nibfin-hosted` and `nibfin-member`
+provide the reviewed variables; configure required environment protection before use.
+
+## Inputs, outputs and permissions
+
+Delivery workflow_call requires string `issue` (canonical positive Issue number),
+`nibfin_request`, `nibfin_correlation` (1–80 ASCII alphanumeric/underscore/hyphen).
+These identify existing custody requests, not commands or authorization. No defaults.
+There are no workflow_call secrets. The protected `nibfin-hosted` environment
+alone supplies `NIBFIN_HOST_TOKEN`; never store this management identity as a
+repository/organization secret or in the member environment. Output `status` is the
+Execute/compute stage disposition (empty when skipped), never Issue delivery proof.
+The installed stage accepts exactly the two opaque Dispatch strings, with run-name
+`nibfin-operation:<correlation>`. Its hosted lookup authenticates them and returns
+the trusted Issue number before the callee acquires its Issue group.
+
+Registration workflow_call/installed workflow_dispatch require string
+`nibfin_registration` (same opaque syntax), `public_key` (RSA public PEM, at most
+8192 characters); `level` defaults to `repository`, optionally `organization`.
+The hosted environment must supply `NIBFIN_HOST_TOKEN`. Public outputs are `status` and opaque retained
+`response` reference; retrieve its encrypted exact-Run/Attempt artifact via the
+existing registration contract. Never print the member's decrypted token.
+
+| Job | GITHUB_TOKEN permissions | Other capability, reason |
+| --- | --- | --- |
+| lookup | contents:read, actions:read, id-token:write | Public pinned checkout; retained request/source read; authenticated Actions source |
+| resolve | contents:read, actions:read, id-token:write | Same, plus hosted environment token for authorized Runner Administration:read inventory and custody |
+| execute/compute | contents:read, id-token:write | Pinned checkout/source; actual service account's local gh for Core; no host secret/actions read |
+| relay | contents:read, actions:read, id-token:write | Source/predecessor/custody read; hosted environment identity with authorized Actions dispatch write |
+| registration | contents:read, actions:read, id-token:write | Source/readback; hosted environment identity with repository Administration:write, or separately enabled org capability |
+
+All other YAML permissions are absent. There is no secrets inheritance, write-all,
+GITHUB_TOKEN Administration permission or GH_TOKEN/GITHUB_TOKEN environment override.
+Artifact upload uses the existing SDK runtime capability, not actions:write YAML.
+The composite runs locked dependency installation with scripts disabled *before*
+placing hosted credentials in the entry environment. The read-only Workflow
+identity is separately named NIBFIN_READ_TOKEN and supplied only to hosted jobs. Host configuration must keep management
+and artifact runtime credentials out of agents, hooks, subprocesses and member jobs.
+Personal/organization public ownership uses the same repository Runner path. Private
+targets deny. Organization registration remains separately authorized; policy-off
+users use the official manual registration route, never plaintext fallback.
+
+## Required protected host interface
+
+The pinned public host repository provides a locked Node package with `entry.mjs`
+exporting `configure({core,mode,context})`. Dependencies are installed with `npm ci
+--ignore-scripts`; capability configuration must be independently reviewed code.
+Use the supplied `core` public exports, not a duplicate lifecycle. Configure only
+supported modes; a missing capability returns blocked with no fallback route.
+Configure performs inert construction; authenticated capabilities own side effects.
+No host implementation or credential is supplied by Issue text/Dispatch. The stock
+hosted runner alone is insufficient until this deployment configuration is installed.
+
+- `authenticate({mode,input,context,signal})` independently verifies the actual
+  Actions repository/workflow immutable source/ref/actor/Run/Attempt, installed
+  bundle/host inventory against the approved Core/runtime/Skill pins, and complete
+  official event. Return `{repository,repositoryId,run:{id,attempt},visibility,
+  ownership}` only for this approved public deployment. Context is an observation,
+  not proof. OIDC identifies source, never predecessor success. Execute must also
+  identify its actual Runner and local service account.
+- `lookup({identity,input})` resolves the two opaque fields through retained Core
+  custody and returns its stable target. Unknown/correlation mismatch must throw.
+- `delivery({identity,input,context})` returns `{config,request}`: actual createCore
+  constructor capabilities and exact retained queued request, bound to this
+  Run/Attempt, request/cycle/target. `current` freshly evaluates existing Core
+  authority, dependencies, prior effects and evidence. Never synthesize newness
+  when custody is missing or supply stage-success callbacks. Constructor owners
+  retain the original lifecycle for unresolved processes.
+- `group({id,target,labels})` reads current official group name/access, returning
+  `{id,name,repositoryId,allowed:true}` only after verification. Omit when unused.
+  `verifyRunner({identity,request,route,memberId,signal})` checks actual executing
+  Runner registration/binding, labels/group and current eligibility before run.
+- `retain({kind,key,value,identity})` and `retrieve({kind,key,identity})` use the
+  existing authenticated custody owner with exact repository/Run/Attempt and
+  kind/key/response linkage. Return bounded opaque references; authenticate all
+  retrieval context and bytes. Retain full Core output before successor dispatch.
+  A resolution stores the exact queued request and complete AND route. Unknown
+  retention effects require reconciliation, never replacement execution. After a
+  stage starts, failed result retention returns unresolved plus the original
+  opaque request identity; the host must reconcile that original execution.
+- `relay({identity,context})` returns actual createEventRelay constructor config.
+  Its authenticateEvent independently verifies the official projection; existing
+  source/predecessor validation, current gates and controlled operations own
+  submission/readback/dedup. Fixed destination is the installed stage workflow,
+  not the Issue wakeup workflow. A successful dispatch is not stage success.
+- `registration({identity,input,context})` returns `{config,handle,prior}` for
+  createRegistrationHost, where prior is `new`, `resolved` or `unresolved` from
+  existing durable custody. The host must reconcile the retained issuance intent
+  before ever returning new again. Its authenticate independently binds actor/key,
+  repository and source. Policy/transport/channel use the maintained protected
+  registration API and genuine pinned artifact SDK. The entry checks exact request,
+  key/level/Run/Attempt correspondence and retains intent before issuance. Unknown,
+  canceled or cleanup/unconfirmed outcomes never permit automatic reissuance.
+
+## Concurrency and events
+
+Delivery's callee alone owns `nibfin-v1-<repository-id>-issue-<number>` across
+Resolve and Execute. Wakeup owns that Issue group across relay. Every controlled repository writer (including lookup) acquires
+`nibfin-v1-<repository-id>-repository-write`; callers never reacquire callee groups.
+Registration uses only that write group and invents no Issue. Unrelated Issues
+have separate Issue groups; only controlled writes serialize within a repository.
+Compute stages use no shared write group: their host owners and retain capability
+may only create Run-scoped custody artifacts, never shared repository mutations.
+Writer stages are publication, PR, merge, closure, delivered, fanout and recovery.
+The entry derives this classification from the retained Core decision and rechecks
+it before running. All guards use queue:max and cancel-in-progress:false, matching nativeConcurrency. GitHub
+allows up to 100 pending jobs/runs; over-capacity cancels, and waiting order is not
+dispatch-order fairness. Cancellation/timeout/unknown outcomes are not completion;
+subsequent legal wakeups reread effects and authorization. No global lock or
+arbitrary-failure exactly-once guarantee is claimed.
+
+Issue opened/scope, shaped, completed closure, reopened and eligibility mutations
+map through issueWakeup and the actual relay. Delivered labels are observation-only.
+GITHUB_TOKEN suppresses most follow-on Issue events; use an authorized App identity
+or the separately approved equivalent Dispatch fallback with predecessor and actual
+mutation readback. Manual/Grant Dispatch must reference retained requests. Each
+stage runs in a separate Run; native needs supplies only same-Run success. Cross-Run
+success requires complete authenticated predecessor evidence. `issue_dependencies`
+is a separate webhook, not on:issues: no receiver is supplied here. Without an
+approved integration use completion's targeted Dispatch/manual reevaluation and
+report non-immediacy. Never infer live event success from these fixtures.
+
+`npm run test:workflows` parses actual YAML using locked yaml 2.8.1 and exercises
+local entry/caller contracts. Final proof uses `npm run check`, genuine
+`npm run test:artifact-sdk` and `npm run verify:archive` through the guarded runner.
+Independent Acceptance consumes the submitted archive with
+`node tooling/archive.mjs --verify out/nibfin-core.tgz` (no protected rebuild).
+Live collaborators, OS/Runner support, events, queues and release remain unverified
+here and belong to the designated integration/release Issues and independent gates.

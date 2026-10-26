@@ -92,14 +92,28 @@
     "src/fanout.mjs",
     "docs/fanout.md",
     "src/core.mjs",
-    "docs/core.md"
+    "docs/core.md",
+    "src/workflow.mjs",
+    "src/workflow-entry.mjs",
+    "src/workflow-install.mjs",
+    "docs/workflows.md",
+    ".github/workflows/nibfin-delivery.yml",
+    ".github/workflows/nibfin-registration.yml",
+    "workflow/action/action.yml",
+    "workflow/templates/nibfin-stage.yml",
+    "workflow/templates/nibfin-wakeup.yml",
+    "workflow/templates/nibfin-register.yml"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",
     "verify:archive": "node tooling/archive.mjs",
-    "test:artifact-sdk": "node --test test-sdk/*.test.mjs"
+    "test:artifact-sdk": "node --test test-sdk/*.test.mjs",
+    "test:workflows": "node --test test/workflows.test.mjs"
   },
   "dependencies": {
     "jose": "6.2.13"
+  },
+  "devDependencies": {
+    "yaml": "2.8.1"
   }
 }

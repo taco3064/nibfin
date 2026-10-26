@@ -6,7 +6,8 @@ import {verifyPreparedRelease} from './release.mjs';
 const repository='taco3064/nibfin',repositoryId='1427838662';
 const requireValue=(ok,reason)=>{if(!ok) throw Error('publication:'+reason);};
 /** Official API orchestration; a failed/unknown write never triggers a blind retry. */
-export async function publishRelease({manifest,assets,run,request,record}) {
+export async function publishRelease({manifest,assets,run,request,record,immutabilityPolicy='api-preflight'}) {
+  requireValue(['api-preflight','repository-enforced'].includes(immutabilityPolicy),'immutability-policy');
   releaseVersion(manifest?.version);
   requireValue(manifest.source?.kind==='merged' && /^[a-f0-9]{40}$/.test(manifest.source.commit),'merged-source');
   const sha=manifest.source.commit,tag='v'+manifest.version,base='/repos/'+repository;
@@ -60,7 +61,7 @@ export async function publishRelease({manifest,assets,run,request,record}) {
     requireValue(Array.isArray(prs) && prs.some(p=>p.merged_at && p.merge_commit_sha===sha
       && p.base?.ref==='main' && String(p.base.repo?.id)===repositoryId),'protected-merge');
     // This endpoint returns 200 only when enabled; 404/permission failure blocks.
-    requireValue((await get(base+'/immutable-releases'))?.enabled===true,'immutable-setting');
+    if(immutabilityPolicy==='api-preflight')requireValue((await get(base+'/immutable-releases'))?.enabled===true,'immutable-setting');
     let ref=await get(base+'/git/ref/tags/'+tag,true);
     if(ref) requireValue(await tagTarget(ref)===sha,'conflicting-tag');
     // Authenticated list releases includes drafts; release-by-tag is published-only.
@@ -110,7 +111,7 @@ export async function publishRelease({manifest,assets,run,request,record}) {
         requireValue(existing.some(a=>a.name===asset.name),'upload-readback');
       }
       validate(existing,true);
-      requireValue((await get(base+'/immutable-releases'))?.enabled===true,'immutable-setting');
+      if(immutabilityPolicy==='api-preflight')requireValue((await get(base+'/immutable-releases'))?.enabled===true,'immutable-setting');
       await write('PATCH',base+'/releases/'+release.id,{draft:false});
     }
     release=await get(base+'/releases/tags/'+tag);identity(release);
@@ -145,5 +146,5 @@ if(process.argv[1] && resolve(process.argv[1])===fileURLToPath(import.meta.url))
   const env=process.env;
   await publishRelease({manifest,assets,run:{repository:env.GITHUB_REPOSITORY,repositoryId:env.GITHUB_REPOSITORY_ID,
     ref:env.GITHUB_REF,event:env.GITHUB_EVENT_NAME,sha:env.GITHUB_SHA,id:env.GITHUB_RUN_ID,attempt:env.GITHUB_RUN_ATTEMPT},
-    request:githubReleaseRequest(env.NIBFIN_RELEASE_TOKEN),record:r=>writeFileSync('out/publication-result.json',JSON.stringify(r,null,2)+'\n')});
+    request:githubReleaseRequest(env.NIBFIN_RELEASE_TOKEN),immutabilityPolicy:env.NIBFIN_RELEASE_IMMUTABILITY_POLICY||'api-preflight',record:r=>writeFileSync('out/publication-result.json',JSON.stringify(r,null,2)+'\n')});
 }

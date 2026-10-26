@@ -198,4 +198,18 @@ test('retained CD uses trusted main, pinned actions and complete real checks',()
     assert.ok(steps.some(s=>s.run===command));
   }
   assert.equal(steps.filter(s=>s.env?.NIBFIN_RELEASE_TOKEN).length,1);
+  assert.equal(workflow.jobs.release.permissions.contents,'write');
+  assert.equal(workflow.jobs.release.permissions['pull-requests'],'read');
+  const publish=steps.find(s=>s.run==='node tooling/release-publish.mjs');
+  assert.equal(publish.env.NIBFIN_RELEASE_TOKEN,'${{ github.token }}');
+  assert.equal(publish.env.NIBFIN_RELEASE_IMMUTABILITY_POLICY,'repository-enforced');
+});
+
+test('repository enforcement needs no administrator read but requires immutable final readback',async()=>{
+ const f=publicationFixture();f.input.immutabilityPolicy='repository-enforced';f.state.readFailure='/immutable-releases';
+ assert.equal((await f.publish()).status,'published');assert.ok(!f.state.reads.includes('/immutable-releases'));
+ const g=publicationFixture(),request=g.input.request;g.input.immutabilityPolicy='repository-enforced';
+ g.input.request=async r=>{const response=await request(r);if(r.method==='GET'&&r.path.includes('/releases/tags/'))response.data={...response.data,immutable:false};return response;};
+ await assert.rejects(g.publish(),/not-immutable-published/);assert.notEqual(g.state.records.at(-1).status,'published');
+ const h=publicationFixture();h.input.immutabilityPolicy='unknown';await assert.rejects(h.publish(),/immutability-policy/);assert.equal(h.state.writes.length,0);
 });

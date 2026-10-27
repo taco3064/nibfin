@@ -1,11 +1,27 @@
 # Immutable Core releases
 
-The owning release workflow is `.github/workflows/core-release.yml`. It runs on
-protected `main` pushes affecting release inputs, or an authorized manual retry
-on `main`. The selected version is the exact `package.json` version, currently
-0.1.0; the tag is `v` followed by that version. A changed release requires a new
-package version and corresponding lockfile version. Proposal versions are separate.
+The owning release workflow is `.github/workflows/core-release.yml`. It runs only
+on an authorized `workflow_dispatch` against protected `main`, with a required
+`version` input matching the exact `package.json` version. Ordinary main pushes
+run their existing CI without publishing a release. The tag is `v` followed by
+the package version; a changed release requires a new package version and
+corresponding lockfile version merged through the protected PR flow. Proposal
+versions are separate. The workflow checks the requested version before dependency
+preparation, then retains all existing build, verification and publication checks.
 No registry publication, CLI release or Marketplace Action release is implied.
+
+For an approved release session, after the integrated source prerequisites and
+version change have completed, dispatch the workflow explicitly:
+
+```sh
+gh workflow run core-release.yml --repo taco3064/nibfin --ref main -f version=X.Y.Z
+```
+
+Replace `X.Y.Z` with the approved merged package version, without `v`. A dispatch
+acknowledgment is not successful publication: inspect its exact Run/Attempt and
+independently read back the immutable release and assets. Retrying a previously
+published version from a different source must still fail with `conflicting-tag`;
+existing immutable releases and their tags are never moved or overwritten.
 
 Before Merge, build with `npm run prepare:release` and inspect the three mandatory
 Candidate assets: `out/nibfin-core.tgz`, `out/release-manifest.json`, and

@@ -109,3 +109,26 @@ are source evidence only; E01/E02/E07 own later real platform/provider/host chec
 Official endpoint semantics: [GitHub runner REST API](https://docs.github.com/en/rest/actions/self-hosted-runners).
 These permission classes follow the official API; token metadata never replaces its
 actual access-control response.
+
+`memberEligibility(member, intent, settings)` applies the existing authorization
+boundary to a protected routing candidate, preserving operator identity, target,
+current source and signed Grant checks. `observeExecution({signal})` exposes only
+the authenticated target, source repository/ID, local operator ID, Run/Attempt and actual Runner ID after a policy requiring
+the Job/check-run/Runner association passes. It throws a fixed diagnostic when
+Runner proof is missing. This is protected host data, never an environment or
+caller assertion; it does not itself authorize a stage. See the maintained
+[routing integration](protected-host.md#maintained-resolve--actual-runner-composition).
+
+For `routing: "authenticated"`, the additive read-only `routing.provider` checks
+the same authenticated source, exact endpoint inventory, official management
+rights and approved signed Grant before every GET/page. `routing.eligibility`
+provides source/Grant authority for Core inspection and native dependency reads;
+the maintained selector then requires `memberEligibility` for the actual chosen
+Assignee. No member is assumed before that list can be read. Existing `provider`
+mutation and member eligibility predicates remain in force for their supported
+interfaces, and stage owners retain their final authorization guards.
+
+The provider's optional `authorizeRead(intent)` runs for every normalized GET and
+pagination page, within its bounded/cancellable request path. It cannot authorize
+a mutation; writes still require the separate existing final `authorize` path.
+Routing uses this guard for source/Grant checks and endpoint rights.

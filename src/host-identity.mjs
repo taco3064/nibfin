@@ -1,6 +1,7 @@
 import {createActionsVerifier, createSyntheticActionsVerifierForTest, verifyNativeNeeds} from './actions.mjs';
 import {createGithubProvider, localGhTransport, publicDiagnostic, githubEndpointPermission} from './provider.mjs';
 import {createAuthorizationBoundary} from './authorization.mjs';
+import {verifyGrant} from './grants.mjs';
 import {githubId, repositoryCoordinates} from './index.mjs';
 
 const need = ok => {if (!ok) throw Error('host-identity:configuration');};
@@ -86,9 +87,10 @@ function compose(configuration, testFacility) {
   const options=structuredClone(configuration.options),mode=configuration.mode,source={...configuration.source},
     api={...configuration.api,operator:{...configuration.api?.operator}},authorization={...configuration.authorization},now=configuration.now??Date.now;
   need(typeof now==='function' && ['lookup','resolve','execute','compute','wake','registration'].includes(mode));
-  exact(options,['version','repository','repositoryId','environment','authentication'],['groupId']);
+  exact(options,['version','repository','repositoryId','environment','authentication'],['groupId','routing']);
   need(options.version===1 && options.environment===(isMember(mode)?'nibfin-member':'nibfin-hosted'));
   need(options?.authentication==='actions-oidc' && account(api.operator));
+  if(Object.hasOwn(options,'routing'))need(options.routing==='authenticated'&&['resolve','execute','compute'].includes(mode));
   githubId(options.repositoryId);
   need(repositoryCoordinates(...options.repository.split('/')).key===options.repository);
   exact(source,['policy','getToken','continuation'],['getAssociation','timeoutMs']);
@@ -137,7 +139,7 @@ function compose(configuration, testFacility) {
     (Math.floor(verified.issuedAt+expected.maxAge+expected.tolerance)+1)*1000);
   let sourceDeadline=0;
   const sourceFresh=()=>{const current=now();return Number.isSafeInteger(current) && current<sourceDeadline;};
-  const boundary=createAuthorizationBoundary({transport,identity,now,maxCheckpointMs:authorization.maxCheckpointMs,
+  const boundaryFor=member=>createAuthorizationBoundary({transport,identity,now,maxCheckpointMs:authorization.maxCheckpointMs,
     // No awaited source/provider work after the final Grant checkpoint.
     beforeMutation:intent=>sourceFresh() && !intent.signal?.aborted,
     getCheckpoint:async intent=>{
@@ -145,9 +147,11 @@ function compose(configuration, testFacility) {
       need(c.request.repository.id===options.repositoryId && c.request.repository.name===options.repository
         && (intent.operation===undefined || c.request.operation===intent.operation));
       // API operator identity is protected configuration, never an embedding assertion.
+      if(member)c.member=structuredClone(member);
       c.operator=api.kind==='local'?{...api.operator}:{id:api.operator.id,kind:'service',source:identity,trusted:true};
       return c;
     }});
+  const boundary=boundaryFor(options.routing==='authenticated'&&isMember(mode)?api.operator:undefined);
   async function authenticated(argument) {
     try {
       const signal=AbortSignal.any([AbortSignal.timeout(timeoutMs),...(argument.signal?[argument.signal]:[])]);
@@ -198,7 +202,9 @@ function compose(configuration, testFacility) {
         && ['User','Organization'].includes(t.owner.type));
       sourceDeadline=deadline;need(sourceFresh());
       return {ok:true,identity:{repository:options.repository,repositoryId:options.repositoryId,
-        visibility:'public',ownership:t.owner.type==='User'?'personal':'organization',run:{id:policy.run_id,attempt:policy.run_attempt}}};
+        visibility:'public',ownership:t.owner.type==='User'?'personal':'organization',run:{id:policy.run_id,attempt:policy.run_attempt}},
+        ...(policy.job==='required' && policy.runner==='required' && policy.runner_environment==='self-hosted'
+          ? {runnerId:policy.runnerId} : {})};
     } catch {return {ok:false,diagnostic:{kind:'source_or_identity_rejected'}};}
   }
   const boundArgument=()=>({mode,context:{repository:options.repository,repositoryId:options.repositoryId,
@@ -209,10 +215,58 @@ function compose(configuration, testFacility) {
     const result=await boundary.eligibility(intent,settings);
     return result.ok && !sourceFresh()?{ok:false,diagnostic:{kind:'source_expired'}}:result;
   }
+  async function memberEligibility(member,intent,settings={}) {
+    if(!account(member))return fail('member');
+    const auth=await authenticated({...boundArgument(),signal:settings.signal});
+    if(!auth.ok)return auth;
+    const result=await boundaryFor(member).eligibility(intent,settings);
+    return sourceFresh()?result:{ok:false,diagnostic:{kind:'source_expired'}};
+  }
   const permitted = r => !Object.keys(r).some(k=>!['method','endpoint','target','operation','correlation','body','context','signal','expectedId'].includes(k))
     && githubEndpointPermission(r.method??'GET',r.endpoint)!==null
     && operations.some(o=>['method','target','operation'].every(k=>o[k]===(k==='method'?(r[k]??'GET'):r[k]))
       && (o.endpoint===r.endpoint || (r.method??'GET')==='GET' && o.endpoint===r.endpoint.split('?')[0]));
+  async function managementRight(r) {
+    if(api.kind!=='local' || !/^(administration|organization_self_hosted_runners):/.test(githubEndpointPermission(r.method??'GET',r.endpoint)))return null;
+    const org=r.endpoint.startsWith('/orgs/');
+    const check=await reader.request({endpoint:org?'/user/memberships/orgs/'+api.organization:'/repos/'+options.repository,
+      operation:r.operation,target:options.repositoryId,correlation:r.correlation,signal:r.signal});
+    if(check.outcome!=='read')return publicDiagnostic(check);
+    return (org?check.data?.state==='active'&&check.data?.role==='admin':check.data?.permissions?.admin===true)?null:fail('denied');
+  }
+  // Resolve cannot require a chosen member before reading the candidates. This
+  // read-only path requires authenticated source + signed Grant; the maintained
+  // selector separately applies boundaryFor(member) before selecting anyone.
+  async function routingEligibility(intent={},settings={}) {
+    try {
+      need(options.routing==='authenticated');
+      const startedAt=now(),auth=await authenticated({...boundArgument(),signal:settings.signal});
+      if(!auth.ok)return auth;
+      const c=structuredClone(await getCheckpoint(Object.freeze({...intent})));
+      need(c.request.repository.id===options.repositoryId && c.request.repository.name===options.repository
+        &&(intent.operation===undefined||c.request.operation===intent.operation));
+      const observedAt=now();
+      need(verifyGrant(c.grant,{...c.grantContext,request:c.request,now:observedAt}).ok
+        &&sourceFresh()&&!settings.signal?.aborted&&Number.isSafeInteger(startedAt)
+        &&Number.isSafeInteger(observedAt)&&observedAt>=startedAt
+        &&observedAt-startedAt<authorization.maxCheckpointMs);
+      return {ok:true,observation:{source:identity,repositoryId:options.repositoryId,issueId:c.request.issueId,
+        operation:c.request.operation,startedAt,observedAt}};
+    } catch {return {ok:false,diagnostic:{kind:'routing_authority_rejected'}};}
+  }
+  const routingReader=createGithubProvider({transport,identity,now,authorizeRead:async r=>
+    options.routing==='authenticated'&&permitted(r)&&(await routingEligibility(r,{signal:r.signal})).ok
+      &&!(await managementRight(r))&&sourceFresh()});
+  const routing=Object.freeze({eligibility:routingEligibility,provider:Object.freeze({
+    request:async r=>{
+      if((r?.method??'GET')!=='GET')return fail('unsupported');
+      const result=await routingReader.request(r);return sourceFresh()?result:fail('source_expired');
+    },collection:async r=>{
+      if((r?.method??'GET')!=='GET')return {outcome:'incomplete',diagnostic:{kind:'unsupported'}};
+      const result=await routingReader.collection(r);
+      return sourceFresh()?result:{outcome:'incomplete',diagnostic:{kind:'source_expired'}};
+    }
+  })});
   async function request(r) {
     if(!r || !permitted(r))return fail('unsupported');
     const auth=await authenticated({...boundArgument(),signal:r.signal});
@@ -221,20 +275,19 @@ function compose(configuration, testFacility) {
     const intent={...r};if((r.method??'GET')==='GET')delete intent.method;
     const eligible=await boundary.eligibility(intent,{signal:r.signal});
     if(!eligible.ok)return {...publicDiagnostic(eligible),outcome:'failed'};
-    if(api.kind==='local' && /^(administration|organization_self_hosted_runners):/.test(githubEndpointPermission(r.method??'GET',r.endpoint))) {
-      const org=r.endpoint.startsWith('/orgs/');
-      const check=await reader.request({endpoint:org?'/user/memberships/orgs/'+api.organization:'/repos/'+options.repository,
-        operation:r.operation,target:options.repositoryId,correlation:r.correlation,signal:r.signal});
-      if(check.outcome!=='read')return publicDiagnostic(check);
-      if(org?check.data?.state!=='active'||check.data?.role!=='admin':check.data?.permissions?.admin!==true)return fail('denied');
-    }
+    const right=await managementRight(r);if(right)return right;
     if(!sourceFresh())return fail('source_expired');
     return boundary.request(r);
   }
   return Object.freeze({authenticate:async argument=>{
     const result=await authenticated(argument);
     if(!result.ok)throw Error('host-identity:rejected');return result.identity;
-  },eligibility,provider:Object.freeze({request,reconcile:async (submission,r,matches)=>{
+  },eligibility,memberEligibility,...(options.routing==='authenticated'?{routing}:{}),observeExecution:async ({signal}={})=>{
+    const result=await authenticated({...boundArgument(),signal});
+    if(!isMember(mode) || !result.ok || !result.runnerId)throw Error('host-identity:runner');
+    return {runnerId:result.runnerId,operatorId:api.operator.id,repository:options.repository,repositoryId:options.repositoryId,
+      sourceRepository:policy.repository.toLowerCase(),sourceRepositoryId:policy.repository_id,run:{id:policy.run_id,attempt:policy.run_attempt}};
+  },provider:Object.freeze({request,reconcile:async (submission,r,matches)=>{
     if(!r || !permitted({...r,method:'GET'}))return {outcome:'unknown'};
     if(!(await eligibility(r,{signal:r.signal})).ok)return {outcome:'unknown'};
     return boundary.reconcile(submission,r,matches);

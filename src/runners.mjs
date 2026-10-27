@@ -126,7 +126,7 @@ async function observe(provider, input, matchJob) {
       prefix = `/orgs/${coordinates.owner}`;
     }
     const runners = await inventory(prefix + '/actions/runners', 'runners', runner);
-    const groupsByRunner = new Map();
+    const groupsByRunner = new Map(), observedGroups=[];
     if (registration.level === 'organization') {
       const groups = await inventory(prefix + '/actions/runner-groups', 'runner_groups', value => {
         if (!text(value.name) || !['all','selected','private'].includes(value.visibility)
@@ -149,6 +149,7 @@ async function observe(provider, input, matchJob) {
         let access = allowed ? 'allowed' : 'group_access';
         if (allowed && group.restricted_to_workflows) access = conditions.workflow === undefined
           ? 'workflow_unresolved' : group.selected_workflows.includes(conditions.workflow) ? 'allowed' : 'workflow_denied';
+        observedGroups.push({id:group.id,name:group.name,access});
         for (const member of members) {
           const observed = runners.find(r => r.id === member.id);
           if (!observed || JSON.stringify(observed) !== JSON.stringify(member) || groupsByRunner.has(member.id))
@@ -176,16 +177,18 @@ async function observe(provider, input, matchJob) {
         if (!conditions.labels.every(label => remote.labels.includes(lower(label)))) codes.push('required_labels');
         const group = groupsByRunner.get(remote.id);
         if (group) {
-          if (conditions.groupId !== undefined && conditions.groupId !== group.id) codes.push('group_membership');
+          if (matchJob && conditions.groupId !== undefined && conditions.groupId !== group.id) codes.push('group_membership');
           if (group.access !== 'allowed') codes.push(group.access);
         }
       }
       return {instanceId:record.instanceId, runnerId:record.runnerId, memberId:record.memberId,
         outcome:codes.length ? 'mismatch' : 'matched', diagnostics:codes.map(code => ({code})),
-        ...(remote ? {observation:remote} : {})};
+        ...(remote ? {observation:remote} : {}),
+        ...(groupsByRunner.has(record.runnerId) ? {groupId:groupsByRunner.get(record.runnerId).id} : {})};
     });
     return {outcome:diagnostics.length || instances.some(value => value.outcome !== 'matched') ? 'mismatch' : 'matched',
-      inventory:'complete', runners, instances, diagnostics};
+      inventory:'complete', runners, instances, diagnostics,
+      ...(registration.level==='organization'?{groups:observedGroups}:{})};
   } catch (error) {
     // Never serialize arbitrary exceptions, provider data or local records.
     const known = error && ['mismatch','unavailable','unsupported'].includes(error.kind);

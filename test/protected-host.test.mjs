@@ -186,7 +186,13 @@ test('schema/runtime agree on strict fields, types, modes and group applicabilit
       assert.equal(conforms(schema.$defs[mode],changed,schema),false);
       assert.throws(()=>validateHostOptions(changed,mode));}
 
-    if(['resolve','execute','compute'].includes(mode))assert.doesNotThrow(()=>validateHostOptions(options(context,mode,'7'),mode));
+    const routed={...options(context,mode),authentication:'actions-oidc',routing:'authenticated'};
+    if(['resolve','execute','compute'].includes(mode)) {
+      assert.doesNotThrow(()=>validateHostOptions(options(context,mode,'7'),mode));
+      assert.doesNotThrow(()=>validateHostOptions(routed,mode));assert(conforms(schema.$defs[mode],routed,schema));
+      delete routed.authentication;
+    }
+    assert(!conforms(schema.$defs[mode],routed,schema));assert.throws(()=>validateHostOptions(routed,mode));
     for(const [key,s] of Object.entries(schema.properties)) {
       const value=options(context,mode)[key];
       if(value!==undefined && s.pattern)assert.match(value,new RegExp(s.pattern));

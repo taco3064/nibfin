@@ -98,15 +98,22 @@ export function createWorkflowEntry(host) {
       const core=createCore(config);
       if (mode==='resolve') {
         const inspected=await core.inspect(request,{signal});
-        if (inspected.reason!=='evaluated' || !same(inspected.current,request.expected)) return {status:'blocked',selected:'false',reason:'invalid-or-unavailable'};
+        if (inspected.reason!=='evaluated' || !same(inspected.current,request.expected)) {
+          const waiting=['missing_scope','no_assignees','all_unavailable','existing_work','reconciliation_required'];
+          if(inspected.reason==='selection'&&selection?.outcome==='waiting'&&waiting.includes(selection.reason))
+            return {status:'waiting',selected:'false',reason:selection.reason.replaceAll('_','-')};
+          return {status:'blocked',selected:'false',reason:'invalid-or-unavailable'};
+        }
         const route=await workflowRoute(selection,conditions,request.target,host.group);
         const resolution=await host.retain({kind:'resolution',key:request.request,
-          value:{request,route,memberId:selection.memberId},identity,signal});need(opaque(resolution));
+          value:{request,route,memberId:selection.memberId,
+            ...(selection.observation?{observation:selection.observation}:{})},identity,signal});need(opaque(resolution));
         return {status:'selected',selected:'true',runs_on:JSON.stringify(route),resolution,
           execution_mode:writers.has(request.expected.stage)?'execute':'compute'};
       }
       const held=await host.retrieve({kind:'resolution',key:input.resolution,identity,signal});
       need(same(held.request,request) && writers.has(request.expected.stage)===(mode==='execute'));
+      if(typeof host.bindResolution==='function')host.bindResolution(held);
       const inspected=await core.inspect(request,{signal});
       need(inspected.reason==='evaluated' && same(inspected.current,request.expected));
       const route=await workflowRoute(selection,conditions,request.target,host.group);
@@ -122,12 +129,23 @@ export function createWorkflowEntry(host) {
           need(value.version===1&&same(value.target,request.target)&&value.cycle===request.cycle
             &&value.request===request.request&&same(value.run,request.run)&&same(value.requested,request.expected)
             &&['completed','blocked','waiting','superseded','rejected','unresolved'].includes(value.disposition)&&opaque(prior.key));
+          if(typeof host.runnerObservation==='function') {
+            need(value.routing?.memberId===held.memberId&&same(value.routing.route,route));
+            const execution=value.routing.execution;githubId(execution?.runnerId);
+            need(execution.repository===identity.repository&&execution.repositoryId===identity.repositoryId
+              &&same(execution.run,request.run));
+            // Recovery belongs to the original authenticated execution, not a
+            // substituted Runner or login under an otherwise identical request.
+            need(same(execution,host.runnerObservation()));
+          }
           return {status:value.disposition,reference:prior.key};
         }
         need(prior.outcome==='started');
       }
       const result=await core.run(request,{signal});
-      const reference=await host.retain({kind:'stage-result',key:request.request,value:result,identity,signal});need(opaque(reference));
+      const value={...result,routing:{route,memberId:held.memberId,
+        ...(typeof host.runnerObservation==='function'?{execution:host.runnerObservation()}:{})}};
+      const reference=await host.retain({kind:'stage-result',key:request.request,value,identity,signal});need(opaque(reference));
       return {status:result.disposition,reference};
     } catch {return activeRequest?{status:'unresolved',request:activeRequest,reason:'result-reconciliation-required'}
       :{status:'blocked',selected:'false',reason:'invalid-or-unavailable'};}

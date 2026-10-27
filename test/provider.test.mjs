@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtempSync, writeFileSync, rmSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {join} from 'node:path';
-import {createGithubProvider, localGhTransport, parseGithubJson, publicDiagnostic} from '../src/index.mjs';
+import {createGithubProvider, localGhTransport, parseGithubJson, publicDiagnostic, githubEndpointPermission} from '../src/index.mjs';
 
 const base = {endpoint:'/repos/Example-Org/core/issues/1', target:'42', operation:'issue', correlation:'attempt-1'};
 const response = (status = 200, body = '{"id":42}', headers = {}) => ({status, body, headers});
@@ -264,4 +264,26 @@ console.log('HTTP/2.0 200 OK\\r\\nContent-Type: application/json\\r\\n\\r\\n'+JS
     }});
   assert.equal((await p.collection(base)).outcome,'incomplete');
   assert.equal(calls,2); assert.deepEqual(waits,[]);
+});
+
+test('read authorization guards every page and cannot authorize mutations or expose partial collections',async()=>{
+  const calls=[],checks=[];
+  const provider=createGithubProvider({attempts:1,authorizeRead:async intent=>{checks.push(intent);return checks.length===1;},
+    transport:async request=>{calls.push(request);return {status:200,body:'[{"id":1}]',headers:{
+      link:'<https://api.github.com/repos/example/core/issues/1/dependencies/blocked_by?page=2&per_page=100>; rel="next"'}};}});
+  const input={endpoint:'/repos/example/core/issues/1/dependencies/blocked_by?per_page=100',operation:'readiness',target:'42',correlation:'read'};
+  const result=await provider.collection(input);assert.equal(result.outcome,'incomplete');assert.equal(result.data,undefined);
+  assert.equal(checks.length,2);assert.equal(calls.length,1);assert(checks.every(r=>r.method==='GET'&&r.target==='42'));
+  assert.notEqual((await provider.request({...input,method:'POST',body:{authorized:true}})).outcome,'submitted');
+  assert.equal(calls.length,1);assert.throws(()=>createGithubProvider({authorizeRead:true}));
+  const bounded=createGithubProvider({elapsedMs:5,authorizeRead:()=>new Promise(()=>{}),transport:()=>{throw Error('must not dispatch');}});
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),5);
+  try {assert.equal((await bounded.request({...input,signal:controller.signal})).outcome,'failed');}
+  finally {clearTimeout(timer);}
+  for(const name of ['blocked_by','blocking']) {
+    const path='/repos/example/core/issues/1/dependencies/'+name;
+    assert.equal(githubEndpointPermission('GET',path+'?per_page=100&page=2'),'public:read');
+    for(const method of ['POST','PATCH','DELETE'])assert.equal(githubEndpointPermission(method,path),null);
+    assert.equal(githubEndpointPermission('GET',path+'?per_page=101'),null);
+  }
 });

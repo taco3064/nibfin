@@ -108,3 +108,5 @@ export {createHostIdentityAdapters,createHostIdentityAdaptersForTest,hostedGithu
 
 export {createCustodyHost,custodySlotIdentity,createCustodyCurrent,retainedRoleRecord,createRetainedRoleBackend,recoverRoleCollection} from './custody-host.mjs';
 export {loadApprovedInputs} from './host-source.mjs';
+
+export {createHostRouting} from './host-routing.mjs';

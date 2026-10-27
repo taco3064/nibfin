@@ -11,7 +11,7 @@ export function createAssigneeSelector({provider, authorizationFor, now = Date.n
   if (typeof provider?.request !== 'function' || typeof authorizationFor !== 'function'
       || typeof now !== 'function' || !Number.isSafeInteger(maxCheckpointMs) || maxCheckpointMs <= 0)
     throw Error('Invalid selection configuration');
-  return Object.freeze({select: async (input, {signal} = {}) => {
+  return Object.freeze({select: async (input, {signal, memberId} = {}) => {
     let observation;
     const result = (outcome, reason, extra = {}) => ({outcome, reason, ...(observation ? {observation} : {}), ...extra});
     try {
@@ -66,8 +66,10 @@ export function createAssigneeSelector({provider, authorizationFor, now = Date.n
       if (!issue.labels.every(l => typeof l?.name === 'string')) stop('issue');
       if (!issue.labels.some(l=>l.name === 'scope')) return result('waiting','missing_scope');
       if (!issue.assignees.length) return result('waiting','no_assignees');
+      if(memberId!==undefined && !issue.assignees.some(m=>m.id===memberId)) stop('authorization');
       const reasons = [];
       for (const member of issue.assignees) {
+        if(memberId!==undefined && member.id!==memberId)continue;
         const permission = await read(`${prefix}/collaborators/${member.login}/permission`);
         if (!sameUser(permission?.user,member)
             || !['read','triage','none','write','maintain','admin'].includes(permission.permission)) stop('permission');
@@ -89,10 +91,13 @@ export function createAssigneeSelector({provider, authorizationFor, now = Date.n
         }}, {target, registration:c.registration, records,
           conditions:{...conditions,labels:[]},correlation:'selection',signal});
         if (r.outcome !== 'matched' || r.inventory !== 'complete') stop('runners');
+        if (conditions.groupId !== undefined
+            && !r.groups?.some(group=>group.id===conditions.groupId && group.access==='allowed')) stop('runners');
         const memberLabel = memberRunnerLabel(member.id);
         if (r.runners.some(remote => remote.labels.includes(memberLabel)
             && !records.some(rec=>rec.runnerId===remote.id))) stop('runners');
-        const matchingOnline = r.instances.some(instance => instance.observation.platform === conditions.platform
+        const matchingOnline = r.instances.some(instance => (conditions.groupId === undefined || instance.groupId === conditions.groupId)
+          && instance.observation.platform === conditions.platform
           && instance.observation.status === 'online'
           && ['self-hosted',conditions.platform,...conditions.labels].every(l=>instance.observation.labels.includes(l.toLowerCase())));
         fresh(now());

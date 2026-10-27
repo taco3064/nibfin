@@ -3,5 +3,6 @@
   "repository": "example-org/public-project",
   "repositoryId": "42",
   "environment": "nibfin-hosted",
-  "authentication": "actions-oidc"
+  "authentication": "actions-oidc",
+  "routing": "authenticated"
 }

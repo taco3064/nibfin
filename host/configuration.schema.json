@@ -44,6 +44,9 @@
     },
     "authentication": {
       "const": "actions-oidc"
+    },
+    "routing": {
+      "const": "authenticated"
     }
   },
   "$defs": {
@@ -62,6 +65,13 @@
             "environment": {
               "const": "nibfin-hosted"
             }
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "routing"
+            ]
           }
         }
       ]
@@ -139,5 +149,19 @@
         }
       ]
     }
-  }
+  },
+  "anyOf": [
+    {
+      "not": {
+        "required": [
+          "routing"
+        ]
+      }
+    },
+    {
+      "required": [
+        "authentication"
+      ]
+    }
+  ]
 }

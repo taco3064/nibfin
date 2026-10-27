@@ -14,6 +14,7 @@ import {createFinalReview,createProtectedMerge} from './final-review.mjs';
 import {createCompletionFlow} from './completion.mjs';
 import {createRecoveryFlow} from './recovery.mjs';
 import {createRepairFlow} from './repair.mjs';
+import {supportsStartCheckpoint} from './lifecycle.mjs';
 import {loadApprovedInputs} from './host-source.mjs';
 import {createDownstreamFanout} from './fanout.mjs';
 
@@ -164,7 +165,7 @@ function shapeResult(value,p,stage) {
  * current() resolves independent expectations/custody; it must not trust receipts
  * to choose their own expectations. No callback supplied by request data is used.
  */
-export function createCore({current,provider,authorization,dependencies,selector,owners,referenceInputs}={}) {
+export function createCore({current,provider,authorization,dependencies,selector,owners,referenceInputs,checkpoint}={}) {
   need(typeof current==='function'&&typeof authorization?.eligibility==='function'
     &&typeof provider?.request==='function'&&typeof dependencies?.evaluate==='function'&&typeof selector?.select==='function'&&owners,'capabilities');
   const read=current,request=provider.request.bind(provider), eligibility=authorization.eligibility.bind(authorization),
@@ -172,10 +173,39 @@ export function createCore({current,provider,authorization,dependencies,selector
   const factories={shape:createShapeFlow,deliver:createDeliverFlow,hooks:createHookRunner,accept:createAcceptFlow,
     publication:createCandidatePublication,review:createFinalReview,merge:createProtectedMerge,
     completion:createCompletionFlow,fanout:createDownstreamFanout,recovery:createRecoveryFlow,repair:createRepairFlow};
-  let executing=null,executionSignal;
+  need(checkpoint===undefined||typeof checkpoint==='function','checkpoint');
+  let executing=null,executionSignal,executionDependencies;
+  const checkExecution=async()=>{if(checkpoint) {
+    need(!executionSignal?.aborted,'cancelled');
+    await checkpoint({signal:executionSignal});
+    if(executing) {
+      const live=await read();
+      need(same(plan(live),plan(executing))&&same(live.invocation,executing.invocation),'checkpoint-drift');
+      const deps=await evaluate(copy(executing.dependencyInput),{signal:executionSignal});
+      need(deps.outcome==='ready'&&same(deps.target,executing.target)
+        &&same({edges:deps.edges,completions:deps.completions},executionDependencies),'checkpoint-dependencies');
+      const target=executing.target,stage=plan(executing).stage;
+      const issue=await request({method:'GET',endpoint:'/repos/'+target.repository+'/issues/'+target.number,
+        target:target.repositoryId,operation:'core-read',correlation:executing.invocation.request,signal:executionSignal});
+      need(issue.outcome==='read'&&issue.data?.id===target.databaseId&&issue.data.node_id===target.issueId
+        &&(issue.data.state==='open'||Boolean(executing.receipts.closure)||executing.transition==='recovery')
+        &&(issue.data.body===(executing.receipts.publication?executing.shapeBody:executing.scopeBody)
+          ||stage==='publication'&&issue.data.body===executing.shapeBody),'checkpoint-scope');
+    }
+  }};
   const owned={};
   for(const [name,factory] of Object.entries(factories))if(owners[name]) {
     const config={...owners[name]},ownerCurrent=config.current;
+    if(checkpoint && typeof config.operations==='function') {
+      const operations=config.operations;
+      config.operations=options=>{
+        const before=options.beforeSubmit;
+        return operations({...options,beforeSubmit:async(...args)=>{
+          if(before)await before(...args);
+          await checkExecution();
+        }});
+      };
+    }
     if(typeof ownerCurrent==='function')config.current=async(...args)=>{
       const value=await ownerCurrent(...args),live=await read(),p=executing??live;
       if(executing){need(!executionSignal?.aborted,'cancelled');need(same(plan(live),plan(p)),'owner-drift');}
@@ -184,6 +214,7 @@ export function createCore({current,provider,authorization,dependencies,selector
       const repository=value.target?.repository??value.repository;
       need(repository===p.target.repository,'owner-binding');
       ownerContext(value,executing??p,name);
+      await checkExecution();
       return value;
     };
     if(typeof config.prepareRole==='function') {
@@ -207,8 +238,10 @@ export function createCore({current,provider,authorization,dependencies,selector
         const used=Object.values(p.receipts).flatMap(r=>['id','request','result'].map(k=>r.execution[k]));
         need(['id','request','result'].every(k=>!used.includes(e[k])),'independence');
         const signal=executionSignal,lifecycle=prepared.lifecycle;
-        return {...prepared,lifecycle:{...lifecycle,start:input=>{
-          need(!signal?.aborted,'cancelled');return lifecycle.start(input,{signal});
+        need(!checkpoint||supportsStartCheckpoint(lifecycle),'lifecycle-checkpoint-unavailable');
+        return {...prepared,lifecycle:{...lifecycle,start:async input=>{
+          await checkExecution();
+          need(!signal?.aborted,'cancelled');return lifecycle.start(input,{signal,...(checkpoint?{beforeStart:checkExecution}:{})});
         }}};
       };
     }
@@ -254,7 +287,7 @@ export function createCore({current,provider,authorization,dependencies,selector
     const after=freeze(copy(await read()));
     need(same(plan(after),plan(p))&&same(after.invocation,p.invocation),'drift');
     need(!signal?.aborted,'cancelled');
-    return {pin:p,decision};
+    return {pin:p,decision,dependencies:{edges:deps.edges,completions:deps.completions}};
   }
   function result(r,d,disposition,reason,stage=null,owner=null) {
     return {version:1,target:r.target,cycle:r.cycle,request:r.request,run:r.run,
@@ -332,7 +365,7 @@ export function createCore({current,provider,authorization,dependencies,selector
         if(runStages.has(r.run.id)&&runStages.get(r.run.id)!==d.stage)return result(r,d,'blocked','run-stage-already-bound');
         const invocation=contentIdentity(r.run);
         if(!resume&&invoked.has(invocation))return result(r,d,'blocked','invocation-already-attempted');
-        invoked.add(invocation);runStages.set(r.run.id,d.stage);executing=p;executionSignal=signal;launched=true;const owner=await dispatch(p,d.stage,signal,resume);
+        invoked.add(invocation);runStages.set(r.run.id,d.stage);executing=p;executionSignal=signal;executionDependencies=fresh.dependencies;launched=true;const owner=await dispatch(p,d.stage,signal,resume);
         if(owner?.evidence)ownerEvidence(owner.evidence,p,d.stage);
         if(['shape','shape-validator','publication'].includes(d.stage))shapeResult(owner,p,d.stage);
         const descriptor=owner?.value?.candidate??owner?.receipt?.binding?.workspace;
@@ -352,7 +385,7 @@ export function createCore({current,provider,authorization,dependencies,selector
           signal?.aborted?'cancelled':'owner-result',d.stage,owner);
       }catch(e){return r?result(r,e?.decision??d,launched?'unresolved':'blocked',e?.decision?e.gate:'invalid-or-unavailable',launched?d.stage:null)
         :{version:1,disposition:'rejected',reason:'invalid-request'};}
-      finally{if(acquired){executing=null;executionSignal=undefined;busy=false;}}
+      finally{if(acquired){executing=null;executionSignal=undefined;executionDependencies=undefined;busy=false;}}
     }
   });
 }

@@ -22,10 +22,12 @@ const repository = v => typeof v==='string' && /^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0
 /** Serializable options only; no module names, paths, credentials or callback JSON. */
 export function validateHostOptions(options, mode) {
   need(Object.hasOwn(hostModes,mode));
-  fields(options,['version','repository','repositoryId','environment'],['groupId','authentication']);
+  fields(options,['version','repository','repositoryId','environment'],['groupId','authentication','routing']);
   need(options.version===1 && repository(options.repository) && id(options.repositoryId));
   need(options.environment=== (['execute','compute'].includes(mode)?'nibfin-member':'nibfin-hosted'));
   if (Object.hasOwn(options,'authentication')) need(options.authentication==='actions-oidc');
+  if (Object.hasOwn(options,'routing')) need(options.routing==='authenticated' && options.authentication==='actions-oidc'
+    && ['resolve','execute','compute'].includes(mode));
   if (Object.hasOwn(options,'groupId')) need(['resolve','execute','compute'].includes(mode) && id(options.groupId));
   return Object.freeze({...options});
 }
@@ -48,7 +50,8 @@ export function configure({core,mode,context,deployment}={}) {
     const durable=deployment.custody!==undefined;
     need(!durable||['resolve','execute','compute','registration'].includes(mode));
     const storage=durable?core.createCustodyHost(deployment.custody):null;
-    const supplied=required.filter(k=>!(maintained&&k==='authenticate')&&!(durable&&['retain','retrieve'].includes(k)));
+    const routed=options.routing==='authenticated';
+    const supplied=required.filter(k=>!(maintained&&k==='authenticate')&&!(durable&&['retain','retrieve'].includes(k))&&!(routed&&['verifyRunner','group'].includes(k)));
     fields(capabilities,supplied);
     for (const name of supplied) need(typeof capabilities[name]==='function');
     const run=Object.freeze({...context.run});
@@ -61,7 +64,7 @@ export function configure({core,mode,context,deployment}={}) {
     const matches = identity => need(identity?.repository===options.repository && identity?.repositoryId===options.repositoryId
       && identity.visibility==='public' && ['personal','organization'].includes(identity.ownership)
       && identity.run?.id===run.id && identity.run?.attempt===run.attempt);
-    const host={};
+    const host={};let routing;
     for (const name of required) host[name]=async argument=>{
       // Invocation is mode-bound. Reusing a configured host for another mode fails closed.
       if (name==='authenticate') need(argument.mode===mode);
@@ -69,11 +72,12 @@ export function configure({core,mode,context,deployment}={}) {
       const projected={...argument};
       Object.defineProperties(projected,{core:{value:core},options:{value:options}});
       if(adapters && name!=='authenticate') {
-        if(['delivery','verifyRunner'].includes(name)) need((await adapters.eligibility({capability:name})).ok);
-        Object.defineProperties(projected,{provider:{value:adapters.provider},eligibility:{value:adapters.eligibility}});
+        if(['delivery','verifyRunner'].includes(name)) need((await (routed?adapters.routing.eligibility:adapters.eligibility)({capability:name})).ok);
+        Object.defineProperties(projected,{provider:{value:adapters.provider},eligibility:{value:adapters.eligibility},
+          ...(routed?{routing:{value:adapters.routing}}:{})});
       }
       if (argument.context) projected.context=contextFor(argument.context);
-      const result=await bound[name](projected);
+      const result=routed&&['verifyRunner','group'].includes(name)?await routing?.[name](projected):await bound[name](projected);
       if (name==='authenticate') {
         matches(result);
         return {repository:options.repository,repositoryId:options.repositoryId,run:{...run},
@@ -83,9 +87,17 @@ export function configure({core,mode,context,deployment}={}) {
         need(record(result) && result.request?.target?.repository===options.repository
           && result.request.target.repositoryId===options.repositoryId);
         // Core itself validates each owner, authority, dependency and queued decision.
-        need(result.config?.selector && typeof result.config.selector.select==='function');
-        const select=result.config.selector.select.bind(result.config.selector);
-        return {...result,config:{...result.config,selector:{select:async (input,settings)=>{
+        let config=result.config;
+        if(routed) {
+          need(!routing);
+          routing=core.createHostRouting({adapters,current:config?.current,mode,
+            maxCheckpointMs:deployment.identity.authorization.maxCheckpointMs,now:deployment.identity.now});
+          config={...config,provider:adapters.routing.provider,authorization:{eligibility:adapters.routing.eligibility},
+            selector:routing.selector,...(mode==='resolve'?{}:{checkpoint:routing.checkpoint})};
+        }
+        need(config?.selector && typeof config.selector.select==='function');
+        const select=config.selector.select.bind(config.selector);
+        return {...result,config:{...config,selector:{select:async (input,settings)=>{
           need(input.conditions?.groupId===options.groupId);
           return select(input,settings);
         }}}};
@@ -93,6 +105,10 @@ export function configure({core,mode,context,deployment}={}) {
       if (name==='registration') need(['new','resolved','unresolved'].includes(result?.prior));
       return result;
     };
+    if(routed&&mode!=='resolve') {
+      host.bindResolution=value=>routing.bindResolution(value);
+      host.runnerObservation=()=>routing.observation();
+    }
     if(storage&&['execute','compute'].includes(mode))host.beginStage=async argument=>{
       matches(argument.identity);return storage.beginStage(argument);
     };

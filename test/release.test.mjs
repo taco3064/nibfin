@@ -4,6 +4,7 @@ import {readFileSync,writeFileSync,mkdtempSync,mkdirSync,copyFileSync,rmSync} fr
 import {dirname,join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {parse} from 'yaml';
+import {execFileSync} from 'node:child_process';
 import {gzipSync,gunzipSync} from 'node:zlib';
 import {releaseVersion,releaseHash,releaseComponents,verifyRelease,validateReleaseCompatibility,configuration,workflowInstallation,workflowFiles} from '../src/index.mjs';
 import {initialCompatibility,sourceBinding,prepareRelease,verifyPreparedRelease,releaseInputs} from '../tooling/release.mjs';
@@ -194,9 +195,15 @@ test('publication rejects untrusted source, disabled prerequisites, conflicts an
 });
 test('retained CD uses trusted main, pinned actions and complete real checks',()=>{
   const workflow=parse(readFileSync('.github/workflows/core-release.yml','utf8'));
-  assert.deepEqual(workflow.on.push.branches,['main']);assert.ok(workflow.on.workflow_dispatch!==undefined);
+  assert.deepEqual(Object.keys(workflow.on),['workflow_dispatch']);
+  assert.deepEqual(workflow.on.workflow_dispatch.inputs.version,{description:'Exact package.json version to publish (without the v prefix)',required:true,type:'string'});
+  assert.match(workflow.jobs.release.if,/github.event_name == 'workflow_dispatch'/);
+  assert.match(workflow.jobs.release.if,/github.ref == 'refs\/heads\/main'/);
   assert.equal(workflow.concurrency['cancel-in-progress'],false);assert.deepEqual(workflow.permissions,{contents:'read'});
   const steps=workflow.jobs.release.steps;
+  const requested=steps.find(s=>s.name==='Confirm requested package version');
+  assert.equal(requested.env.NIBFIN_RELEASE_VERSION,'${{ inputs.version }}');
+  assert(steps.indexOf(requested)<steps.findIndex(s=>s.run?.startsWith('npm ci')));
   for(const s of steps.filter(s=>s.uses))assert.match(s.uses,/@[a-f0-9]{40}$/);
   for(const command of ['npm run check','npm run test:artifact-sdk','npm run verify:release','node tooling/release-publish.mjs']) {
     assert.ok(steps.some(s=>s.run===command));
@@ -207,6 +214,18 @@ test('retained CD uses trusted main, pinned actions and complete real checks',()
   const publish=steps.find(s=>s.run==='node tooling/release-publish.mjs');
   assert.equal(publish.env.NIBFIN_RELEASE_TOKEN,'${{ github.token }}');
   assert.equal(publish.env.NIBFIN_RELEASE_IMMUTABILITY_POLICY,'repository-enforced');
+});
+
+test('the workflow version guard accepts only the requested merged package version',t=>{
+  const workflow=parse(readFileSync('.github/workflows/core-release.yml','utf8'));
+  const step=workflow.jobs.release.steps.find(s=>s.name==='Confirm requested package version');
+  const script=/^node -e "([\s\S]+)"$/.exec(step.run)?.[1];assert(script);
+  assert(!step.run.includes('${{'));
+  const directory=mkdtempSync(join(tmpdir(),'nibfin-release-request-'));t.after(()=>rmSync(directory,{recursive:true,force:true}));
+  writeFileSync(join(directory,'package.json'),JSON.stringify({version:'1.2.3'}));
+  const run=version=>execFileSync(process.execPath,['-e',script],{cwd:directory,env:{...process.env,NIBFIN_RELEASE_VERSION:version},stdio:'pipe'});
+  assert.doesNotThrow(()=>run('1.2.3'));
+  for(const version of ['', '1.2.4', 'v1.2.3', '1.2.3; echo unwanted'])assert.throws(()=>run(version),/requested-version-mismatch/);
 });
 
 test('repository enforcement needs no administrator read but requires immutable final readback',async()=>{

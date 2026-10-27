@@ -2,7 +2,8 @@ import {spawn} from 'node:child_process';
 import {userInfo, tmpdir} from 'node:os';
 import {setTimeout as sleep} from 'node:timers/promises';
 
-export const githubApiVersion = '2026-03-10';
+// Exact merge/closure provenance requires merge_commit_sha (removed in 2026-03-10).
+export const githubApiVersion = '2022-11-28';
 const origin = 'https://api.github.com';
 const media = 'application/vnd.github+json';
 const writes = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);

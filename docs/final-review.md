@@ -87,7 +87,7 @@ strict classic protection enforced for administrators block with
 not currently a supported direct-merge configuration. Applicable rulesets remain
 observed and enforced by GitHub in addition to that classic baseline.
 
-Direct merge uses GitHub REST API version `2026-03-10`, `PUT /repos/{owner}/{repo}/pulls/{number}/merge`,
+Direct merge uses GitHub REST API version `2022-11-28`, `PUT /repos/{owner}/{repo}/pulls/{number}/merge`,
 with only the approved `merge_method` and expected Head `sha`. It requires readable
 native policy with strict classic up-to-date Base status-check protection enforced
 for administrators (`enforce_admins.enabled: true`), known

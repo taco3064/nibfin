@@ -154,7 +154,7 @@ const provider = createGithubProvider({authorize: r => r.context === providerCon
 assert.equal((await provider.request({endpoint:'/user', operation:'user', correlation:'smoke', target:'42'})).data.id, '42');
 assert.equal((await provider.request({endpoint:'/repos/org/core/issues/1', method:'PATCH', operation:'close', correlation:'smoke', target:'42', context:providerContext, body:{state:'closed'}})).outcome, 'submitted');
 assert.equal(providerCalls.length, 2);
-assert.equal(providerCalls[1].headers['X-GitHub-Api-Version'], '2026-03-10');
+assert.equal(providerCalls[1].headers['X-GitHub-Api-Version'], '2022-11-28');
 assert.equal(providerCalls[1].headers.Accept, 'application/vnd.github+json');
 assert.equal(providerCalls[1].body, JSON.stringify({state:'closed'}));
 const runnerTarget = {owner:'org',repository:'core',id:'42',ownerId:'7',ownerType:'Organization'};

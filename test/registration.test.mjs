@@ -14,7 +14,7 @@ test('official repository calls, encrypted readback, consumption and cleanup for
     const r = await f.issue(); assert.equal(r.outcome,'delivered',JSON.stringify(r));
     const post = f.calls.find(r=>r.method==='POST');
     assert.equal(post.endpoint,'/repos/example/core/actions/runners/registration-token');
-    assert.equal(post.body,'{}'); assert.deepEqual(post.headers,{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2026-03-10'});
+    assert.equal(post.body,'{}'); assert.deepEqual(post.headers,{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'});
     const opened = openRegistrationResponse(f.bytes(),{privateKey:keys.privateKey,expected:r.context,now:()=>f.state.now});
     assert.equal(opened.token,sentinel); assert.equal(opened.expires_at,f.state.expiry);
     assert.equal(opened.url,'https://github.com/example/core'); assert.equal('runnerId' in r,false);

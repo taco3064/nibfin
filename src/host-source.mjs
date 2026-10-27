@@ -13,13 +13,13 @@ const pathOK=p=>typeof p==='string' && p.length<512 && !p.includes('\\') && !isA
 const repoOK=v=>typeof v==='string' && /^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?\/[a-z0-9_.-]{1,100}$/.test(v)
   && !v.split('/')[0].includes('--') && !['.','..'].includes(v.split('/')[1]);
 /** Verify every path component, rejecting symlinks even when they point inside root. */
-async function containedFile(root,path) {
+async function containedFile(root,path,maxBytes=Infinity) {
   need(pathOK(path));
   let cursor=root;
   for (const part of path.split('/')) {
     cursor=join(cursor,part);const stat=await lstat(cursor);
     need(!stat.isSymbolicLink());
-    need(cursor===join(root,path)?stat.isFile():stat.isDirectory());
+    need(cursor===join(root,path)?stat.isFile()&&stat.size<=maxBytes:stat.isDirectory());
   }
   const actual=await realpath(cursor),rel=relative(root,actual);
   need(rel!=='' && !rel.startsWith('..'+sep) && !isAbsolute(rel));
@@ -29,7 +29,7 @@ async function containedFile(root,path) {
  * The caller fixes allowedRoot and independently supplies repository/commit observations.
  * This does not authenticate its own caller/bundle bootstrap or a Git checkout.
  */
-export async function verifyApprovedSource({root,allowedRoot,repository,commit,approval,required=[]}) {
+export async function verifyApprovedSource({root,allowedRoot,repository,commit,approval,required=[],maxBytes=Infinity}) {
   try {
     need(typeof root==='string' && isAbsolute(root) && root===resolve(allowedRoot));
     // Check ancestors too: a symlinked checkout parent is not a trusted location.
@@ -42,7 +42,8 @@ export async function verifyApprovedSource({root,allowedRoot,repository,commit,a
     const bytes=new Map();
     for(const item of approval.files) {
       fields(item,['path','sha256']);need(pathOK(item.path) && !bytes.has(item.path) && /^[a-f0-9]{64}$/.test(item.sha256));
-      const value=await containedFile(root,item.path);need(hash(value)===item.sha256);bytes.set(item.path,value);
+      const value=await containedFile(root,item.path,maxBytes);need(hash(value)===item.sha256);bytes.set(item.path,value);
+      need([...bytes.values()].reduce((n,b)=>n+b.length,0)<=maxBytes);
     }
     need(required.every(p=>bytes.has(p)));
     return bytes;
@@ -90,12 +91,36 @@ export async function loadProtectedDeployment({source,options,approval,validate,
     const modes=Object.keys(configured);need(modes.length>0 && modes.every(m=>allowed.includes(m)));
     const parsed=Object.fromEntries(modes.map(m=>[m,validate(configured[m],m)]));
     const binding=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
-    need(Object.keys(binding).every(k=>['capabilities','identity'].includes(k)) && binding.capabilities);
+    need(Object.keys(binding).every(k=>['capabilities','identity','custody'].includes(k)) && binding.capabilities);
     if(binding.identity)fields(binding.identity,modes.filter(m=>parsed[m].authentication==='actions-oidc'));
     fields(binding.capabilities,modes);
     need(Object.getPrototypeOf(binding.capabilities)===Object.prototype
       && Object.values(Object.getOwnPropertyDescriptors(binding.capabilities)).every(d=>Object.hasOwn(d,'value')));
+    if(binding.custody)fields(binding.custody,modes.filter(m=>['resolve','execute','compute','registration'].includes(m)));
     return {options:parsed[mode],capabilities:binding.capabilities[mode],
+      ...(binding.custody?{custody:binding.custody[mode]}:{}),
       ...(parsed[mode].authentication==='actions-oidc'?{identity:binding.identity?.[mode]}:{})};
   } catch {throw Error('protected-host:configuration');}
+}
+
+/** Public reference/configuration bytes only. Approval and current requirements
+ * are independently authenticated by Core before this function is called. */
+export async function loadApprovedInputs({source,approval,expected,maxBytes=1048576}={}) {
+  try {
+    fields(expected,['repository','commit','requirements','role','paths']);
+    fields(approval,['repository','commit','requirements','roles','visibility','files']);
+    fields(expected.requirements,['revision','scopeHash']);
+    need(Object.values(expected.requirements).every(h=>/^[a-f0-9]{64}$/.test(h))
+      &&JSON.stringify(approval.requirements)===JSON.stringify(expected.requirements)
+      &&approval.visibility==='public'&&Array.isArray(approval.roles)&&approval.roles.includes(expected.role)
+      &&Array.isArray(expected.paths)&&expected.paths.length<=64&&new Set(expected.paths).size===expected.paths.length
+      &&Number.isSafeInteger(maxBytes)&&maxBytes>0&&maxBytes<=1048576);
+    fields(source,['root','allowedRoot','repository','commit']);
+    need(source.repository===expected.repository&&source.commit===expected.commit
+      &&approval.repository===expected.repository&&approval.commit===expected.commit
+      &&approval.files.length===expected.paths.length&&approval.files.every(f=>expected.paths.includes(f.path)));
+    const bytes=await verifyApprovedSource({...source,approval:{repository:approval.repository,commit:approval.commit,files:approval.files},
+      required:expected.paths,maxBytes});
+    return [...bytes].map(([path,value])=>({path,sha256:hash(value),bytes:Buffer.from(value)}));
+  } catch {throw Error('protected-host:inputs');}
 }

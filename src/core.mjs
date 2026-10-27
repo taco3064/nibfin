@@ -14,6 +14,7 @@ import {createFinalReview,createProtectedMerge} from './final-review.mjs';
 import {createCompletionFlow} from './completion.mjs';
 import {createRecoveryFlow} from './recovery.mjs';
 import {createRepairFlow} from './repair.mjs';
+import {loadApprovedInputs} from './host-source.mjs';
 import {createDownstreamFanout} from './fanout.mjs';
 
 const copy=structuredClone, same=(a,b)=>canonicalJSON(a)===canonicalJSON(b);
@@ -91,7 +92,8 @@ function plan(p) {
   // These inputs come from the recovery/repair owners' attributed, authorized handoffs.
   // Their respective run methods independently classify and recheck permission.
   if(p.transition!==null){need(['recovery','repair'].includes(p.transition),'transition');stage=p.transition;}
-  const inputs={binding:p.binding,scopeHash:p.binding.scopeHash,shapeHash:p.binding.shapeHash,
+  const inputs={...(p.requirementRevision?{requirementRevision:p.requirementRevision}:{}),
+    ...(p.referenceInputApproval?{referenceInputApproval:p.referenceInputApproval}:{}),binding:p.binding,scopeHash:p.binding.scopeHash,shapeHash:p.binding.shapeHash,
     candidate:p.candidate,base:p.base,head:p.head,ci:p.ciIdentity,cycle:p.cycle,
     receipts:Object.fromEntries(Object.entries(p.transition?p.receipts:receipts).map(([s,e])=>[s,contentIdentity(e)])),
     completion:p.completion?.identity??null,transition:p.transition,prior:contentIdentity(p.prior),
@@ -162,7 +164,7 @@ function shapeResult(value,p,stage) {
  * current() resolves independent expectations/custody; it must not trust receipts
  * to choose their own expectations. No callback supplied by request data is used.
  */
-export function createCore({current,provider,authorization,dependencies,selector,owners}={}) {
+export function createCore({current,provider,authorization,dependencies,selector,owners,referenceInputs}={}) {
   need(typeof current==='function'&&typeof authorization?.eligibility==='function'
     &&typeof provider?.request==='function'&&typeof dependencies?.evaluate==='function'&&typeof selector?.select==='function'&&owners,'capabilities');
   const read=current,request=provider.request.bind(provider), eligibility=authorization.eligibility.bind(authorization),
@@ -187,7 +189,19 @@ export function createCore({current,provider,authorization,dependencies,selector
     if(typeof config.prepareRole==='function') {
       const prepare=config.prepareRole;
       config.prepareRole=async task=>{
-        const prepared=await prepare(task),p=await read(),e=prepared.input.execution;
+        const before=await read();
+        let references;
+        if(before.referenceInputApproval)need(hash(before.referenceInputApproval)&&typeof referenceInputs==='function','reference-inputs');
+        if(referenceInputs!==undefined) {
+          need(typeof referenceInputs==='function','reference-inputs');
+          const spec=await referenceInputs({role:task.role,scopeHash:before.binding.scopeHash});
+          if(before.referenceInputApproval)need(contentIdentity(spec.approval)===before.referenceInputApproval,'reference-approval');
+          need(spec.expected.role===task.role&&spec.expected.requirements.scopeHash===before.binding.scopeHash
+            &&spec.expected.requirements.revision===before.requirementRevision,'reference-inputs');
+          references=await loadApprovedInputs(spec);
+          need(same(plan(await read()),plan(before)),'reference-drift');
+        }
+        const prepared=await prepare(references?{...task,referenceInputs:references}:task),p=await read(),e=prepared.input.execution;
         if(executing){need(!executionSignal?.aborted,'cancelled');need(same(plan(p),plan(executing)),'owner-drift');}
         need(e.role===task.role&&e.skill===task.skill,'role');
         const used=Object.values(p.receipts).flatMap(r=>['id','request','result'].map(k=>r.execution[k]));

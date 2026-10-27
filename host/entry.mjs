@@ -34,7 +34,7 @@ export function validateHostOptions(options, mode) {
  */
 export function configure({core,mode,context,deployment}={}) {
   try {
-    fields(deployment,['options','capabilities'],['identity']);
+    fields(deployment,['options','capabilities'],['identity','custody']);
     const options=validateHostOptions(deployment.options,mode), capabilities=deployment.capabilities;
     need(typeof core?.createWorkflowEntry==='function' && typeof core?.createCore==='function'
       && typeof core?.createEventRelay==='function' && typeof core?.createRegistrationHost==='function');
@@ -45,12 +45,16 @@ export function configure({core,mode,context,deployment}={}) {
     const maintained=options.authentication==='actions-oidc';
     need(maintained===Object.hasOwn(deployment,'identity'));
     const adapters=maintained?core.createHostIdentityAdapters({...deployment.identity,options,mode}):null;
-    const supplied=maintained?required.filter(k=>k!=='authenticate'):required;
+    const durable=deployment.custody!==undefined;
+    need(!durable||['resolve','execute','compute','registration'].includes(mode));
+    const storage=durable?core.createCustodyHost(deployment.custody):null;
+    const supplied=required.filter(k=>!(maintained&&k==='authenticate')&&!(durable&&['retain','retrieve'].includes(k)));
     fields(capabilities,supplied);
     for (const name of supplied) need(typeof capabilities[name]==='function');
     const run=Object.freeze({...context.run});
     const bound=Object.fromEntries(supplied.map(name=>[name,capabilities[name].bind(capabilities)]));
     if(adapters)bound.authenticate=adapters.authenticate;
+    if(storage){bound.retain=storage.retainValue;bound.retrieve=storage.retrieve;}
     const contextFor = c => ({repository:options.repository,repositoryId:options.repositoryId,
       run:{id:c.run.id,attempt:c.run.attempt},...(c.eventName===undefined?{}:{eventName:c.eventName}),
       ...(c.event===undefined?{}:{event:structuredClone(c.event)})});
@@ -88,6 +92,9 @@ export function configure({core,mode,context,deployment}={}) {
       }
       if (name==='registration') need(['new','resolved','unresolved'].includes(result?.prior));
       return result;
+    };
+    if(storage&&['execute','compute'].includes(mode))host.beginStage=async argument=>{
+      matches(argument.identity);return storage.beginStage(argument);
     };
     return Object.freeze(host);
   } catch {fail();}

@@ -115,7 +115,10 @@
     "host/configuration.schema.json",
     "host/configuration.example.json",
     "src/host-identity.mjs",
-    "docs/authentication.md"
+    "docs/authentication.md",
+    "src/custody-host.mjs",
+    "docs/custody-host.md",
+    "host/custody.example.mjs"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

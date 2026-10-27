@@ -105,3 +105,6 @@ export {releaseHash,releaseVersion,releaseComponents,configuration,validateRelea
 export {protectedHostFiles,verifyApprovedSource,loadProtectedHost,loadProtectedDeployment} from './host-source.mjs';
 
 export {createHostIdentityAdapters,createHostIdentityAdaptersForTest,hostedGithubTransport,githubEndpointPermission} from './host-identity.mjs';
+
+export {createCustodyHost,custodySlotIdentity,createCustodyCurrent,retainedRoleRecord,createRetainedRoleBackend,recoverRoleCollection} from './custody-host.mjs';
+export {loadApprovedInputs} from './host-source.mjs';

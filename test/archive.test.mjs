@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {gzipSync, gunzipSync} from 'node:zlib';
-import {buildArchive, verifyArchive, packageFiles} from '../tooling/archive.mjs';
+import {buildArchive, packArchive, verifyArchive, packageFiles} from '../tooling/archive.mjs';
 
 // Mutate real packed bytes, preserving valid tar checksums for rejection tests.
 function changeEntry(archive, oldName, newName) {
@@ -69,7 +69,9 @@ test('real archive, rejection policy and website isolation', () => {
     // Explicit root discovery executes all real root tests; remove this fixture test only.
     rmSync(join(fixture, 'test/archive.test.mjs'));
     assert.match(run(['run', 'check']), /fail 0/);
-    const withWebsite = readFileSync(buildArchive(fixture));
+    // The installed suite already passed for these exact archive bytes above.
+    // Repack to test website isolation without executing that same suite twice.
+    const withWebsite = readFileSync(packArchive(fixture));
     assert.deepEqual(withWebsite, archive);
     for (const required of ['instructions/scope.md','examples/scope.json','skills/shape/SKILL.md','skills/deliver/SKILL.md','skills/accept/SKILL.md','workflow/templates/nibfin-stage.yml','.github/workflows/nibfin-delivery.yml']) {
       const path = join(fixture, required);

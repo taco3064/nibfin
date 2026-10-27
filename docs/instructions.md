@@ -62,6 +62,8 @@ not prove live isolation, provider execution, Runner behavior or end-to-end
 delivery. Public repository ownership, Runner registration level and optional
 automatic registration remain separate. No private product support is claimed.
 
-Pre-delivery Scope Plan/read-only Audit is available via `scopeInstructions()`;
+Pre-delivery Scope Plan/Publish/Audit instructions are available via `scopeInstructions()`;
 it is not accepted by `selectInstructions`. See docs/scope.md for the local
-portfolio contract, maintained example and bounded Investigation handoffs.
+portfolio contract, exact-manifest publisher boundary, maintained source-input
+example and bounded read-only Investigation. Scope mode verdicts are report
+conventions, not additional protected role/result-schema values.

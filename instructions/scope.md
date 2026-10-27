@@ -1,78 +1,143 @@
-# Scope Plan and read-only Audit
+# Scope approved product requirements into implementable work
 
-Scope is a pre-delivery planning asset, never a fourth protected Runtime Skill.
-Use current requirements and explicit authorized decisions. Preserve source and
-revision references; neither Issue prose nor a computed hash authenticates them.
+Scope turns **specific, approved product outcomes** into owned, implementable raw Issues. A developer should understand what code to change, the chosen route, when the Issue is complete and the necessary native dependencies. **The repository source at the applicable merged revision is the SSOT for implemented behavior, interfaces, configuration and tests.** Downstream work inspects and consumes that source, not a planner-maintained proof, handoff packet, mirror specification or separate implementation evidence store. Kairo-like delivery engines independently maintain trusted Candidate, Accept, CI, Merge and completion receipts for authorization and lifecycle integrity; those are not replacement technical SSOTs or deliverables that each implementation Issue must hand to its successor. Scope designs against the executor actually installed, not a hoped-for stage. Shape details one existing Issue inside the approved boundary.
 
-## Plan
+**One completion boundary at a reachable stage:** Implementation normally completes with maintained source/configuration/docs and reproducible local/contract/negative tests; actual host/login/provider/E2E proof belongs to a named later verifier unless the Issue itself is a real-verification deliverable. For release work distinguish **pre-Merge package/Candidate/Accept/CI**, **post-Merge CD/publication**, and **later external consumer verification**: an Issue cannot require its own future released asset before Merge. Check an asserted post-Merge closure gate against the **installed runtime and effective authorized policy**: `VERIFIED_SUPPORTED` requires an observed applicable gate, `UNVERIFIED` means the actual evidence is incomplete/inaccessible, and `VERIFIED_UNSUPPORTED` requires affirmative proof that the authorized execution path cannot enforce it. Unknown is neither supported nor unsupported; report affected release/closure readiness without blocking independent coding. An actual failed publication is not success even when the gate exists. Preserve authorization, Candidate/artifact/hook, independent Accept, CI, Merge, deployment and closure gates; Issue prose cannot manufacture a runtime gate.
 
-First declare whole-project coverage or a specifically approved subset (with its
-approval reference). Inventory every authority requirement, including security,
-documentation, release and prerequisite integration work. Trace each requirement
-to independently verifiable work, or a visible exclusion with a reason. Exclusions
-in a subset remain outstanding product work; never call subset completion whole
-product completion. Human semantic review must check that prose actually covers
-the requirement: a structural checker cannot establish that.
+**Grounded engineering selection:** Prefer a credible implementation route supported by official provider contracts, relevant existing code or defensible engineering evidence. Record genuine alternatives only when relevant; select one route, its reasons and assumptions. Do not demand a prototype or a target-platform machine before planning independently testable code. Escalate a product decision only for incompatible binding requirements, a known prohibited/unsafe route without a viable alternative, or truly undecided product semantics. A temporary provider error, missing host or unexecuted E2E is not such a contradiction. Do not publish a research/spike Issue in place of an implementation deliverable unless research itself is an independently approved product outcome under a separate planning boundary.
 
-For each item select exactly one normative owning repository based on product
-responsibility, not merely current code location. Record outcome, exclusions,
-verification, producer/consumer interface contracts and integration evidence.
-Estimate maintained source/tests/docs/configuration lines, confidence and basis;
-aim for coherent work near 1,000 lines and explain material exceptions. Do not
-split away safety obligations to meet a budget.
+## Modes, authority and boundaries
 
-Record proposed and observed native Blocked by edges separately. Check endpoints,
-cycles, redundant blockers and drift only within known graph coverage. Unknown
-external endpoints are unresolved, never completed predecessors. List order is
-not priority, an execution sequence or a global All-Shaped barrier. Do not alter
-actual dependencies or choose/reorder Assignees.
+**Plan**, **Publish** and **Audit** are mutually exclusive modes. Plan and Audit are strictly read-only; Publish is a separately authorized invocation that creates only the approved raw work and native dependencies, and then verifies provider read-back. Scope does not select executors, grant work eligibility or produce Shape, Delivery, Acceptance or completion proofs. Role and permission limits apply equally to people and Agents.
 
-Inventory tools, resources, artifacts and hooks as observed, unknown, unavailable,
-unsupported or unverified, with concrete evidence and limits. A valid plan can
-have unavailable execution resources. Ordinary supported official-interface
-implementation is engineering work; distinguish an unresolved product decision
-from unsupported configuration or an execution-resource failure. Never invent
-availability, source-project completion or live provider success from fixtures.
+Read the project's **current normative authority** (Proposal, product specification or authorized decisions), current repositories/tests/releases/Issues/PRs, the **intended delivery policy**, the **delivery mechanism actually installed for the project**, and the issue provider's supported operations. Keep normative repository ownership distinct from observed code location; record drift, never silently change ownership. A delivery engine being developed as the product is not necessarily the currently installed executor of this portfolio.
 
-## Audit (strictly read-only)
+- **Authority is read-only and decision-specific.** Check the document's explicit decision/approval records **and current Owner authorization** for each binding clause, with exact anchors and affected work. A document labeled draft does **not** make every explicit approved decision undecided; conversely, approval of some clauses does **not** approve the whole document. Before blocking, identify the precise unapproved or contradictory clause, the behavior/Issues it affects, **why existing approvals are insufficient**, and the exact decision needed. Do not invent a global document-approval prerequisite, change normative authority, infer approval from old code/history, or ask about decisions already settled by attributable evidence. Return `AUTHORITY_UPDATE_REQUIRED` only where changing a binding product decision is necessary; otherwise classify the actual unresolved requirement within its affected scope.
+- **Invocation boundary:** Bind a whole project or an explicitly approved requirement slice; cover every obligation in the boundary and all material cross-cutting security, compatibility, integration, documentation, release and operational obligations that govern it. Reference unrelated future work without expanding the bound scope. A slice cannot claim whole-product completeness.
+- **Protected work:** Raw publication is not a grant or freeze. Changes to already frozen, authorized, shaped, executing, delivered or closed Issues (including metadata, assignments and native dependencies) need the project's separately authorized invalidation/reapproval/recovery process first. A Scope Plan approval does not provide it. No actor may silently assign/reorder executors or trigger delivery through raw issue creation. An authorized publisher, not Shape Author/Validator, applies approved formal Shape updates under the delivery policy.
+- **Scope and Shape separation:** Scope may use Shape's **bounded read-only Investigation** for evidence about a prospective work item, interface, ownership or prerequisite, without initiating formal Shape. Findings are advisory; Scope alone determines portfolio split, chosen planning route, Issue creation, verification ownership and dependency design. Shape later works on **one existing raw Scope Issue**, within its frozen boundary, through the project's independent validator and trusted publication flow; it owns detailed Acceptance Criteria, not portfolio redesign. If the proposed work cannot stay in Scope, Shape reports the exact conflict for authorized replanning, not a self-created sibling Issue or a broadened proof requirement.
+- **Reusable contract:** Do not hardcode a project's repositories, issue IDs, platforms, commands, permissions, labels, roles, versions or product-specific policies in this Skill. Resolve them from the current authority, provider and runtime. The approximately **1,000 meaningful first-party LOC** target below is a reusable planning guideline, not a product requirement.
 
-Compare current authority, planned work, supplied Issue observations and native
-edges. Report missing/duplicate work, conflicts, ownership/dependency drift and
-missing original-Scope provenance, with proposed remediation and references.
-Preserve original Scope separately from Shape and retain historical identities.
-Do not edit Issues, Metadata, Assignees, dependencies or repository files. Frozen,
-authorized, shaped, active, delivered or closed work requires applicable
-reauthorization and safe recovery, never ordinary publication approval. A new
-requirements revision invalidates assumptions; prior approval cannot approve it.
+## Plan: establish coverage before drafting Issues
 
-## Bounded Shape Investigation handoff
+1. **Inventory authority by decision, not document label:** For each bound requirement compare its exact anchor with in-document approvals and current Owner authorization; record **approved**, **specifically undecided/contradictory**, deferred or excluded, the affected behavior/Issues, normative repository owner, existing implementation/evidence, planned work and product-level proof. An ambiguous binding decision needs evidence-led investigation and an exact question; a draft heading alone is not evidence of a gap or a missing blanket approval. Source-project completion never proves target-project delivery.
+2. **Inspect the actual executor and deduplicate:** Read relevant open **and closed** Issues, code, tests, PRs, accessible source/releases and provider contracts. Where a work boundary requires a protected transition, inspect the installed engine's version, effective policy/Grant, stage transitions, real Candidate/hook obligations and actual gate evidence. Classify specific runtime-gate support using the three statuses defined above; if inspection cannot establish the result, report `UNVERIFIED`, **not** presumed missing or supported. Trace inherited identity, permission, network and success conditions through reused helpers/workflows; shared code cannot grant callers its own privileged observations. If existing Issues are not inspected, mark deduplication `UNVERIFIED` and Publish readiness incomplete; do not claim duplicate-free planning or invent a technology defect.
+3. **Own every implementable outcome and the single bootstrap:** Choose one normative owning repository and coherent deliverable per Issue; do not duplicate cross-repository core logic. **For each genuinely empty project, create exactly one minimal initialization root Issue** owning the shared directory/package configuration, pinned tooling/dependency management and lockfile, necessary build/typecheck/test entry points, common settings and initial module boundaries. All other work for that project must depend **directly or transitively** on completion of this baseline before changing shared setup; no parallel root may initialize the same project. A website, testing or research subdirectory does not automatically create an independent project or justify a conflicting second initializer. Independently empty projects each have their own single root; an existing usable baseline is reused **without** a new bootstrap Issue. Keep the bootstrap free of feature delivery, formal release and E2E; once complete, independent feature work may run in parallel, without an all-shaped barrier. For cross-platform work, choose a grounded coding route with applicable capability/tool detection, host/guest separation, service/login/cleanup and denial/unknown behavior. Coding for a target OS does not require a planner or coding Agent on that OS.
+4. **Bound work:** Target roughly 1,000 lines or fewer of meaningful maintained first-party changes per implementation Issue, including copied/ported adaptations, tests, workflows, configuration and nontrivial refactors (not merely net added lines). Give an estimate range and confidence. If larger, seek separable outcomes; if not safely divisible, record the reason and its explicit exception within the Owner-approved Plan. Use appropriate alternative effort units for documentation or release evidence. Never drop necessary tests to meet the budget.
+5. **Resolve operations, inherited permissions and external effects:** Read official API/OS contracts and reused code/workflows. For each **real** operation identify the executing identity (Agent, runner, trusted publisher, release workflow or external verifier), environment/network reachability, required permission and legitimate credential source, expected readback and success/failure/unknown behavior. A Write member cannot inherit an Admin-only Runner-listing requirement through a helper; distinguish authorized local setup, local fresh evidence, unknown remote state and separate dispatch eligibility. A failed download, proxy 403, missing release secret, absent dependency cache or missing host is a **stage-specific operational blockage** to diagnose, not product-route disproof, permission to bypass trust, or an early prerequisite for unrelated source work. Never put privileged credentials or private configuration into an untrusted Agent or public Issue. Shape determines detailed local procedures inside the approved boundary.
+6. **Allocate real verification where it belongs:** Identify the actual later executing Issue for any required host/security/authentication/provider/installation/deployment journey and what product claim the result supports. Keep that Issue's real environment, permissions, fixtures, provisioning owner and dispatch checkpoint **in the verification work**, not as new proof or environment obligations for each upstream module. An E2E Issue is not executable until its real capabilities and authorization exist; an independent source Issue can still be planned, implemented and locally accepted. Existing Docker/OIDC components alone do not establish an end-to-end host/member route; a reporting/docs Issue is not a substitute for an executor.
 
-Request: mode (Plan/Audit), bounded question, accessible repository/interface,
-required evidence, access limits and planning decision affected. Inspect only
-that bounded surface. Response: observations with concrete code/test references,
-uncertainty, inaccessible evidence, limits and implications for requirement
-coverage, splitting, ownership and proposed dependencies. Return to Plan/Audit.
-This is read-only cooperation using Shape's existing Investigation capability,
-not another protected role. It cannot approve formal Shape, act as independent
-Validator, publish, grant execution eligibility or certify completion.
+### One source-first dependency and verification review
 
-## Publication and product boundaries
+Review the **real repository source**, actual work boundaries and native dependency graph first. For ordinary implementation handoffs, determine whether the downstream can consume the predecessor's merged files, package entry points, tests or documented public interface directly. Do not create a second authoritative contract, mandatory proof file, evidence report or handoff package. Apply the following distinctions only where they change actual execution:
 
-This module performs no publication or credential discovery. Later publication
-requires explicit approval of the complete concrete plan: repository, raw Scope,
-Metadata and every native edge. Approval is not Owner Grant, formal Shape,
-Deliver, Accept, Merge or execution eligibility. Publish/journal implementation
-belongs to #118/#119 and live publication/recovery integration to #124.
-Keep independent Validator/Accept/Final Review, Candidate and mandatory ignored
-artifacts, offline credential-free Hooks, exact-head CI and protected Merge.
+1. **Source is the implementation output.** A producer Issue owns its code/configuration/tests at Merge; the consumer reads the repository and applicable commit through ordinary authorized source access. Identify necessary paths/entry points where they are not obvious, but do not require the producer to re-document its implementation for every successor. If an actual distribution must exist (published CLI/Action/Core, image or website), assign packaging/version/publication to a real release owner. No upstream implementation or pre-Merge acceptance may require its own future release.
+2. **Consume source directly unless a distribution is genuinely required.** Downstream code work can use the current authorized merged revision (or a fixed commit when reproducibility requires it) and inspect the implementation, imports, configuration and tests in place. Cross-repository source access can likewise use a pinned commit and real package/file entry point. Do not demand an extra manifest, proof packet, identity spreadsheet or re-acceptance of upstream code. If a real consumer requires an official release, verify that asset and its source/CD mapping at **consumption time**, not from a Closed/Delivered label or a Candidate archive.
+3. **Real verification belongs to the real verifier.** The later real-test Issue must explicitly own its scenarios and actual observed results. It may require a real host, member login, container/isolation, OIDC, permitted test target, network and appropriate released version. State missing capabilities, authorized provisioner and dispatch checkpoint **there**; do not replicate its readiness checklist in each producing module. External write tests require a bounded authorized target, operations, visibility, reconciliation and cleanup before live execution. A documentation/reporting Issue only consumes verified results unless explicitly scoped to execute tests.
+4. **Check the timing and boundary, not duplicate evidence.** Re-read each Issue's Goal, Scope, native dependencies and own completion tests. A module completes with its real code and locally reproducible checks plus the delivery engine's actual protected gates; it must not also furnish the next Issue with separate acceptance evidence. Release/CD success occurs after Merge where applicable; independently downloaded installation and full-platform E2E belong to later verification. Shape must not reintroduce additional proof files or later tests into the module Candidate contract.
+5. **Distinguish lifecycle facts.** Source merged and consumable, actual release published, real test environment configured, and real journey observed are different facts. Only a consumer that truly needs the latter must wait for it. The runtime's native predecessor-completion checks remain mandatory; source-first consumption does not permit bypassing them. Do not infer successful publication from a delivered label. A verified unsupported post-Merge gate affects its own release/closure contract, not unrelated coding; inaccessible policy is `UNVERIFIED`, not proof of failure.
 
-The product covers public repositories owned by individuals or organizations
-with multiple collaborators. Repo ownership, Runner registration level and
-Owner-enabled automatic registration are separate dimensions. Private support,
-custom schedulers, distributed leases, atomic routing guarantees, registration
-protocols and new isolation platforms are excluded. Use official GitHub semantics.
-Do not publish credentials or unapproved private proof; redact public summaries
-and retain sensitive evidence only in its authorized storage.
+**Correction loop, not checkbox approval:** Re-read proposed full Bodies and relevant source/dependency paths. Cite actual permission and completion conflicts, false release prerequisites, unnecessary proof packages, or missing real-verification owners. Fix the draft and recheck affected consumers; do not add a parallel evidence source to conceal a missing interface. Where real E2E lacks a host, authority or fixture, report its specific dispatch blocker and provisioner **on the verification work**, not on upstream code Issues. An unverified runtime gate does not create a technology experiment or freeze unrelated work. Never silently amend protected Issues.
 
-Use docs/scope.md as the schema/template and examples/scope.json as a local
-whole-project example. Review semantics independently after checkPortfolio.
+### Dependency and risk review
+
+- A hard edge is justified by a real necessary upstream source/result or the **installed delivery engine's native predecessor-completion policy**, not by a fabricated evidence/handoff package. Kairo-style native dependencies wait for recognized trusted completion, even when the consumer only needs code; plan these edges intentionally and never claim that a merged file bypasses the engine. Avoid edges to a later release/E2E job when the dependent code only needs an upstream implementation. Inspect direct and transitive paths and distinguish consumer inputs from engine-enforced prerequisites.
+- Validate native dependency identities, missing/external predecessors, cycles, source availability and current executor policy. Check each alleged redundant/transitive edge for independent need rather than deleting by count. In an empty project enforce one minimal bootstrap root with direct/transitive paths from other project work; existing initialized projects reuse their real baseline. Parallelize independent features after bootstrap. A graph with no cycle can still have an impossible release-before-merge requirement.
+- For product-critical assumptions, identify grounding, alternatives, downstream impact and later evidence that would disprove the selected route. A real contradiction with binding requirements or an undecided product behavior must return to the separate authority process. Ordinary implementation uncertainties stay in the chosen Issue; an unavailable external test resource stays with the real verifier. Do not add a research/spike Issue merely to test feasibility as a substitute for coding.
+- Before a large freeze/authorization, report the **actual current delivery engine's** ability (verified, unverified or unsupported) to safely handle partial Scope changes, native edge updates, evidence invalidation, authorization migration and restart/recovery. Missing a convenient partial migration feature does not alone block Plan/Publish, but protected change still requires the real recovery process.
+
+## Raw Issue contract and Shape handoff
+
+Each **complete raw Issue Body** should be readable without reconstructing the portfolio tables. Adapt these elements to the project's existing conventions, without embedding unrelated project-wide security boilerplate:
+
+- **Outcome and ownership:** current gap, exact binding authority anchors and decision-specific approval status, observable result, one normative owning repository, included/excluded work and adjacent interfaces. If this is the **sole bootstrap** for an empty project, state its minimal shared baseline and exclude features, publication and E2E; other project work cites this baseline rather than separately initializing it.
+- **Selected implementation route:** relevant grounded candidates and limitations (without inventing extra choices), **one selected route and rationale**, source facts versus assumptions, essential platform branches/identity-permission boundaries, and the planned maintained code/configuration/documentation.
+- **Source and dependencies:** Point to the relevant upstream repository and code/interface entry point where useful; use the merged revision or a fixed commit when necessary. Explain why each native hard dependency exists. **No per-Issue proof packet, technical SSOT copy, evidence bundle or mandatory handoff document.** Only a consumer that genuinely needs an officially published asset specifies its release identity and consumption-time retrieval/check; an implementation consumer can inspect source directly.
+- **Own completion at the correct stage:** State the maintained code, bounded local/contract/negative tests and legitimate Candidate obligations **before** Accept/Merge. For a release, state the distinct post-Merge CD/publication output and its applicable verified or explicitly unverified enforcement boundary; a later external installation belongs to a named verifier. A failed/unknown actual CD result never means publication succeeded. For a real-verification Issue, require actual observed scenario results, not a plan or a missing-host status as a substitute for its deliverable.
+- **Later real verification, if applicable:** Name the downstream Issue owning required full-platform or external results; do not repeat its environment checklist or make its results a prerequisite for this source Issue. A real-verification or release Issue itself must state its own legitimate operational capabilities, permissions, resource gaps and responsible provisioner before that operation is dispatched. Distinguish an ordinary code defect (repair in place), unavailable environment/tool (stage-specific hold) and demonstrated route incompatibility (Owner-authorized, linked replacement preserving the original evidence). Shape does not invent sibling Issues.
+- **Estimate and disclosure:** meaningful-change range/exception, any specific residual risks, and public-safe references only. Do not copy private source, secrets, fixtures, credentials, internal logs or confidential evidence into public Issues simply because the planner can read them.
+
+**Scope → Shape handoff** is the **provider-read raw Issue, its native dependencies and the current repository source**, not an additional technical SSOT. Shape inspects existing code/tests/interfaces directly, using the chosen route and the Issue's own completion boundary. Any later live E2E is a reference to its actual executor, not an upstream Candidate artifact or local Acceptance condition. Only real release/E2E work carries dispatch-resource ownership. The independent Shape Validator and trusted publisher preserve their actual gates; neither invents additional producer reports nor silently changes frozen Scope.
+
+## Plan outputs and verdict
+
+Provide a **concrete full proposed portfolio**, not only a positive summary:
+
+1. **Bound authority and coverage:** per-decision approval/undecided/deferred status grounded in exact clauses, document approval records and Owner authorization. For each unresolved decision identify **the specific conflicting/unapproved text, affected Issues/behavior, insufficient evidence and decision required**; do not substitute a document-wide draft status. Report requirement-to-Issue coverage, observed vs. normative ownership, actually evidenced prior completion, inspected revisions and unavailable access.
+2. **Complete raw Issue register:** planned IDs, full proposed Bodies, selected routes and assumptions, estimates/exceptions, exact work boundaries and assignment of later real-verification work only where needed; actual provider Issue IDs are not required before Publish.
+3. **Stage-specific readiness only where operationally necessary:** For actual **release and real-verification Issues**, state the stage, necessary target/environment/permissions, currently confirmed vs missing/unverified capability, accountable provisioner and dispatch checkpoint. For ordinary implementation, point to owning repository source and necessary native dependencies; do not manufacture a per-Issue handoff row or evidence package. When an external consumer requires a formal release, show its release owner and confirm the actual asset/source/CD identity at consumption. Keep E2E resource readiness separate from Plan validity and upstream coding.
+4. **Dependency manifest:** justified producer → consumer hard edges with intended native-provider/policy compatibility, Mermaid DAG, artifact order and individually reviewed apparent transitive redundancies. For each empty project show its **single minimal initialization root**, every other Issue's direct/transitive path to it, and independent parallel branches after baseline completion; for already initialized projects cite the usable baseline instead. Planned references are not actual provider-native relationships.
+5. **Publication and readiness:** Provide exact proposed raw Bodies/metadata/edges, safe-trigger/disclosure review and durable journal/reconciliation design. Separately report **Plan design validity**, **raw-Issue Publish permissions/journal readiness**, **per-actual-operation post-Merge/CD readiness**, and **per-verifier live execution readiness**. For a real external write fixture report whether an authorized target, identity, write scope/count, public content constraints, reconciliation and cleanup **are actually confirmed for dispatch**; a proposed bounded provisioning plan is not already authorized live access. Incomplete real-test resources are stage-specific holds with owners/checkpoints, not proof the underlying implementation is impossible. Do not misclassify a transport failure, missing token or dependency cache as a Scope design defect.
+
+**Pre-verdict evidence record:** Cite exact **re-read Body/authority clauses**, changed passages, compared upstream/downstream boundaries and **inspected executor stages/gates**, including the bootstrap path where applicable. If the runtime evidence is inaccessible, say that it is unverified; do not invent a release/closure capability. Distinguish four evidence levels in the report: **(1) text reread/compared, (2) design/dependency examined, (3) tests actually executed with command/result, (4) real-environment results actually observed with source/time**. Mark absent levels **not executed/not observed**. Static review may support a **planning-design** verdict, but must never be described as a passed test, executed scenario or proven real-platform behavior. State open gaps and the next authorized actor.
+
+**Plan verdict:** Return `PLAN_READY` for an approved, coherent portfolio with chosen implementation routes, single-Issue source-based completion, necessary native dependencies, real release producers (if needed) and named downstream real-verification owners (if required). **No implementation Issue must create a separate evidence/handoff SSOT.** `PLAN_READY` is not a claim that all releases are published or E2E hosts are configured. Inaccessible runtime gate details are `UNVERIFIED` and must not stall unrelated coding. Return `PLAN_BLOCKED` for specific unresolved design conflicts, impossible own-stage completion, missing genuinely required release producer or real verifier, unsafe proposed writes or proven unsupported mandatory gates, identifying affected work rather than blocking independent branches. `AUTHORITY_UPDATE_REQUIRED` applies only to a genuine binding product decision. Publish and real execution retain their own authority and readiness requirements.
+
+Report planning validity and deduplication separately from Publish permission/journal readiness, **actual** release/CD readiness, real E2E dispatch readiness and installed runtime gate support. Do not add this operational inventory as per-module Candidate obligations. A closed/delivered label is an engine lifecycle signal, not proof that a public release asset is available.
+
+## Publish: authorized mutation and recovery
+
+Publish runs **only after separate explicit Owner approval of the complete concrete manifest**, including authority revision, full raw bodies, repositories, metadata, exact native edges and every proposed change. Before first mutation, independently refresh authority, existing issue inventory and duplicate/identity checks, owning repo and permissions, selected-route and proof-boundary consistency, native edges, protected-work eligibility and disclosure safety. Replan and reapprove if those material facts or the approved write set change. No unapproved assignment/metadata alteration or implicit execution enrollment. Actual provider permissions and a **writable, durable, recoverable journal** are hard Publish preflight requirements, not Plan validity conditions. If impossible before any write, return `PUBLICATION_BLOCKED` or `REPLAN_REQUIRED` without claiming partial success.
+
+For each authorized Issue/metadata/native-dependency operation:
+
+1. Persist a **write-ahead intent** before invoking the provider, binding the approved manifest, target, operation, expected identity/body/edge and stable correlation key. Do not proceed if the journal cannot survive restart or distinguish retries.
+2. Perform only approved writes on eligible raw work; persist responses and independently read back actual stable repository/Issue identity, exact Body, approved metadata and **both native dependency directions**. Real native provider relationships are required wherever the project delivery policy uses them; Markdown checklists do not substitute.
+3. Reconcile timeouts, lost responses, partial publication or concurrent publishers against persisted intents and fresh provider reads **before** any retry. Unknown or ambiguous outcome stops the affected operation; never blindly duplicate, auto-rollback, conceal drift, or overwrite protected work. Remediation needs a separately reviewed/approved new Publish after applicable lifecycle recovery.
+4. Create the public-safe Scope → Shape handoff from the **provider-read exact raw baseline**, identity and native graph. Keep necessary private evidence in access-controlled storage, not lower-trust Issue Bodies.
+
+Return `PUBLISHED` only when every approved operation and handoff is fully reconciled by read-back; return `PARTIAL_PUBLICATION` when a write occurred but completion is unknown or incomplete. Raw publication creates neither Owner Grant nor a shaped, accepted, merged or completed Issue. The trusted delivery mechanism independently applies every later stage and permission gate.
+
+## Audit: read-only reconciliation
+
+Audit the same authority, source-first native dependencies, real completion boundaries and release/E2E readiness used by Plan. Read actual merged source for implementation status; consult runtime receipts for trusted delivery status, public CD/assets for publication, and real test records only for external verification claims. Never require an extra evidence SSOT from upstream implementation work. Audit is read-only, so any corrected Issue Body or dependency needs separate authorization. Distinguish inspected text, executed tests and observed live results; a partial host/identity configuration is not a completed journey.
+
+Return `AUDIT_PASS` only for the inspected bound portfolio's design/provenance and explicitly stated observations; **never** treat unknown CD/release status as successful publication or a Closed/Delivered label as a missing proof substitute. For a required artifact or gate, report whether the **actual result** is verified present, verified absent/failed, or unobserved, separately from whether the **runtime gate** is supported, unverified or proven unsupported. Return `AUDIT_FAILED` for evidenced contractual drift, invalid native dependencies/source consumption, false verification claims, or a required outcome affirmatively failed; unresolved essential evidence prevents asserting verified completion. `UNVERIFIED` gate information alone is an **inspection gap**, not proof of a defective engine or a reason to fail independent work. Audit is strictly read-only: amendments require a separately approved Publish or the protected lifecycle's authorization/recovery.
+
+## Report and fixed verdicts
+
+| Mode | Verdicts |
+| --- | --- |
+| Plan | `PLAN_READY`, `PLAN_BLOCKED`, `AUTHORITY_UPDATE_REQUIRED` |
+| Publish | `PUBLISHED`, `PARTIAL_PUBLICATION`, `PUBLICATION_BLOCKED`, `REPLAN_REQUIRED` |
+| Audit | `AUDIT_PASS`, `AUDIT_FAILED` |
+
+Use **one verdict for the active mode**. `OWNERSHIP_UNRESOLVED` remains a finding, not a new verdict. Report the inspected authority/revisions, full proposed Issue Bodies, native source dependencies, and **only the real release/E2E dispatch gaps that exist**. Do not construct a parallel implementation evidence database or a mandatory handoff record per Issue. Clearly distinguish text/design inspection from tests actually executed and external results observed. Unknown CD/release/host status cannot be called successful. `PLAN_READY` and `AUDIT_PASS` do not certify actual public release, host availability or protected Core closure.
+
+For GitHub-native issue dependencies, check current official documentation and provider behavior where relevant: [issue dependencies](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/creating-issue-dependencies), [REST API](https://docs.github.com/en/rest/issues/issue-dependencies), and [GitHub CLI](https://cli.github.com/manual/). For other providers, require the project-authorized native relationship mechanism with equivalent read-back and runtime compatibility.
+
+
+## Nibfin package integration and enforcement boundary
+
+This official asset adapts the Owner-selected Scope revision SHA-256
+`645d7ec5f2b09ed45b52c43b2d7f88ed727ef95b6b3d06c858b2eef7aaf9afb9`.
+It is retrieved by `scopeInstructions()` from `@nibfin/core`; it is not a fourth
+protected Runtime Skill. The protected identities remain shape, deliver, accept.
+The planning verdicts above are human/Agent report conventions, not additional
+values in Core's existing structured role results or the publisher result schema.
+
+Use `docs/scope.md` and `examples/scope.json` for the accepted local portfolio
+representation. `checkPortfolio()` performs deterministic structural diagnostics
+only. It cannot establish decision approval, semantic requirement coverage,
+minimal bootstrap contents, chosen-route credibility, real source accessibility,
+complete raw Bodies, actual runtime gate support or evidence truth. Inspect those
+obligations independently before a mode verdict. An `ok` result grants nothing.
+Optional project declarations allow structural bootstrap/path checks; missing
+project declarations do not prove a project initialized or a bootstrap unnecessary.
+The legacy `handoffs` field describes an interface and test method, never a
+mandatory producer report; `sourceInputs` can instead identify merged source.
+
+The actual `publishPortfolio()` composes `publicationManifest()`, a durable
+`openPublicationJournal()` and a supplied provider. Trusted `authorize`,
+`protection` and `disclose` capabilities must independently establish exact approval,
+current raw-work eligibility and public-content safety. The publisher is not an
+approval authority or secret classifier. It preserves complete raw bodies exactly,
+without appending hidden correlation markers. Its `verified` result concerns only
+provider-read raw publication; `unresolved` retains incomplete/unknown effects.
+Neither is a protected delivery result or a real-environment certification.
+
+Never treat removing the scope label as revoking a signed Grant or invalidating
+frozen work. Use the installed authorized lifecycle recovery procedure. Local
+fixtures and installed archive tests establish only the exercised source contract.
+Later real provider/release/host verification has its own accountable executor
+and authorization; it is not an extra upstream implementation handoff package.

@@ -39,6 +39,10 @@ test('exact installer identities and capability boundary',()=>{
     assert.throws(()=>verifyRelease({...f,...update}));
   }
   assert.throws(()=>verifyRelease({...f,read:p=>p==='skills/accept/SKILL.md'?Buffer.from('tampered'):readFileSync(p)}),/installed-content/);
+  const scope=f.manifest.components.skills.files.find(file=>file.path==='instructions/scope.md');
+  assert.equal(scope.sha256,releaseHash(readFileSync('instructions/scope.md')));
+  assert.throws(()=>verifyRelease({...f,read:p=>p==='instructions/scope.md'?Buffer.from('stale Scope'):readFileSync(p)}),/installed-content/);
+
   const subset=archiveBytes(f.manifest.components.core.files.filter(x=>x.path!=='skills/accept/SKILL.md'));
   assert.throws(()=>verifyRelease({...f,archive:subset,manifest:{...f.manifest,archive:{name:'nibfin-core.tgz',sha256:releaseHash(subset)}}}),/archive-component/);
   const clone=()=>structuredClone(f.compatibility);

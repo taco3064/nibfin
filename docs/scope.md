@@ -21,7 +21,8 @@ Inputs are not mutated. Supply ordinary JSON data, not accessors or class object
 
 The maintained `examples/scope.json` is a full concrete instance. Copy it and
 replace example authority, requirements, work and observations with actual
-reviewable evidence. All top-level arrays are explicit, including empty arrays.
+reviewable evidence. Required top-level arrays are explicit, including empty
+arrays. Supply sourceInputs or legacy handoffs (or both); projects is optional.
 
 | Field | Required representation |
 | --- | --- |
@@ -33,7 +34,9 @@ reviewable evidence. All top-level arrays are explicit, including empty arrays.
 | estimate | positive integer lines, confidence low/medium/high, basis; exception reason above 1000 |
 | coverage | requirement id, nonempty items array, rationale; one entry per covered requirement |
 | exclusions | requirement id, reason; permitted only for an approved subset |
-| handoffs | producer/consumer item ids, contract, verification |
+| sourceInputs | producer/consumer item ids, source, revision, nonempty relative paths array, interface |
+| handoffs (legacy alternative) | producer/consumer item ids, contract, verification (test method, not a proof deliverable) |
+| projects (optional v1 extension) | unique id, baseline empty/initialized; empty needs bootstrap item id; initialized needs source/revision |
 | dependencies | from blocked item id, to blocker item id (proposed expectations) |
 | nativeDependencies | same edge representation, from supplied native observations |
 | graphCoverage | complete or partial (known observation coverage) |
@@ -53,8 +56,11 @@ Unknown fields are not interpreted as authorization. No result grants permission
 An unresolved dependency endpoint is an error in a declared complete graph and
 a warning in a partial graph. Known cycles, duplicates and redundant edges are
 reported even in partial graphs; absence of a known cycle proves no global
-claim. Each cross-repository dependency needs an explicit producer/blocker to
-consumer/blocked-item handoff. Independent items need no edges or list priority.
+claim. Each cross-repository dependency needs a producer/blocker to
+consumer/blocked-item source/interface reference in sourceInputs or legacy handoffs.
+The stable missing-handoff diagnostic code is retained for compatibility; it does
+not request a separate technical deliverable. Independent items need no edges or
+list priority.
 Native drift is reported for review, never repaired by this function.
 
 ## Whole-project and approved subset walkthrough
@@ -68,7 +74,8 @@ plan is not a claim that a target runtime or hook configuration exists.
 
 For an explicitly approved API/security/docs subset, retain all four requirements,
 set `boundary` to `{kind:'subset', approval:'owner:subset-review-1'}`, remove the
-entry item, its coverage and handoff/edges, and add
+entry item, its coverage and sourceInputs/edges, remove the entry project
+declaration, and add
 `{requirement:'release', reason:'Approved deferred release integration owned by the later entry work.'}`
 to exclusions. The retained test executes this transformation. It is a usable
 subset plan, with visible outstanding release work, never whole-product completion.
@@ -100,8 +107,8 @@ instructions/scope.md relative to its module. tooling/archive.mjs includes that
 asset and copies the portfolio test into its fresh consumer, whose test imports
 @nibfin/core. Limits: these are local package observations, not live publication
 or external consumer repository evidence. Implication: keep Core as normative
-producer and document the installed-consumer handoff; do not infer a new native
-dependency from an import alone.
+producer and consume the merged source and installed package interface directly;
+do not infer a new native dependency from an import alone.
 
 ## Audit Investigation example
 
@@ -127,6 +134,74 @@ Use isolated disposable writable storage for builds and consumers. Child JS uses
 the installed interpreter; no temporary executable/shebang probe is needed.
 Missing supported tools/cache/scratch are execution-resource failures: record the
 exact failure rather than counting unrun checks as passed. Hooks remain a separate
-offline credential-free Core gate. #118/#119 own Publish/journal; #124 owns live
-publication/recovery. These local fixtures and archive checks prove neither live
-GitHub operations nor whole-product/multi-member/deployment completion.
+offline credential-free Core gate. The actual publisher and journal are maintained
+in src/publisher.mjs and src/publication.mjs; downstream E04 (#208) and E08 (#209)
+own later applicable provider/host/release claims for this source-first slice.
+These local fixtures and archive checks prove neither live GitHub operations nor
+whole-product/multi-member/deployment completion.
+
+
+## Source-first compatibility and bootstrap observations
+
+Version 1 keeps existing handoffs inputs accepted unchanged. Their contract and
+verification strings identify an interface and a proposed integration test method;
+they never require the producer to supply a parallel report. New callers can omit
+handoffs and use sourceInputs instead. Both arrays may coexist, but each supplied
+entry is validated; invalid legacy entries do not disappear behind valid source
+references. No data is rewritten or inferred. The checker validates reference
+shape, not whether paths exist at the supplied revision or source access is legal.
+Inspect the actual merged source before consuming it. Trusted predecessor
+completion still gates native edges even when only source is consumed.
+
+The example declares two initialized projects with observed baseline references
+and no bootstrap. These are illustrative references, not authenticated completion.
+When projects is supplied, every item must have a project referencing one declared
+id. In an empty project exactly one member has type bootstrap, and the project's
+bootstrap field names it. Every other member must reach that bootstrap through
+planned dependencies (from blocked item to blocker). Native drift is checked
+separately; paths cannot turn proposed edges into real provider relationships.
+Initialized projects require source/revision and reject bootstrap members or a
+bootstrap field. Duplicate project identities, missing members and orphan work
+are errors. Omitting projects preserves older v1 inputs; it supplies no bootstrap
+proof. Unknown fields are not additional supported planning promises.
+
+The retained empty-project test makes core the minimal shared bootstrap and adds
+two independent features depending on it, plus a consumer depending on a feature.
+It accepts branching and rejects a second bootstrap and an unreachable feature.
+Semantic review must confirm core really owns only pinned setup, lockfile, common
+entry points and module boundaries, rather than feature, release or E2E work.
+The checker cannot infer project boundaries from directory names, authenticate an
+initialized baseline or detect a disguised second initializer in prose.
+
+Full raw Bodies, selected routes, decision-specific approvals, named later real
+verifiers and stage-specific readiness belong in the reviewed Scope Plan, not a
+new technical SSOT or mandatory per-module evidence artifact. The structural JSON
+is a diagnostic aid; it does not validate raw-body semantics, feasibility, real
+runtime transitions or whether an implementation waits for its own future release.
+Review those constraints explicitly against instructions/scope.md before declaring
+PLAN_READY. Actual release/CD success and external installation/E2E observations
+remain separate from source completion and package fixture results.
+
+## Publish integration and mode verdicts
+
+publishPortfolio uses publicationManifest, openPublicationJournal and the supplied
+provider with trusted authorize/protection/disclose callbacks. See docs/publisher.md
+for its accepted manifest, exact approval boundary and sanitized verified/unresolved
+results. A callback must check the entire manifest identity, current permission and
+revocation; approval of a subset cannot authorize the remainder. Protection must
+be known false for every protected lifecycle flag. Public disclosure is a separate
+trusted decision; accepting a manifest does not approve private proof disclosure.
+Raw body bytes as represented by the JavaScript string, including Unicode,
+newlines and trailing whitespace, survive serialization/readback exactly. No
+hidden correlation marker is appended. The publication handoff is provider-read
+raw provenance, not a mirror implementation specification.
+
+Plan/Audit are strictly read-only. The instruction asset's fixed PLAN_READY,
+PLAN_BLOCKED, AUTHORITY_UPDATE_REQUIRED, PUBLISHED, PARTIAL_PUBLICATION,
+PUBLICATION_BLOCKED, REPLAN_REQUIRED, AUDIT_PASS and AUDIT_FAILED are mode report
+verdicts, not added Core role-result enum values or checkPortfolio return values.
+Ownership uncertainty is a finding. Report four evidence levels separately:
+text compared, design examined, local checks executed and real results observed.
+Unknown gate support is UNVERIFIED, never affirmative unsupported evidence or a
+successful result. A failed actual publication remains failed. Scope label removal
+cannot revoke a signed Grant; protected changes need authorized lifecycle recovery.

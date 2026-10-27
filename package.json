@@ -113,7 +113,9 @@
     "host/package.json",
     "host/package-lock.json",
     "host/configuration.schema.json",
-    "host/configuration.example.json"
+    "host/configuration.example.json",
+    "src/host-identity.mjs",
+    "docs/authentication.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

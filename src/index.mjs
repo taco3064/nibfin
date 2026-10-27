@@ -103,3 +103,5 @@ export {workflowFiles, workflowInstallation} from './workflow-install.mjs';
 export {releaseHash,releaseVersion,releaseComponents,configuration,validateReleaseCompatibility,verifyRelease} from './release.mjs';
 
 export {protectedHostFiles,verifyApprovedSource,loadProtectedHost,loadProtectedDeployment} from './host-source.mjs';
+
+export {createHostIdentityAdapters,createHostIdentityAdaptersForTest,hostedGithubTransport,githubEndpointPermission} from './host-identity.mjs';

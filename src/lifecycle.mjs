@@ -1,6 +1,11 @@
 import {resolve, isAbsolute, parse, sep, posix} from 'node:path';
 import {bodyDigest, canonicalJSON, skillForRole, validateStageResult, compareEvidence, compareStageCollection} from './index.mjs';
 
+// Internal provenance: authenticated routing must not silently use a lifecycle
+// implementation that ignores the final post-readiness checkpoint.
+const checkpointLifecycles=new WeakSet();
+export const supportsStartCheckpoint=value=>checkpointLifecycles.has(value);
+
 const fail = reason => { throw new TypeError(`lifecycle:${reason}`); };
 const copy = value => JSON.parse(canonicalJSON(value));
 function freeze(value) {
@@ -77,9 +82,9 @@ export function createAgentLifecycle({environment, instanceId, backend, current,
   }
   function get(id) { const s = executions.get(id); if (!s) fail('execution'); return s; }
   function query(s) { return {...base, execution: s.id, request: s.request}; }
-  return Object.freeze({
+  const lifecycle=Object.freeze({
     observe(id) { return view(get(id)); },
-    start(input,{signal}={}) { return exclusive(async () => {
+    start(input,{signal,beforeStart}={}) { return exclusive(async () => {
       if (retired) fail('cleaned-instance');
       fields(input, 'execution binding instructions visibility ownership');
       const v = copy(input), e = v.execution;
@@ -119,6 +124,10 @@ export function createAgentLifecycle({environment, instanceId, backend, current,
         // Evidence is held by the backend/owner; only classifications cross diagnostics.
         return {status};
       });
+      if(beforeStart!==undefined) {
+        if(typeof beforeStart!=='function')fail('checkpoint');
+        try {await beforeStart();}catch {return snapshot({...base,readiness,start:{status:'rejected'}});}
+      }
       if (signal?.aborted) return snapshot({...base,readiness,start:{status:'rejected'}});
       if (readiness.status !== 'ready') return snapshot({...base, readiness});
       const s = { ...base, id:e.id, request:e.request, start:{status:'unknown'},
@@ -190,4 +199,5 @@ export function createAgentLifecycle({environment, instanceId, backend, current,
       return snapshot({...base, ...result});
     }); }
   });
+  checkpointLifecycles.add(lifecycle);return lifecycle;
 }

@@ -114,9 +114,11 @@ export function githubEndpointPermission(method, endpoint) {
       || keys.some(k=>!['page','per_page'].includes(k) || !/^[1-9][0-9]{0,5}$/.test(params.get(k)))
       || params.has('per_page') && Number(params.get('per_page'))>100
       || !(/\/actions\/(runners|runner-groups)(?:\/[1-9][0-9]*\/(runners|repositories))?$/.test(path)
-        || /^\/repos\/[^/]+\/[^/]+\/actions\/runs\/[1-9][0-9]*\/artifacts$/.test(path)))return null;
+        || /^\/repos\/[^/]+\/[^/]+\/actions\/runs\/[1-9][0-9]*\/artifacts$/.test(path)
+        || /^\/repos\/[^/]+\/[^/]+\/issues\/[1-9][0-9]*\/dependencies\/(blocked_by|blocking)$/.test(path)))return null;
     endpoint=path;
   }
+  if(method==='GET' && /^\/repos\/[^/]+\/[^/]+\/issues\/[1-9][0-9]*\/dependencies\/(blocked_by|blocking)$/.test(endpoint))return 'public:read';
   if(method==='GET' && (/^\/repos\/[^/]+\/[^/]+$/.test(endpoint) || /^\/(users|orgs)\/[^/]+$/.test(endpoint)))return 'public:read';
   if(method==='GET' && /^\/repos\/[^/]+\/[^/]+\/actions\/(?:runs\/[1-9][0-9]*\/(?:artifacts|attempts\/[1-9][0-9]*)|artifacts\/[1-9][0-9]*(?:\/zip)?)$/.test(endpoint))return 'actions:read';
   if(method==='GET' && /^\/repos\/[^/]+\/[^/]+\/collaborators\/[^/]+\/permission$/.test(endpoint))return 'metadata:read';
@@ -159,11 +161,12 @@ function retryDelay(headers, now, attempt, rateLimited) {
 }
 
 /** Injected transport and authorize are trusted Core capabilities, never provider data. */
-export function createGithubProvider({transport, identity = 'local-stored-login', authorize,
+export function createGithubProvider({transport, identity = 'local-stored-login', authorize, authorizeRead,
   now = Date.now, delay = (ms, signal) => sleep(ms, undefined, {signal}),
   attempts = 3, elapsedMs = 30000, maxPages = 100} = {}) {
   if (!['local-stored-login', 'hosted-authorized'].includes(identity) || (transport !== undefined && typeof transport !== 'function')
       || (identity === 'hosted-authorized' && !transport)
+      || (authorizeRead!==undefined && typeof authorizeRead!=='function')
       || !Number.isInteger(attempts) || attempts < 1 || attempts > 10 || !Number.isInteger(elapsedMs)
       || elapsedMs <= 0 || elapsedMs > 86400000 || !Number.isInteger(maxPages) || maxPages < 1 || maxPages > 1000) throw Error('Invalid provider configuration');
   transport ??= localGhTransport();
@@ -171,7 +174,7 @@ export function createGithubProvider({transport, identity = 'local-stored-login'
   const remaining = Symbol();
   async function request(options) {
     let path, body, send = transport;
-    const budget = options[remaining] ?? elapsedMs;
+    let budget = options[remaining] ?? elapsedMs;
     const method = options.method ?? 'GET';
     const write = writes.has(method);
     let sent = false, started;
@@ -192,6 +195,17 @@ export function createGithubProvider({transport, identity = 'local-stored-login'
       // Trusted transports may acquire a request-local credential before the
       // final authorization checkpoint. Never share prepared credentials across requests.
       if (write && typeof authorize!=='function') return failure('unauthorized');
+      if (!write && authorizeRead) {
+        const readSignal=AbortSignal.any([AbortSignal.timeout(budget),...(options.signal?[options.signal]:[])]),began=now();
+        try {
+          if(await abortable(Promise.resolve(authorizeRead(Object.freeze({method,endpoint:path,
+            operation:options.operation,target:options.target,correlation:options.correlation,signal:readSignal}))),readSignal)!==true)
+            return failure('unauthorized');
+        } catch {return failure(readSignal.aborted?(options.signal?.aborted?'cancelled':'timeout'):'unauthorized');}
+        const used=now()-began;
+        if(readSignal.aborted||!Number.isSafeInteger(used)||used<0||used>=budget)return failure(options.signal?.aborted?'cancelled':'timeout');
+        budget-=used;
+      }
       if (write && typeof transport.prepareMutation === 'function') {
         const preparationSignal=AbortSignal.any([AbortSignal.timeout(budget), ...(options.signal ? [options.signal] : [])]);
         send=await abortable(transport.prepareMutation({signal:preparationSignal}),preparationSignal);

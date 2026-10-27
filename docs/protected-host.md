@@ -200,3 +200,101 @@ in this mode. Approved deployment source may export a mode-keyed `custody` objec
 See [durable host custody](custody-host.md) and `host/custody.example.mjs` for
 provider/runtime prerequisites, original-request expectations, first-attempt
 permission and read-only recovery. Events cannot supply executable custody options.
+
+## Maintained Resolve / actual Runner composition
+
+Set `routing: "authenticated"` alongside `authentication: "actions-oidc"` for
+Resolve, Execute and compute. This additive integration uses `createHostRouting`
+from the approved Core bundle. Existing deployments without `routing` retain
+their explicit `verifyRunner` callback interface; that callback is not upgraded
+into authenticated Runner evidence by this change.
+
+The deployment supplies `identity`, preferably `custody`, and a `delivery`
+capability returning `{request, config}`. The existing Core `config.current()`
+provides its protected plan, including `selectionInput` with trusted registration
+records and job conditions. Compose the maintained native dependency evaluator
+with `routing.provider` and
+`routing.eligibility`, plus its protected completion expectations/retrieval. Supply
+stage owners and their final authorization/controlled-operation capabilities as
+usual. The host replaces `config.selector`, `config.provider` and
+`config.authorization` with maintained source/Grant and routing composition. Omit
+`verifyRunner` and `group` callbacks: this path rejects them rather than accepting
+an unconditional Boolean or deployment-defined matching rules. The protected
+delivery callback receives the read-only capability in `routing`;
+its existing non-enumerable `provider` and `eligibility` remain the full member
+authorization interface for stage-owner construction. In member modes these bind
+the verified process gh account, which must match the selected member. No provider,
+credential acquisition, custody publication or stage owner runs at construction.
+
+Identity configuration must permit the required read operations and endpoints:
+Core repository/Issue reads (`core-read`), stage selection reads and
+`runner-observation` repository/Runner inventory reads (including organization,
+group, group membership and selected repository reads where applicable). Its
+approved Grant must cover the corresponding operations, including `readiness` and
+dependency endpoints when composing `createDependencyEvaluator` with the supplied
+`routing.provider`/`routing.eligibility`. As in the identity adapter contract, management reads check the authenticated source and approved
+signed Grant before transport, without requiring a candidate to have been chosen
+before it can read Assignees. This read-only capability cannot submit mutations.
+Candidate eligibility is checked separately for each current Assignee using the
+same signed Grant verifier. Permission, binding, source or inventory failures block; they are
+never converted into an offline fallback.
+
+For member modes, the protected Actions source policy must require the Job,
+check-run association and actual Runner ID (`job: "required"`,
+`runner: "required"`, `runner_environment: "self-hosted"`). `getAssociation`
+supplies independently trusted Job/Run/Attempt/Runner observations under that
+policy. The maintained identity verifier authenticates the signed source and its
+association before exposing the Runner ID and source repository identity. Repository
+registrations require that source to be the target repository; organization
+registrations require a source in their organization and verified target access.
+Neither `RUNNER_NAME`, environment variables, Issue/event fields, labels nor workflow inputs can supply that proof.
+The executing process's stored gh User ID must match the selected member, and its
+login must have the official endpoint rights needed for current inventory checks; lack of management visibility blocks
+instead of silently accepting cached registration data. Hosted management
+credentials stay in their protected transport, outside Agent/hook/member inputs.
+
+Resolve preserves the API Assignees order, skips trustworthy unavailability before
+dispatch and preserves online-busy priority. Its retained resolution includes the
+observed candidate IDs, source and times, exact request and native AND route.
+Execute binds the retained member before inspecting the current Core decision.
+A mere order change cannot move queued work to a different member. Any currently
+valid matching instance of the selected member can run; no instance ID is placed
+in `runs-on`. Organization group names and access are read from current inventory.
+Repository Runners work for both personal and organization public targets.
+
+The initial Execute gate, subsequent Core observations, owner checkpoints,
+maintained lifecycle start after readiness, and controlled-operation
+`beforeSubmit` guards recheck routing. These additive checks preserve the owners'
+existing final authorization guards. Authenticated routing requires the maintained
+`createAgentLifecycle` so its final checkpoint cannot be silently ignored by a
+custom lifecycle. Supply custom process adapters as its backend; an unsupported
+lifecycle stops before launch. Native dependencies and the pinned Core plan
+are rechecked at those controlled boundaries as well. Known permission, Assignee,
+Grant, registration or access loss stops the next protected operation. Stage
+results retain the exact route/member and authenticated execution observation in
+`routing`, alongside the existing target/cycle/request/Run/Attempt/decision fields. Recovery
+requires that retained execution observation to match the authenticated original
+execution, including Runner and local member IDs; a different instance cannot
+substitute for an already attempted stage's result.
+
+Use durable custody's original-attempt expectations and first-attempt permission
+for restart recovery. Missing/expired/substituted resolution blocks. A result
+publication failure after an attempted stage reports `unresolved` with the original
+request; a fresh host reconciles that attempt and cannot blindly launch it again.
+No timer or reassignment service is created. Waiting needs a later lawful event or
+manual retrigger, which rechecks current authority and native dependencies.
+GitHub still selects/queues instances using all labels and any verified group;
+these checks do not freeze Runner administration, instantly revoke dispatched
+jobs, cancel queues or recall data already delivered to a host.
+
+`test/host-routing.test.mjs` runs this path through the public protected host,
+maintained identity/provider/selector/Runner checks, Core owners and N03 custody.
+The archive verifier repeats it against the installed package. Its signed local
+fixtures and synthetic Linux/Windows/macOS/organization inventory are reproducible
+source contracts, not live platform, provider or two-member E2E certification.
+E02 and E08 own those later claims. Independent Acceptance, isolated hooks,
+exact-head CI and protected delivery gates remain required.
+
+Native dependency list GETs (including pagination) follow the public-resource
+semantics in [GitHub issue dependency REST documentation](https://docs.github.com/en/rest/issues/issue-dependencies).
+Their read permission mapping grants no dependency mutation capability.

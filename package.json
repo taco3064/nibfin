@@ -118,7 +118,8 @@
     "docs/authentication.md",
     "src/custody-host.mjs",
     "docs/custody-host.md",
-    "host/custody.example.mjs"
+    "host/custody.example.mjs",
+    "src/host-routing.mjs"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

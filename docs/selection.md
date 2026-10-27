@@ -85,9 +85,12 @@ execution evidence and repeats fresh reads. It is not a started/completed claim.
 `observeRunnerBindings` is an additive producer interface in `runners.mjs` for
 reconciling identity/access across a member's different platforms. It retains all
 registration, record-platform, member Label, inventory, group and workflow checks;
-it omits only comparison of remote platform with the requested job platform.
+it omits comparison of remote platform and group membership with the requested job.
+Each organization instance exposes its verified `groupId`; a valid registration in
+another allowed group does not invalidate an otherwise eligible member.
 Its result alone never establishes job suitability. The selector separately requires
-all emitted Labels, requested platform and online status. Existing `observeRunners`
+all emitted Labels, requested platform/group and online status. Actual-Runner
+verification applies that same group condition to the authenticated instance. Existing `observeRunners`
 retains its strict job-platform behavior. Neither API reclassifies aggregate binding
 mismatches or incomplete inventories as offline.
 
@@ -136,3 +139,11 @@ Native routing syntax and cumulative matching follow
 [GitHub workflow routing](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/use-in-a-workflow).
 Default labels may be disabled during Runner registration, so an online instance
 must actually carry every emitted label; OS metadata alone cannot satisfy a Label.
+
+For an already retained member, trusted Core may call
+`selector.select(input, {signal, memberId})`. It still records the complete current
+Assignees array and verifies that member's current permission/Grant/registrations;
+it does not choose a different member if order changes or the selected member is
+unavailable. Only the protected Workflow's retained resolution supplies this
+constraint. New Resolve calls omit it. The maintained protected-host integration
+and actual-Runner checkpoints are documented in [protected host](protected-host.md).

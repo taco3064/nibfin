@@ -43,11 +43,19 @@ export function hostedGithubTransport({getCredential, repository, repositoryId, 
         if (name.startsWith('organization_') && c.organization!==organization) return {status:403,body:'{}'};
         if (!(c.permissions?.[name]==='write' || level==='read' && c.permissions?.[name]==='read')) return {status:403,body:'{}'};
       }
+      // Only the official artifact ZIP endpoint may redirect. Its signed storage
+      // URL is returned to artifactArchiveTransport, which downloads without any
+      // credential. All other authenticated endpoints retain redirect rejection.
+      const artifactZip=request.method==='GET'&&/^\/repos\/[^/]+\/[^/]+\/actions\/artifacts\/[1-9][0-9]*\/zip$/.test(request.endpoint);
       // Address, headers, redirect and credentials policy cannot come from request input.
       const response=await fetcher('https://api.github.com'+request.endpoint,{method:request.method,
         headers:{...request.headers,Authorization:'Bearer '+c.token},body:request.body,
-        signal:request.signal,redirect:'error',credentials:'omit'});
+        signal:request.signal,redirect:artifactZip?'manual':'error',credentials:'omit'});
       if (response.url!=='https://api.github.com'+request.endpoint) return {failure:'transport'};
+      if(artifactZip&&response.status===302) {
+        await response.body?.cancel();
+        return {status:302,headers:{location:response.headers.get('location')},body:''};
+      }
       const reader=response.body?.getReader();
       if (!reader) return {failure:'malformed'};
       let bytes=0;const chunks=[];

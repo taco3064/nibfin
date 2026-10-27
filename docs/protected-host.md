@@ -190,3 +190,13 @@ For maintained Actions, local-gh and hosted identity composition, use the protec
 `authentication: "actions-oidc"` option and [authentication configuration](authentication.md).
 The maintained factory replaces the deployment authenticate callback while preserving
 mode-specific capabilities and the dependency-free entry approval boundary.
+
+## Durable custody capabilities
+
+A reviewed deployment can supply `custody` alongside `options` and `capabilities`.
+The maintained entry constructs `createCustodyHost` and supplies its retain/retrieve
+callbacks without I/O at construction. Omit those two callbacks from capabilities
+in this mode. Approved deployment source may export a mode-keyed `custody` object.
+See [durable host custody](custody-host.md) and `host/custody.example.mjs` for
+provider/runtime prerequisites, original-request expectations, first-attempt
+permission and read-only recovery. Events cannot supply executable custody options.

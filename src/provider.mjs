@@ -113,10 +113,12 @@ export function githubEndpointPermission(method, endpoint) {
     if(method!=='GET' || extra!==undefined || !keys.length || new Set(keys).size!==keys.length
       || keys.some(k=>!['page','per_page'].includes(k) || !/^[1-9][0-9]{0,5}$/.test(params.get(k)))
       || params.has('per_page') && Number(params.get('per_page'))>100
-      || !/\/actions\/(runners|runner-groups)(?:\/[1-9][0-9]*\/(runners|repositories))?$/.test(path))return null;
+      || !(/\/actions\/(runners|runner-groups)(?:\/[1-9][0-9]*\/(runners|repositories))?$/.test(path)
+        || /^\/repos\/[^/]+\/[^/]+\/actions\/runs\/[1-9][0-9]*\/artifacts$/.test(path)))return null;
     endpoint=path;
   }
   if(method==='GET' && (/^\/repos\/[^/]+\/[^/]+$/.test(endpoint) || /^\/(users|orgs)\/[^/]+$/.test(endpoint)))return 'public:read';
+  if(method==='GET' && /^\/repos\/[^/]+\/[^/]+\/actions\/(?:runs\/[1-9][0-9]*\/(?:artifacts|attempts\/[1-9][0-9]*)|artifacts\/[1-9][0-9]*(?:\/zip)?)$/.test(endpoint))return 'actions:read';
   if(method==='GET' && /^\/repos\/[^/]+\/[^/]+\/collaborators\/[^/]+\/permission$/.test(endpoint))return 'metadata:read';
   if(method==='GET' && /^\/orgs\/[^/]+\/actions\/runner-groups(?:\/[1-9][0-9]*(?:\/(runners|repositories))?)?$/.test(endpoint))
     return 'organization_self_hosted_runners:read';

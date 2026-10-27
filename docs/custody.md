@@ -163,3 +163,10 @@ The SDK regression uses real generated RPC, ZIP and Azure serialization with HTT
 transport interception. Local boundary tests prove module contracts, not live
 artifact transport. Do not claim the optional local SDK suite ran without its
 actual runtime. Production hosts still need the pinned SDK and network access.
+
+## Maintained protected-host integration
+
+[Durable host custody](custody-host.md) composes this publisher/verifier with
+provider-backed original-request discovery, retained role/verification/repair
+inputs and independently bound current expectations. It documents restart and
+unknown-publication behavior; existing artifact integrity rules remain mandatory.

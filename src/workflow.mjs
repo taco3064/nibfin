@@ -82,10 +82,10 @@ export function createWorkflowEntry(host) {
           return source;
         }};
         // Durable existing custody/intent owner must retain before any token POST.
-        await host.retain({kind:'registration-intent',key,value:{input,identity},identity});
+        await host.retain({kind:'registration-intent',key,value:{input,identity},identity,signal});
         activeRequest=input.nibfin_registration;
         const result=await createRegistrationHost(config).issue(spec.handle,{signal});
-        const response=await host.retain({kind:'registration-result',key,value:result,identity});need(opaque(response));
+        const response=await host.retain({kind:'registration-result',key,value:result,identity,signal});need(opaque(response));
         return {status:result.outcome,response};
       }
       const spec=await host.delivery({identity,input,context}), request=structuredClone(spec.request);
@@ -101,11 +101,11 @@ export function createWorkflowEntry(host) {
         if (inspected.reason!=='evaluated' || !same(inspected.current,request.expected)) return {status:'blocked',selected:'false',reason:'invalid-or-unavailable'};
         const route=await workflowRoute(selection,conditions,request.target,host.group);
         const resolution=await host.retain({kind:'resolution',key:request.request,
-          value:{request,route,memberId:selection.memberId},identity});need(opaque(resolution));
+          value:{request,route,memberId:selection.memberId},identity,signal});need(opaque(resolution));
         return {status:'selected',selected:'true',runs_on:JSON.stringify(route),resolution,
           execution_mode:writers.has(request.expected.stage)?'execute':'compute'};
       }
-      const held=await host.retrieve({kind:'resolution',key:input.resolution,identity});
+      const held=await host.retrieve({kind:'resolution',key:input.resolution,identity,signal});
       need(same(held.request,request) && writers.has(request.expected.stage)===(mode==='execute'));
       const inspected=await core.inspect(request,{signal});
       need(inspected.reason==='evaluated' && same(inspected.current,request.expected));
@@ -115,8 +115,19 @@ export function createWorkflowEntry(host) {
       const key='execute:'+request.request+':'+identity.run.id+':'+identity.run.attempt;
       need(!attempted.has(key));attempted.add(key);
       activeRequest=request.request;
+      if(typeof host.beginStage==='function') {
+        const prior=await host.beginStage({identity,key:request.request,value:{request},signal});
+        if(prior.outcome==='recovered') {
+          const value=prior.value;
+          need(value.version===1&&same(value.target,request.target)&&value.cycle===request.cycle
+            &&value.request===request.request&&same(value.run,request.run)&&same(value.requested,request.expected)
+            &&['completed','blocked','waiting','superseded','rejected','unresolved'].includes(value.disposition)&&opaque(prior.key));
+          return {status:value.disposition,reference:prior.key};
+        }
+        need(prior.outcome==='started');
+      }
       const result=await core.run(request,{signal});
-      const reference=await host.retain({kind:'stage-result',key:request.request,value:result,identity});need(opaque(reference));
+      const reference=await host.retain({kind:'stage-result',key:request.request,value:result,identity,signal});need(opaque(reference));
       return {status:result.disposition,reference};
     } catch {return activeRequest?{status:'unresolved',request:activeRequest,reason:'result-reconciliation-required'}
       :{status:'blocked',selected:'false',reason:'invalid-or-unavailable'};}

@@ -61,6 +61,7 @@ function verifier(load, synthetic) {
       }
       const p = verified.payload;
       for (const k of required) equal(p[k], e[k]);
+      if (e.repository !== undefined) equal(p.repository, e.repository);
       text(p.sub); text(p.jti);
       if (p.exp <= p.iat || p.nbf > p.exp || p.iat > e.now + e.tolerance) reject('time');
       for (const k of ['job_workflow_ref', 'job_workflow_sha']) {

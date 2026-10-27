@@ -90,10 +90,12 @@ export async function loadProtectedDeployment({source,options,approval,validate,
     const modes=Object.keys(configured);need(modes.length>0 && modes.every(m=>allowed.includes(m)));
     const parsed=Object.fromEntries(modes.map(m=>[m,validate(configured[m],m)]));
     const binding=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
-    need(Object.keys(binding).join()==='capabilities');
+    need(Object.keys(binding).every(k=>['capabilities','identity'].includes(k)) && binding.capabilities);
+    if(binding.identity)fields(binding.identity,modes.filter(m=>parsed[m].authentication==='actions-oidc'));
     fields(binding.capabilities,modes);
     need(Object.getPrototypeOf(binding.capabilities)===Object.prototype
       && Object.values(Object.getOwnPropertyDescriptors(binding.capabilities)).every(d=>Object.hasOwn(d,'value')));
-    return {options:parsed[mode],capabilities:binding.capabilities[mode]};
+    return {options:parsed[mode],capabilities:binding.capabilities[mode],
+      ...(parsed[mode].authentication==='actions-oidc'?{identity:binding.identity?.[mode]}:{})};
   } catch {throw Error('protected-host:configuration');}
 }

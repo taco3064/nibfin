@@ -22,9 +22,10 @@ const repository = v => typeof v==='string' && /^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0
 /** Serializable options only; no module names, paths, credentials or callback JSON. */
 export function validateHostOptions(options, mode) {
   need(Object.hasOwn(hostModes,mode));
-  fields(options,['version','repository','repositoryId','environment'],['groupId']);
+  fields(options,['version','repository','repositoryId','environment'],['groupId','authentication']);
   need(options.version===1 && repository(options.repository) && id(options.repositoryId));
   need(options.environment=== (['execute','compute'].includes(mode)?'nibfin-member':'nibfin-hosted'));
+  if (Object.hasOwn(options,'authentication')) need(options.authentication==='actions-oidc');
   if (Object.hasOwn(options,'groupId')) need(['resolve','execute','compute'].includes(mode) && id(options.groupId));
   return Object.freeze({...options});
 }
@@ -33,7 +34,7 @@ export function validateHostOptions(options, mode) {
  */
 export function configure({core,mode,context,deployment}={}) {
   try {
-    fields(deployment,['options','capabilities']);
+    fields(deployment,['options','capabilities'],['identity']);
     const options=validateHostOptions(deployment.options,mode), capabilities=deployment.capabilities;
     need(typeof core?.createWorkflowEntry==='function' && typeof core?.createCore==='function'
       && typeof core?.createEventRelay==='function' && typeof core?.createRegistrationHost==='function');
@@ -41,10 +42,15 @@ export function configure({core,mode,context,deployment}={}) {
     need(record(context) && context.repository===options.repository && context.repositoryId===options.repositoryId);
     fields(context.run,['id','attempt']);need(id(context.run.id)&&id(context.run.attempt));
     const required=[...hostModes[mode],...(options.groupId?['group']:[])];
-    fields(capabilities,required);
-    for (const name of required) need(typeof capabilities[name]==='function');
+    const maintained=options.authentication==='actions-oidc';
+    need(maintained===Object.hasOwn(deployment,'identity'));
+    const adapters=maintained?core.createHostIdentityAdapters({...deployment.identity,options,mode}):null;
+    const supplied=maintained?required.filter(k=>k!=='authenticate'):required;
+    fields(capabilities,supplied);
+    for (const name of supplied) need(typeof capabilities[name]==='function');
     const run=Object.freeze({...context.run});
-    const bound=Object.fromEntries(required.map(name=>[name,capabilities[name].bind(capabilities)]));
+    const bound=Object.fromEntries(supplied.map(name=>[name,capabilities[name].bind(capabilities)]));
+    if(adapters)bound.authenticate=adapters.authenticate;
     const contextFor = c => ({repository:options.repository,repositoryId:options.repositoryId,
       run:{id:c.run.id,attempt:c.run.attempt},...(c.eventName===undefined?{}:{eventName:c.eventName}),
       ...(c.event===undefined?{}:{event:structuredClone(c.event)})});
@@ -58,6 +64,10 @@ export function configure({core,mode,context,deployment}={}) {
       if (argument.identity) matches(argument.identity);
       const projected={...argument};
       Object.defineProperties(projected,{core:{value:core},options:{value:options}});
+      if(adapters && name!=='authenticate') {
+        if(['delivery','verifyRunner'].includes(name)) need((await adapters.eligibility({capability:name})).ok);
+        Object.defineProperties(projected,{provider:{value:adapters.provider},eligibility:{value:adapters.eligibility}});
+      }
       if (argument.context) projected.context=contextFor(argument.context);
       const result=await bound[name](projected);
       if (name==='authenticate') {

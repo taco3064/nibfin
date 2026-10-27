@@ -2,5 +2,6 @@
   "version": 1,
   "repository": "example-org/public-project",
   "repositoryId": "42",
-  "environment": "nibfin-hosted"
+  "environment": "nibfin-hosted",
+  "authentication": "actions-oidc"
 }

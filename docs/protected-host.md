@@ -24,7 +24,10 @@ const entry = core.createWorkflowEntry(host);
 const result = await entry.invoke(mode, input, context);
 ```
 
-`deployment` has exactly `options` and `capabilities`. Options are serializable;
+`deployment` has `options` and `capabilities`, plus protected executable `identity`
+when options select `authentication: "actions-oidc"`. This maintained route supplies
+`authenticate`; omit that function from the capabilities bag. Older callback
+deployments omit both `authentication` and `identity`. Options are serializable;
 validate against `configuration.schema.json` (use `$defs[mode]` for mode-specific
 validation) and `validateHostOptions(options, mode)`. The example has synthetic
 identities. Set the real repository/ID/environment only in protected GitHub
@@ -75,7 +78,8 @@ The `workflowMain(env, {deployment})` embedding interface supplies the same trus
 object. For the standalone CLI, protected Environment variables supply
 `NIBFIN_HOST_OPTIONS` (exact JSON bytes mapping mode names to their options) and
 `NIBFIN_HOST_CAPABILITY_SOURCE` (reviewed executable ES module bytes exporting
-exactly `capabilities`, a map of the same mode names to function bags). This allows
+`capabilities`, a map of the same mode names to function bags, and optionally
+`identity`, a map of precisely the modes selecting maintained authentication). This allows
 one hosted Environment to configure lookup, resolve, wake and registration, and
 one member Environment to configure execute and compute. Validate this variable against `configuration.schema.json#/$defs/environment`.
 Cross-environment mode entries reject; each selected bag must still contain exactly its permitted functions. `NIBFIN_SOURCE_APPROVALS.deployment` independently pins both
@@ -83,8 +87,8 @@ with `optionsSha256` and `sourceSha256`. These are executable deployment
 configuration, with the same trust as a reviewed host implementation; never copy
 values from events, Issues, a checkout manifest or Dispatch into these variables.
 Both hashes and every configured mode's option validity are checked before binding evaluation. The binding
-must be inert at module evaluation and export functions directly, without a
-construction factory. Each invoked function also receives non-enumerable public `core`
+must be inert at module evaluation and export capabilities and protected identity
+configuration directly, without invoking a construction factory. Each invoked function also receives non-enumerable public `core`
 namespace and validated `options` properties (excluded from retained record bytes); functions obtain their own authorized credentials
 only when invoked. No credential value is passed by this module. Protect changes
 to the source, approvals and options under Environment administration/review.
@@ -164,8 +168,8 @@ Dependency preparation and final regression/installed consumer verification run
 sequentially through the supplied guard (when executing under Core):
 
 ```
-node /verification-runner.mjs -- npm ci --ignore-scripts --no-bin-links --no-audit --no-fund
-node /verification-runner.mjs -- npm ci --prefix host --ignore-scripts --no-bin-links --no-audit --no-fund
+node /verification-runner.mjs -- node /verification-prepare.mjs /work /tmp
+# Run the following from the returned exact-byte writable test directory:
 node /verification-runner.mjs -- npm run check
 node /verification-runner.mjs -- npm run verify:archive
 ```
@@ -181,3 +185,8 @@ scripts disabled and invokes the maintained packaged host. Archives and temporar
 consumers are verification intermediates, not Candidate obligations. Tests and
 author observations do not substitute for fresh independent Acceptance, isolated
 Core hooks or required exact-head CI.
+
+For maintained Actions, local-gh and hosted identity composition, use the protected
+`authentication: "actions-oidc"` option and [authentication configuration](authentication.md).
+The maintained factory replaces the deployment authenticate callback while preserving
+mode-specific capabilities and the dependency-free entry approval boundary.

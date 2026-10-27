@@ -54,11 +54,10 @@ function run(executable, args, input, signal, env) {
 
 /** Trusted process-account stored login only; never consult checkout defaults. */
 export function localGhTransport({executable = 'gh'} = {}) {
-  const env = {PATH: process.env.PATH, HOME: userInfo().homedir, GH_PROMPT_DISABLED: '1', GH_NO_UPDATE_NOTIFIER: '1',
-    GH_NO_EXTENSION_UPDATE_NOTIFIER: '1', NO_COLOR: '1'};
-  return async request => {
-    const auth = await run(executable, ['auth', 'status', '--hostname', 'github.com'], '', request.signal, env);
-    if (auth.code !== 0) return {failure: 'authentication'};
+  // Resolve the actual process account only on invocation, never at construction.
+  const environment = () => ({PATH: process.env.PATH, HOME: userInfo().homedir, GH_PROMPT_DISABLED: '1', GH_NO_UPDATE_NOTIFIER: '1',
+      GH_NO_EXTENSION_UPDATE_NOTIFIER: '1', NO_COLOR: '1'});
+  const dispatch = async (request, env) => {
     const args = ['api', '--hostname', 'github.com', '--include', '--method', request.method,
       '--header', 'Content-Type: application/json', '--header', `Accept: ${media}`, '--header', `X-GitHub-Api-Version: ${githubApiVersion}`];
     if (request.body !== undefined) args.push('--input', '-');
@@ -77,6 +76,17 @@ export function localGhTransport({executable = 'gh'} = {}) {
     if (response.code !== 0 && Number(match[1]) < 400) return {failure: 'transport'};
     return {status: Number(match[1]), headers, body: match[3]};
   };
+  const prepare = async ({signal}={}) => {
+    const env=environment();
+    const auth=await run(executable,['auth','status','--hostname','github.com'],'',signal,env);
+    if (auth.code!==0) return () => ({failure:'authentication'});
+    return request=>dispatch(request,env);
+  };
+  const transport=async request => (await prepare({signal:request.signal}))(request);
+  // Complete the local login subprocess before final source/Grant validation.
+  // The request-local sender launches only gh api, without another auth await.
+  Object.defineProperty(transport,'prepareMutation',{value:prepare});
+  return Object.freeze(transport);
 }
 
 function classify(response) {
@@ -93,12 +103,41 @@ function classify(response) {
   if (status < 200 || status >= 300) return 'unsupported';
   return null;
 }
-function requirement(method, path) {
-  if (method === 'POST' && /^\/repos\/[^/]+\/[^/]+\/actions\/runners\/registration-token$/.test(path)) return 'administration:write';
-  if (method === 'POST' && /^\/orgs\/[^/]+\/actions\/runners\/registration-token$/.test(path)) return 'organization_self_hosted_runners:write';
-  if (method === 'GET' && /^\/repos\/[^/]+\/[^/]+\/actions\/runners(?:\?|$)/.test(path)) return 'administration:read';
-  return 'unknown';
+/** Official endpoint permission classes, not a statement that a token possesses them.
+ * Unknown management endpoints are deliberately unsupported. */
+export function githubEndpointPermission(method, endpoint) {
+  if (typeof endpoint!=='string') return null;
+  if(endpoint.includes('?')) {
+    const [path,query,extra]=endpoint.split('?'),params=new URLSearchParams(query);
+    const keys=[...params.keys()];
+    if(method!=='GET' || extra!==undefined || !keys.length || new Set(keys).size!==keys.length
+      || keys.some(k=>!['page','per_page'].includes(k) || !/^[1-9][0-9]{0,5}$/.test(params.get(k)))
+      || params.has('per_page') && Number(params.get('per_page'))>100
+      || !/\/actions\/(runners|runner-groups)(?:\/[1-9][0-9]*\/(runners|repositories))?$/.test(path))return null;
+    endpoint=path;
+  }
+  if(method==='GET' && (/^\/repos\/[^/]+\/[^/]+$/.test(endpoint) || /^\/(users|orgs)\/[^/]+$/.test(endpoint)))return 'public:read';
+  if(method==='GET' && /^\/repos\/[^/]+\/[^/]+\/collaborators\/[^/]+\/permission$/.test(endpoint))return 'metadata:read';
+  if(method==='GET' && /^\/orgs\/[^/]+\/actions\/runner-groups(?:\/[1-9][0-9]*(?:\/(runners|repositories))?)?$/.test(endpoint))
+    return 'organization_self_hosted_runners:read';
+  if (/^\/repos\/[^/]+\/[^/]+\/actions\/runners(?:\/[1-9][0-9]*(?:\/labels)?|\/(?:registration|remove)-token)?$/.test(endpoint)) {
+    if (method==='GET' && !endpoint.endsWith('-token')) return 'administration:read';
+    if (method==='POST' && /\/(registration|remove)-token$/.test(endpoint)
+      || method==='DELETE' && /\/runners\/[1-9][0-9]*$/.test(endpoint)) return 'administration:write';
+    return null;
+  }
+  if (/^\/orgs\/[^/]+\/actions\/runners(?:\/[1-9][0-9]*|\/(?:registration|remove)-token)?$/.test(endpoint)) {
+    if (method==='GET' && !endpoint.endsWith('-token')) return 'organization_self_hosted_runners:read';
+    if (method==='POST' && /\/(registration|remove)-token$/.test(endpoint)
+      || method==='DELETE' && /\/runners\/[1-9][0-9]*$/.test(endpoint)) return 'organization_self_hosted_runners:write';
+    return null;
+  }
+  if (/^\/repos\/[^/]+\/[^/]+\/issues\/[1-9][0-9]*$/.test(endpoint))
+    return method==='GET'?'public:read':method==='PATCH'?'issues:write':null;
+  return null;
 }
+
+const requirement = (method,path) => githubEndpointPermission(method,path) ?? 'unknown';
 function retryDelay(headers, now, attempt, rateLimited) {
   let delay = Math.min(1000 * 2 ** (attempt - 1), 8000);
   if (rateLimited && headers['retry-after'] === undefined && headers['x-ratelimit-remaining'] !== '0')
@@ -129,7 +168,7 @@ export function createGithubProvider({transport, identity = 'local-stored-login'
   const submissions = new WeakMap();
   const remaining = Symbol();
   async function request(options) {
-    let path, body;
+    let path, body, send = transport;
     const budget = options[remaining] ?? elapsedMs;
     const method = options.method ?? 'GET';
     const write = writes.has(method);
@@ -148,6 +187,14 @@ export function createGithubProvider({transport, identity = 'local-stored-login'
       diagnostic.correlation = options.correlation;
       diagnostic.capability = requirement(method, path);
       body = options.body === undefined ? undefined : JSON.stringify(options.body);
+      // Trusted transports may acquire a request-local credential before the
+      // final authorization checkpoint. Never share prepared credentials across requests.
+      if (write && typeof authorize!=='function') return failure('unauthorized');
+      if (write && typeof transport.prepareMutation === 'function') {
+        const preparationSignal=AbortSignal.any([AbortSignal.timeout(budget), ...(options.signal ? [options.signal] : [])]);
+        send=await abortable(transport.prepareMutation({signal:preparationSignal}),preparationSignal);
+        if (typeof send!=='function' || preparationSignal.aborted) return failure('unauthorized');
+      }
       if (write && (typeof authorize !== 'function' || await authorize(Object.freeze({method, endpoint: path,
         operation: options.operation, target: options.target, context: options.context, correlation: options.correlation,
         signal: options.signal, body: body === undefined ? undefined : JSON.parse(body)})) !== true)) return failure('unauthorized');
@@ -161,7 +208,7 @@ export function createGithubProvider({transport, identity = 'local-stored-login'
       try {
         sent = true;
         // Race also bounds an injected transport that ignores cancellation.
-        response = await abortable(transport({method, endpoint: path, body, signal,
+        response = await abortable(send({method, endpoint: path, body, signal,
           headers: {Accept: media, 'X-GitHub-Api-Version': githubApiVersion}, identity}), signal);
       } catch { response = {failure: 'transport'}; }
       if (signal.aborted) return failure(options.signal?.aborted ? 'cancelled' : 'timeout');

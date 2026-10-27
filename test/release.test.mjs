@@ -213,3 +213,20 @@ test('repository enforcement needs no administrator read but requires immutable 
  await assert.rejects(g.publish(),/not-immutable-published/);assert.notEqual(g.state.records.at(-1).status,'published');
  const h=publicationFixture();h.input.immutabilityPolicy='unknown';await assert.rejects(h.publish(),/immutability-policy/);assert.equal(h.state.writes.length,0);
 });
+
+test('HTTP adapter preserves the API schema required for exact merged-source publication',async t=>{
+ const f=publicationFixture(),versions=[];
+ t.mock.method(globalThis,'fetch',async(url,options)=>{
+  const u=new URL(url),version=options.headers['X-GitHub-Api-Version'];versions.push(version);
+  const upload=u.hostname==='uploads.github.com';
+  const response=await f.input.request({method:options.method,path:upload?url:u.pathname+u.search,
+   data:!upload&&options.body?JSON.parse(options.body):undefined,bytes:upload?options.body:undefined});
+  // Observed provider difference: 2026-03-10 removes this field from PR objects.
+  if(version==='2026-03-10'&&u.pathname.includes('/commits/'))
+   for(const pr of response.data)delete pr.merge_commit_sha;
+  return new Response(JSON.stringify(response.data),{status:response.status});
+ });
+ const result=await publishRelease({...f.input,request:githubReleaseRequest('fixture')});
+ assert.equal(result.status,'published');assert.ok(versions.length>0);
+ assert.ok(versions.every(v=>v==='2022-11-28'));
+});

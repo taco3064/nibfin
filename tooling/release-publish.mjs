@@ -134,7 +134,8 @@ export function githubReleaseRequest(token) {
     requireValue(url.startsWith('https://api.github.com/repos/'+repository+'/') || url==='https://api.github.com/repos/'+repository
       || url.startsWith('https://uploads.github.com/repos/'+repository+'/releases/'),'request-origin');
     const response=await fetch(url,{method,redirect:'error',signal:AbortSignal.timeout(30000),headers:{
-      Authorization:'Bearer '+token,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2026-03-10',
+      // The provenance contract needs merge_commit_sha, removed in 2026-03-10.
+      Authorization:'Bearer '+token,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',
       'Content-Type':bytes?'application/octet-stream':'application/json'},body:bytes ?? (data?JSON.stringify(data):undefined)});
     const text=await response.text();
     return {status:response.status,data:text?JSON.parse(text):null};

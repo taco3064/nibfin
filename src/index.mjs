@@ -101,3 +101,5 @@ export {workflowVersion, workflowInput, projectIssue, workflowRoute, createWorkf
 export {workflowFiles, workflowInstallation} from './workflow-install.mjs';
 
 export {releaseHash,releaseVersion,releaseComponents,configuration,validateReleaseCompatibility,verifyRelease} from './release.mjs';
+
+export {protectedHostFiles,verifyApprovedSource,loadProtectedHost,loadProtectedDeployment} from './host-source.mjs';

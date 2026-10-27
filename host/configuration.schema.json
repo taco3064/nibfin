@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nibfin.dev/schemas/protected-host-v1.json",
+  "title": "Protected host deployment options (not event inputs)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "repository",
+    "repositoryId",
+    "environment"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "repository": {
+      "type": "string",
+      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?/[a-z0-9_.-]{1,100}$",
+      "not": {
+        "anyOf": [
+          {
+            "pattern": "^[^/]*--"
+          },
+          {
+            "pattern": "/\\.{1,2}$"
+          }
+        ]
+      }
+    },
+    "repositoryId": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    },
+    "environment": {
+      "enum": [
+        "nibfin-hosted",
+        "nibfin-member"
+      ]
+    },
+    "groupId": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    }
+  },
+  "$defs": {
+    "lookup": {
+      "allOf": [
+        {
+          "$ref": "#"
+        },
+        {
+          "not": {
+            "required": [
+              "groupId"
+            ]
+          },
+          "properties": {
+            "environment": {
+              "const": "nibfin-hosted"
+            }
+          }
+        }
+      ]
+    },
+    "resolve": {
+      "allOf": [
+        {
+          "$ref": "#"
+        },
+        {
+          "properties": {
+            "environment": {
+              "const": "nibfin-hosted"
+            }
+          }
+        }
+      ]
+    },
+    "execute": {
+      "allOf": [
+        {
+          "$ref": "#"
+        },
+        {
+          "properties": {
+            "environment": {
+              "const": "nibfin-member"
+            }
+          }
+        }
+      ]
+    },
+    "compute": {
+      "$ref": "#/$defs/execute"
+    },
+    "wake": {
+      "$ref": "#/$defs/lookup"
+    },
+    "registration": {
+      "$ref": "#/$defs/lookup"
+    },
+    "environment": {
+      "anyOf": [
+        {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": false,
+          "properties": {
+            "lookup": {
+              "$ref": "#/$defs/lookup"
+            },
+            "resolve": {
+              "$ref": "#/$defs/resolve"
+            },
+            "wake": {
+              "$ref": "#/$defs/wake"
+            },
+            "registration": {
+              "$ref": "#/$defs/registration"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": false,
+          "properties": {
+            "execute": {
+              "$ref": "#/$defs/execute"
+            },
+            "compute": {
+              "$ref": "#/$defs/compute"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

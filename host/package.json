@@ -1,0 +1,9 @@
+{
+  "name": "@nibfin/protected-host",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./entry.mjs",
+  "engines": {"node": ">=22 <23"},
+  "files": ["entry.mjs", "configuration.schema.json", "configuration.example.json"]
+}

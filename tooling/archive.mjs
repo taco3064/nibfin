@@ -287,7 +287,9 @@ console.log('Installed archive consumer passed (real Grant signatures and reject
   }
 }
 
-export function buildArchive(producer = root) {
+// Packing and byte validation do not execute the installed consumer suite.
+// Keep that gate in buildArchive, including every CLI/release entry point.
+export function packArchive(producer = root) {
   const output = join(producer, 'out');
   mkdirSync(output, {recursive: true});
   const result = JSON.parse(execFileSync('npm', ['pack', '--json', '--ignore-scripts', '--offline', '--pack-destination', output],
@@ -295,6 +297,11 @@ export function buildArchive(producer = root) {
   const archivePath = join(output, 'nibfin-core.tgz');
   renameSync(join(output, result[0].filename), archivePath);
   console.log('Archive entries:', verifyArchive(readFileSync(archivePath), producer).join(', '));
+  return archivePath;
+}
+
+export function buildArchive(producer = root) {
+  const archivePath = packArchive(producer);
   console.log(consumeArchive(archivePath));
   return archivePath;
 }

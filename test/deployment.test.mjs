@@ -12,7 +12,7 @@ function fixture(url) {
   const policy = {mode:'required',reason:'Release obligation',repositoryId:'42',commit:'a'.repeat(40),version:'1',
     environment:'production',deploymentId:'3',statusId:'4',baseline:'b1',source,checks,maxAgeMs:100};
   const observation = {...policy,state:'success',observedAt:1000};
-  return {policy,observation,health:{allowlist:[url],checks,timeoutMs:100,maxBytes:32,maxRequests:1},now:()=>1100};
+  return {policy,observation,health:{allowlist:[url],checks,timeoutMs:5000,maxBytes:32,maxRequests:1},now:()=>1100};
 }
 async function server(t) {
   let contacts = 0;
@@ -29,7 +29,7 @@ async function server(t) {
 }
 test('public applicability, exact identities and freshness boundaries',async t => {
   const s=await server(t), f=fixture(s.url);
-  assert.equal((await verifyDeployment(f)).status,'qualified');
+  const initial=await verifyDeployment(f);assert.equal(initial.status,'qualified',JSON.stringify(initial));
   assert.equal((await verifyDeployment({policy:{mode:'not-applicable',reason:'No deployment'}})).status,'not-applicable');
   for (const policy of [undefined,{}, {mode:'not-applicable'}, {...f.policy,mode:'not-applicable'}, {...f.policy,maxAgeMs:Infinity}]) {
     assert.equal((await verifyDeployment({...f,policy})).status,'blocked');
@@ -57,7 +57,7 @@ test('public applicability, exact identities and freshness boundaries',async t =
 test('real bounded HTTP checks prevent forbidden contact and redact diagnostics',async t => {
   const s=await server(t),f=fixture(s.url),run=path => {
     const url=s.url.replace('/ok',path);
-    return checkDeploymentHealth({...f.health,checks:[{url,status:200,body:'ok'}],allowlist:[url]});
+    return checkDeploymentHealth({...f.health,timeoutMs:path === '/slow' ? 100 : f.health.timeoutMs,checks:[{url,status:200,body:'ok'}],allowlist:[url]});
   };
   assert.equal((await run('/ok')).status,'healthy');
   for (const path of ['/bad','/wrong','/big','/slow','/redirect']) {

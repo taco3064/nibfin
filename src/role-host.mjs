@@ -1,0 +1,84 @@
+import {createLinuxCodexBackend} from './codex.mjs';
+import {createLinuxClaudeBackend} from './claude.mjs';
+import {createLinuxGeminiBackend} from './gemini.mjs';
+import {createWindowsWslBackend} from './wsl.mjs';
+import {createAgentEnvironments,createAgentLifecycle} from './lifecycle.mjs';
+import {runnerConfiguration,preflightRunner} from './runner.mjs';
+import {createRoleBudget,createVerificationLane} from './verification.mjs';
+import {prepareNodeVerification} from './node-verification.mjs';
+import {contentIdentity} from './evidence.mjs';
+import {canonicalJSON} from './grants.mjs';
+import {skillForRole} from './evidence.mjs';
+const fail = code => {throw Error(`role-host:${code}`);};
+const clone = v=>JSON.parse(canonicalJSON(v));
+const roles=['shape','shape-validator','shape-diagnosis','shaper-review','deliver','accept'];
+const linux={codex:createLinuxCodexBackend,claude:createLinuxClaudeBackend,gemini:createLinuxGeminiBackend};
+/** Maintained prepareRole capability consumed unchanged by Core's existing owners.
+ * Protected deployment supplies identities/expectations and OS observations; checkout,
+ * Issue and model inputs can neither select an adapter nor change an account/profile.
+ */
+export function createProtectedRoleHost({configuration,bind,retain,probe,observe,process:run,observeHost,now=Date.now}={}) {
+  if(!configuration||typeof bind!=='function'||typeof retain!=='function'||typeof probe!=='function'
+      ||Object.keys(configuration).sort().join(' ')!=='assignments profiles runner'
+      ||!Array.isArray(configuration.profiles)||!configuration.profiles.length)fail('configuration');
+  const runner=runnerConfiguration(configuration.runner),profiles=new Map(),registry=createAgentEnvironments(),used=new Set();
+  for(const p of clone(configuration.profiles)) {
+    if(Object.keys(p).sort().join(' ')!=='agent backend id os'||profiles.has(p.id)
+        ||typeof p.id!=='string'||!linux[p.agent]||!['linux','wsl'].includes(p.os))fail('profile');
+    const environment=registry.describe(p.os==='linux'?p.backend.environment:p.backend.linux.environment);
+    if(environment.agent!==p.agent||!((p.os==='linux'?p.backend:p.backend.linux).egress))fail('environment-or-egress');
+    profiles.set(p.id,p);
+  }
+  const assignments=clone(configuration.assignments),instances=new Set();
+  if(Object.keys(assignments).sort().join(' ')!==[...roles].sort().join(' '))fail('roles');
+  for(const role of roles) {
+    const p=profiles.get(assignments[role]);if(!p)fail('assignment');
+    const backend=p.os==='linux'?p.backend:p.backend.linux;
+    const key=`${backend.environment.id}:${backend.instanceId}`;
+    // Reviewers always have distinct workspace/service/registration resources; login
+    // sharing remains confined to one authenticated member environment.
+    if(instances.has(key))fail('independence');instances.add(key);
+  }
+  const prepared=new Map();
+  return Object.freeze({
+    async prepareRole(task) {
+      if(!roles.includes(task?.role)||task.skill!==skillForRole(task.role))fail('role');
+      const profile=profiles.get(assignments[task.role]);
+      const ready=await preflightRunner({configuration:runner,probe,observe});
+      if(ready.status!=='ready')fail('preflight-blocked');
+      const binding=await bind(clone(task));
+      const {input,current,startCurrent,resultContext,deadlineAt,reserveMs,prompt,inputs}=binding;
+      if(input?.execution?.role!==task.role||input.execution.skill!==task.skill
+          ||canonicalJSON(input.instructions)!==canonicalJSON({identity:task.instructions.identity,content:task.instructions.content})
+          ||typeof current!=='function'||typeof prompt!=='string'||!inputs||['id','request','result'].some(k=>used.has(input.execution[k])))fail('binding');
+      const budget=createRoleBudget({deadlineAt,reserveMs,now});
+      const taskProvider=()=>({prompt,inputs});
+      const backendConfig=profile.os==='linux'?{...profile.backend,deadlineAt,reserveMs:budget.deadlineAt-budget.cutoff,task:taskProvider,...(run?{process:run}:{})}:
+        {...profile.backend,linux:{...profile.backend.linux,deadlineAt,reserveMs:budget.deadlineAt-budget.cutoff,task:taskProvider},observeHost,...(run?{process:run}:{})};
+      const backend=(profile.os==='linux'?linux[profile.agent]:createWindowsWslBackend)(backendConfig);
+      const lane=profile.os==='wsl'?Object.freeze({execution:input.execution.id,budget,
+        command:(command,settings)=>backend.verificationCommand(input.execution.id,command,retain,settings)}):
+        createVerificationLane({execution:input.execution.id,budget,retain,now,
+          process:command=>backend.verificationProcess(input.execution.id,command)});
+      const descriptor=profile.os==='linux'?profile.backend:profile.backend.linux;
+      const lifecycle=createAgentLifecycle({environment:descriptor.environment,instanceId:descriptor.instanceId,
+        backend,current,startCurrent,resultContext,collectFailures:true});
+      for(const key of ['id','request','result'])used.add(input.execution[key]);
+      const value=Object.freeze({taskIdentity:contentIdentity(task.task),input:clone(input),lifecycle,lane,budget,
+        prepareNode:(options={},settings)=> {
+          const instance=descriptor.environment.instances.find(i=>i.id===descriptor.instanceId);
+          if(Object.keys(options).some(k=>!['project'].includes(k)))fail('node-configuration');
+          if(profile.os==='wsl')return backend.prepareNode(input.execution.id,options,retain,settings);
+          return prepareNodeVerification({source:instance.workspace,scratch:instance.service+'/verification',
+            npm:'/usr/local/bin/npm',path:runner.path,...options,lane},settings);
+        }});
+      prepared.set(input.execution.id,value);return value;
+    },
+    get(execution) {if(!prepared.has(execution))fail('execution');return prepared.get(execution);},
+    /** Bind existing stage owners; Candidate/hooks/Accept logic stays in its owner. */
+    owners(owners) {
+      return Object.fromEntries(Object.entries(owners).map(([name,value])=>[name,
+        ['shape','deliver','accept','review','repair'].includes(name)?{...value,prepareRole:task=>this.prepareRole(task)}:value]));
+    }
+  });
+}

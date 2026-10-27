@@ -1,4 +1,6 @@
+import {probeVerificationSupervisor} from './verification-child.mjs';
 // Trusted standalone container entrypoint. Never import checkout modules.
+import {probeGateway,executeSession,capacityError,rejectSecrets} from './agent-session.mjs';
 import {spawnSync} from 'node:child_process';
 import {readFileSync,existsSync,openSync,fstatSync,readSync,closeSync,constants,mkdirSync,writeFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
@@ -31,7 +33,7 @@ export function readGeminiFile(path) {
   } finally {closeSync(fd);}
 }
 export function geminiEnvironment(key,probe=false) {
-  return {PATH:'/usr/local/bin:/usr/bin:/bin',HOME:'/tmp/home',GEMINI_API_KEY:key,
+  return {HTTP_PROXY:'http://nibfin-egress:8080',HTTPS_PROXY:'http://nibfin-egress:8080',NODE_USE_ENV_PROXY:'1',NO_PROXY:'',PATH:'/usr/local/bin:/usr/bin:/bin',HOME:'/tmp/home',GEMINI_API_KEY:key,
     GEMINI_SYSTEM_MD:'/input/gemini-system.md',
     GEMINI_CLI_SYSTEM_SETTINGS_PATH:probe?'/tmp/probe-settings.json':'/input/gemini-settings.json',
     GEMINI_CLI_SYSTEM_DEFAULTS_PATH:probe?'/tmp/probe-settings.json':'/input/gemini-settings.json',CI:'true',NO_BROWSER:'true'};
@@ -39,7 +41,8 @@ export function geminiEnvironment(key,probe=false) {
 export function geminiInvocation(request,key) {
   geminiPolicy(request.access);
   return {file:tool,args:['--prompt','Complete the task supplied on stdin.',
-    '--output-format','json','--approval-mode','default','--admin-policy','/input/gemini-policy.toml'],
+    '--output-format','json','--approval-mode','default','--admin-policy','/input/gemini-policy.toml',
+    ...(request.session?['--resume',request.session]:[]),...(request.model?['--model',request.model]:[])],
     options:{env:geminiEnvironment(key),cwd:'/work',input:request.prompt,encoding:'utf8',
       stdio:['pipe','pipe','pipe'],timeout:request.timeout,killSignal:'SIGKILL',maxBuffer:1048576}};
 }
@@ -53,7 +56,7 @@ function scan(value,secrets) {
 }
 export function geminiResult(output,context,secrets) {
   if(typeof output!=='string' || Buffer.byteLength(output)>1048576)throw Error('gemini:output');
-  const envelope=JSON.parse(output);scan(envelope,secrets);
+  const envelope=JSON.parse(output);rejectSecrets(envelope,secrets);scan(envelope,secrets);
   if(!envelope || typeof envelope!=='object' || Array.isArray(envelope) || 'error' in envelope
       || typeof envelope.response!=='string' || !envelope.response.trim())throw Error('gemini:final-result');
   const result=JSON.parse(envelope.response);scan(result,secrets);
@@ -76,17 +79,17 @@ function authenticationFailure(r) {
     .test(String(r.stdout??'')+String(r.stderr??''));
 }
 export function executeGemini(request,key,run=spawnSync) {
-  const c=geminiInvocation(request,key),r=run(c.file,c.args,c.options);
-  if(r.error || r.status!==0)return {diagnostic:authenticationFailure(r)?'login-rejected':'provider-failure'};
-  try {
-    const envelope=JSON.parse(r.stdout);
-    if(envelope && typeof envelope==='object' && 'error' in envelope)
-      return {diagnostic:authenticationFailure(r)?'login-rejected':'provider-failure'};
-    return {evidence:geminiResult(r.stdout,request.context,[key])};
-  }
-  catch {return {diagnostic:authenticationFailure(r)?'login-rejected':'invalid-result'};}
+  return executeSession({request,adapter:'gemini',version,run,invoke:r=>geminiInvocation(r,key),
+    inspect:r=>{
+      if(authenticationFailure(r))return {authentication:true};
+      const e=JSON.parse(r.stdout);
+      if('error' in e)return {session:e.session_id,success:false,capacity:capacityError('gemini',e),authentication:false};
+      rejectSecrets(e,[key]);
+      return {session:e.session_id,success:!('error' in e)&&typeof e.response==='string',
+        capacity:capacityError('gemini',e),authentication:authenticationFailure(r)};
+    },decode:output=>geminiResult(output,request.context,[key])});
 }
-export function runGeminiEntry() {
+export async function runGeminiEntry() {
   try {
     const login=JSON.parse(readGeminiFile('/login.json'));
     if(login.auth_mode!=='gemini-api-key' || typeof login.api_key!=='string' || !login.api_key)throw Error();
@@ -95,6 +98,7 @@ export function runGeminiEntry() {
       writeFileSync('/tmp/probe-settings.json',JSON.stringify(geminiSettings),{flag:'wx',mode:0o400});
       const p=probeGemini(geminiEnvironment(login.api_key,true)),os=readFileSync('/etc/os-release','utf8');
       process.stdout.write(JSON.stringify({...p,node:process.version,platform:process.platform,arch:process.arch,
+        verificationSupervisor:probeVerificationSupervisor(),network:await probeGateway([...["generativelanguage.googleapis.com"],...(process.env.NIBFIN_NODE_WORKLOAD==='1'?['registry.npmjs.org']:[])]),
         guest:/^ID=debian$/m.test(os) && /^VERSION_ID="12"$/m.test(os)}));
     } else {
       const request=JSON.parse(readGeminiFile('/input/request.json'));

@@ -5,8 +5,8 @@ import {EventEmitter} from 'node:events';
 import {PassThrough} from 'node:stream';
 import {codexFixture} from './codex-fixture.mjs';
 const guestModule=await import(new URL('./wsl-guest.mjs',import.meta.resolve('@nibfin/core')));
-export function wslFixture(role='deliver') {
-  const f=codexFixture(role), hash='a'.repeat(64), commands=[], requests=[], flags={};
+export function wslFixture(role='deliver',agent='codex',overrides={}) {
+  const f=codexFixture(role,undefined,agent), hash='a'.repeat(64), commands=[], requests=[], flags={};
   const profile={arch:'x64',context:'service',sid:'S-1-5-21-1000',cwd:'C:\\Nibfin Host',wsl:'C:\\Windows\\System32\\wsl.exe',
     distribution:'Debian-Nibfin',user:'member',uid:1000,node:'/opt/node/bin/node',bridge:'/opt/nibfin/src/wsl-guest.mjs',
     nodeVersion:process.version,nodeHash:hash,bridgeHash:hash,wslHash:hash,
@@ -15,7 +15,7 @@ export function wslFixture(role='deliver') {
     wslVersion:2,available:true,files:profile.files.map((v,n)=>({...v,canonical:v.path,reparse:false,storage:'local',kind:n?'file':'directory',...(n?{hash}:{})}))};
   const guest={platform:'linux',arch:'x64',uid:1000,user:'member',kernel:'6.6.87.2-microsoft-standard-WSL2',
     node:process.version,nodeHash:hash,bridgeHash:hash,nodePath:profile.node,bridgePath:profile.bridge,filesystem:0xef53};
-  const {process:docker,...linux}=f.config;
+  const {process:docker,...linux}=f.config;Object.assign(linux,overrides);
   const serve=guestModule.createWslGuest({observe:async()=>structuredClone(guest),process:docker});
   const config={profile,linux,observeHost:async()=>{if(flags.hostThrow)throw Error('HOST-SECRET');return structuredClone(host);},
     process:command=>{

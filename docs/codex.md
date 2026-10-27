@@ -37,6 +37,7 @@ Example trusted construction (image and task are supplied by Core):
 ```js
 const backend = createLinuxCodexBackend({
   root: '/srv/nibfin/member-environment', image: approvedImageId,
+  egress: {image: approvedImageId, node: true},
   socket: '/run/user/1000/docker.sock', environment, instanceId: 'one',
   task: execution => ({prompt: authorizedTaskText(execution), inputs: stageInputs(execution)})
 });
@@ -63,7 +64,7 @@ must declare no volumes. The image itself and host administrator are trusted
 prerequisites; this adapter does not defend against a compromised administrator.
 
 Containers drop all capabilities, enable no-new-privileges, retain Docker's
-seccomp profile, use a read-only image filesystem, bridge networking, 1 GiB memory,
+seccomp profile, use a read-only image filesystem, an isolated internal network with an enforced gateway, 1 GiB memory,
 2 CPUs, 128 PIDs and a 64 MiB tmpfs. Native sandbox availability remains required;
 Codex runs with `read-only` or `workspace-write`, never bypass mode. No privileged
 mode, host network, arbitrary executable, arbitrary environment or mount passthrough
@@ -83,9 +84,7 @@ platforms/runtimes are rejected, without fallback.
 
 Only the selected auth file is mounted read-only; the workspace has role-specific
 access; execution input and the package's fixed entrypoint are read-only. Temporary
-files stay inside bounded container tmpfs. Model result files are opened without
-following symlinks, must be regular single-link files, and are capped at 1 MiB.
-Only parsed final JSON is emitted; model/CLI stdout and stderr are discarded.
+session files stay inside bounded container tmpfs. Verification copies use dedicated writable instance scratch. Input files are opened without following symlinks and are capped at 1 MiB. Codex JSONL must contain the current thread, a successful terminal turn and exactly one structured result. No last-message file establishes success. Only validated final JSON is emitted; raw model/CLI logs are discarded.
 Missing, malformed, truncated, oversized, foreign or unsuccessful output fails
 validation. Results containing known selected-login values are also rejected;
 each execution retains its own login-value filter through delayed collection and
@@ -139,3 +138,5 @@ Interface references checked for this implementation:
 [rootless Docker](https://docs.docker.com/engine/security/rootless/).
 The local installed `codex-cli 0.163.0 --help`/`exec --help` were inspected without
 login or model invocation. Documentation and help are interface evidence only.
+
+The maintained [protected role host](role-host.md) adds explicit absolute deadlines, bounded capacity recovery, the selected enforced gateway and one custody-backed verification lane with fresh Node preparation. Existing deployments must approve the new sources and add the required egress configuration. Native/model support remains Unverified.

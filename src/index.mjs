@@ -108,3 +108,11 @@ export {createHostIdentityAdapters,createHostIdentityAdaptersForTest,hostedGithu
 
 export {createCustodyHost,custodySlotIdentity,createCustodyCurrent,retainedRoleRecord,createRetainedRoleBackend,recoverRoleCollection} from './custody-host.mjs';
 export {loadApprovedInputs} from './host-source.mjs';
+
+export {createRoleBudget,createVerificationLane,verificationProcess,redactRuntimeText} from './verification.mjs';
+export {nodeSourceIdentity,prepareNodeVerification} from './node-verification.mjs';
+export {supportedRunnerDefaults,runnerConfiguration,preflightRunner,observeRunnerLocal} from './runner.mjs';
+export {createProtectedRoleHost} from './role-host.mjs';
+export {createContainerEgress,endpointProfiles} from './egress.mjs';
+export {createEgressGateway,publicAddress,connectDestination,tlsServerName} from './egress-gateway.mjs';
+export {executeSession,recoveryPolicy,capacityError,codexEvents,rejectSecrets} from './agent-session.mjs';

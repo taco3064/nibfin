@@ -118,7 +118,19 @@
     "docs/authentication.md",
     "src/custody-host.mjs",
     "docs/custody-host.md",
-    "host/custody.example.mjs"
+    "host/custody.example.mjs",
+    "src/verification.mjs",
+    "src/verification-child.mjs",
+    "src/verification-supervisor.py",
+    "src/node-verification.mjs",
+    "src/runner.mjs",
+    "src/role-host.mjs",
+    "src/egress.mjs",
+    "src/egress-gateway.mjs",
+    "src/agent-session.mjs",
+    "docs/role-host.md",
+    "host/runner.schema.json",
+    "host/runner.example.json"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

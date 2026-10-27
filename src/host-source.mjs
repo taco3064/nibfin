@@ -91,7 +91,8 @@ export async function loadProtectedDeployment({source,options,approval,validate,
     const modes=Object.keys(configured);need(modes.length>0 && modes.every(m=>allowed.includes(m)));
     const parsed=Object.fromEntries(modes.map(m=>[m,validate(configured[m],m)]));
     const binding=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
-    need(Object.keys(binding).every(k=>['capabilities','identity','custody'].includes(k)) && binding.capabilities);
+    need(Object.keys(binding).every(k=>['capabilities','identity','custody','roles'].includes(k)) && binding.capabilities);
+    if(binding.roles)fields(binding.roles,modes.filter(m=>['execute','compute'].includes(m)));
     if(binding.identity)fields(binding.identity,modes.filter(m=>parsed[m].authentication==='actions-oidc'));
     fields(binding.capabilities,modes);
     need(Object.getPrototypeOf(binding.capabilities)===Object.prototype
@@ -99,6 +100,7 @@ export async function loadProtectedDeployment({source,options,approval,validate,
     if(binding.custody)fields(binding.custody,modes.filter(m=>['resolve','execute','compute','registration'].includes(m)));
     return {options:parsed[mode],capabilities:binding.capabilities[mode],
       ...(binding.custody?{custody:binding.custody[mode]}:{}),
+      ...(binding.roles?.[mode]?{roles:binding.roles[mode]}:{}),
       ...(parsed[mode].authentication==='actions-oidc'?{identity:binding.identity?.[mode]}:{})};
   } catch {throw Error('protected-host:configuration');}
 }

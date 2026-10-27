@@ -23,6 +23,7 @@ export function codexFixture(role='shape', custom, agent='codex') {
     'shaper-review':{candidate,pr:hash,ci:hash,head:'c'.repeat(40),base:'a'.repeat(40),author:'author',validator:'validator',deliver:'writer',accept:'reviewer'}}[role];
   const result={version:1,outcome:outcomesForRole(role)[0],failureClass:'none',summary:'SYNTHETIC fixture only',conflicts:[]};
   const expected={version:1,stage:role,execution,binding,inputs,result}, current={expected,consumed:[]};
+  const networks=new Map(), gateways=new Map();
   const calls=[], containers=new Map(), flags={}, children=new Set();
   const image='sha256:'+'1'.repeat(64);
   const respond=value=>({ok:true,output:typeof value === 'string'?value:JSON.stringify(value)});
@@ -30,6 +31,23 @@ export function codexFixture(role='shape', custom, agent='codex') {
     calls.push(structuredClone(command)); const args=command.args.slice(2), [op]=args;
     if (flags.throw === op) throw Error('ERROR-SENTINEL');
     if (flags.malformed === op) return respond('malformed ERROR-SENTINEL');
+    if (op === 'network') {
+      if(args[1]==='create'){const name=args.at(-1);networks.set(name,{Name:name,Internal:true,EnableIPv6:false,Options:{'com.docker.network.bridge.gateway_mode_ipv4':'isolated'},Driver:'bridge',Labels:{'nibfin.egress':name}});return respond(name);}
+      if(args[1]==='ls')return respond([...networks.keys()].join('\n'));
+      if(args[1]==='inspect')return respond([networks.get(args[2])]);
+      if(args[1]==='connect'){const name=args.at(-1),network=args.at(-2);gateways.get(name).NetworkSettings.Networks[network]={};return respond('');}
+      if(args[1]==='rm'){networks.delete(args[2]);return respond('');}
+    }
+    if (op === 'create' && args.includes('/gateway.mjs')) {
+      const name=args[args.indexOf('--name')+1],network=args[args.indexOf('--label')+1].split('=')[1];
+      gateways.set(name,{Name:'/'+name,Image:image,Config:{Labels:{'nibfin.egress':network}},
+        State:{Running:false},HostConfig:{Privileged:false,ReadonlyRootfs:true},NetworkSettings:{Networks:{bridge:{}}}});
+      return respond(name);
+    }
+    if(op==='inspect' && gateways.has(args[1]))return respond([gateways.get(args[1])]);
+    if(op==='start' && gateways.has(args.at(-1))){gateways.get(args.at(-1)).State.Running=true;return respond('');}
+    if(op==='rm' && gateways.has(args.at(-1))){gateways.delete(args.at(-1));return respond('');}
+    if(op==='container' && args.includes('--filter'))return respond([...gateways.keys()].join('\n'));
     if (op === 'version') return respond(JSON.stringify(flags.docker ?? linuxCodexProfile.docker));
     if (op === 'info') return respond({ServerVersion:linuxCodexProfile.docker,OSType:'linux',Architecture:'x86_64',
       CgroupVersion:'2',MemoryLimit:flags.memory ?? true,PidsLimit:true,CpuCfsQuota:true,CpuCfsPeriod:true,
@@ -40,7 +58,8 @@ export function codexFixture(role='shape', custom, agent='codex') {
       const name=args[args.indexOf('--name')+1], probe=args.at(-1)==='probe';
       const mounts=args.flatMap((v,i)=>v==='--mount'?[args[i+1]]:[]);
       containers.set(name,{Name:'/'+name,Image:image,Config:{Labels:{'nibfin.execution':name}},
-        State:{Running:false,Status:'created',ExitCode:0},probe,mounts});
+        State:{Running:false,Status:'created',ExitCode:0},env:args.flatMap((v,i)=>v==='--env'?[args[i+1]]:[]),
+        HostConfig:{NetworkMode:args[args.indexOf('--network')+1],Dns:['127.0.0.1'],DnsSearch:['.']},NetworkSettings:{Networks:{[args[args.indexOf('--network')+1]]:{}}},probe,mounts});
       return flags.lostCreate && !probe ? {ok:false,output:''}:respond(name);
     }
     if (op === 'inspect') {
@@ -54,12 +73,26 @@ export function codexFixture(role='shape', custom, agent='codex') {
     if (op === 'stop') {
       if (flags.stopFail) return {ok:false,output:'ERROR-SENTINEL'};
       const c=containers.get(args.at(-1));
-      if (!flags.ackOnly) c?.child?.kill('SIGTERM');
+      if (!flags.ackOnly) {
+        const ended=c?.child && c.State.Running?new Promise(resolve=>c.child.once('exit',resolve)):Promise.resolve();
+        c?.child?.kill('SIGTERM');for(const controller of c?.execControllers??[])controller.abort();await ended;
+      }
       return respond('');
+    }
+    if(op==='exec') {
+      const c=containers.get(args[3]);if(!c?.State.Running)return {ok:false,output:''};
+      const mounted=c.mounts.find(m=>m.includes('dst=/verification,'))?.match(/src=([^,]+)/)[1];
+      const value=JSON.parse(args.at(-1)),translate=v=>typeof v==='string'&&v.startsWith('/verification')?mounted+v.slice('/verification'.length):v;
+      value.cwd=translate(value.cwd);value.args=value.args.map(translate);
+      value.env=Object.fromEntries(Object.entries(value.env).map(([k,v])=>[k,translate(v)]));
+      const {runVerificationChild}=await import(new URL('verification-child.mjs',import.meta.resolve('@nibfin/core')));
+      const controller=new AbortController();
+      if(!c.execControllers)Object.defineProperty(c,'execControllers',{value:new Set()});c.execControllers.add(controller);
+      try{return respond(await runVerificationChild(value,{signal:controller.signal}));}finally{c.execControllers.delete(controller);}
     }
     if (op === 'start') {
       const c=containers.get(args.at(-1)); c.State={Running:true,Status:'running',ExitCode:0};
-      const probe={diagnostic:flags.diagnostic ?? 'ready',node:linuxCodexProfile.node,platform:'linux',arch:'x64',guest:true,version:flags.tool ?? (agent==='gemini'?linuxGeminiProfile.gemini:agent==='claude'?linuxClaudeProfile.claude:linuxCodexProfile.codex),login:flags.login ?? true};
+      const probe={verificationSupervisor:flags.verificationSupervisor??true,network:[...(agent==='codex'?['chatgpt.com','auth.openai.com']:agent==='claude'?['api.anthropic.com']:['generativelanguage.googleapis.com']),...(c.env.includes('NIBFIN_NODE_WORKLOAD=1')?['registry.npmjs.org']:[])].map(hostname=>({hostname,kind:'verified'})),diagnostic:flags.diagnostic ?? 'ready',node:linuxCodexProfile.node,platform:'linux',arch:'x64',guest:true,version:flags.tool ?? (agent==='gemini'?linuxGeminiProfile.gemini:agent==='claude'?linuxClaudeProfile.claude:linuxCodexProfile.codex),login:flags.login ?? true};
       let output=probe;
       if (!c.probe) {
         const mount=c.mounts.find(m=>m.includes('dst=/input,'));
@@ -107,7 +140,7 @@ export function codexFixture(role='shape', custom, agent='codex') {
     }
     throw Error('Unexpected boundary command');
   };
-  const config={root,image,socket:'/run/user/1000/docker.sock',environment,instanceId:'instance-0',
+  const config={root,image,egress:{image},socket:'/run/user/1000/docker.sock',environment,instanceId:'instance-0',
     process:processBoundary,timeout:1000,task:()=>({prompt:'SYNTHETIC task; hostile repo $(touch /escape); no credentials',inputs})};
   const backend=(agent==='gemini'?createLinuxGeminiBackend:agent==='claude'?createLinuxClaudeBackend:createLinuxCodexBackend)(config);
   const life=createAgentLifecycle({environment,instanceId:'instance-0',backend,current:()=>structuredClone(current)});

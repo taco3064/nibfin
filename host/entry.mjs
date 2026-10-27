@@ -34,7 +34,8 @@ export function validateHostOptions(options, mode) {
  */
 export function configure({core,mode,context,deployment}={}) {
   try {
-    fields(deployment,['options','capabilities'],['identity','custody']);
+    fields(deployment,['options','capabilities'],['identity','custody','roles']);
+    const roleHost=deployment.roles ? (need(['execute','compute'].includes(mode) && typeof core?.createProtectedRoleHost==='function'),core.createProtectedRoleHost(deployment.roles)) : null;
     const options=validateHostOptions(deployment.options,mode), capabilities=deployment.capabilities;
     need(typeof core?.createWorkflowEntry==='function' && typeof core?.createCore==='function'
       && typeof core?.createEventRelay==='function' && typeof core?.createRegistrationHost==='function');
@@ -85,7 +86,7 @@ export function configure({core,mode,context,deployment}={}) {
         // Core itself validates each owner, authority, dependency and queued decision.
         need(result.config?.selector && typeof result.config.selector.select==='function');
         const select=result.config.selector.select.bind(result.config.selector);
-        return {...result,config:{...result.config,selector:{select:async (input,settings)=>{
+        return {...result,config:{...result.config,...(roleHost?{owners:roleHost.owners(result.config.owners)}:{}),selector:{select:async (input,settings)=>{
           need(input.conditions?.groupId===options.groupId);
           return select(input,settings);
         }}}};

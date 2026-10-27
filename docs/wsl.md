@@ -198,3 +198,8 @@ model and host combinations remain Unverified.
 Official interfaces: [WSL commands](https://learn.microsoft.com/en-us/windows/wsl/basic-commands),
 [WSL configuration](https://learn.microsoft.com/en-us/windows/wsl/wsl-config), and
 [Windows/Linux filesystems](https://learn.microsoft.com/en-us/windows/wsl/filesystems).
+
+The maintained guest selects Codex, Claude or Gemini from its protected environment
+profile and shares the Linux transport's internal-network gateway. See
+[protected role host](role-host.md) for migration and verification ownership.
+Native Windows/WSL and real-model execution remain Unverified.

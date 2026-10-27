@@ -91,14 +91,15 @@ export function createWindowsWslBackend(config) {
   p.cwd=windowsLocalPath(p.cwd); p.wsl=windowsLocalPath(p.wsl);
   if (p.wsl!=='C:\\Windows\\System32\\wsl.exe' || !Array.isArray(p.files) || p.files.length!==2
       || !same(p.files.map(f=>f.path),[p.cwd,p.wsl]) || p.files.some(f=>!token(f.identity))) fail('host-files');
-  if (Object.keys(l).some(k=>!['root','image','socket','environment','instanceId','timeout','task'].includes(k))
+  if (Object.keys(l).some(k=>!['root','image','socket','environment','instanceId','timeout','task','egress','recovery','deadlineAt','reserveMs'].includes(k))
       || typeof l.task!=='function' || !guestPath(l.root) || l.socket!==`/run/user/${p.uid}/docker.sock`
       || [p.node,p.bridge].some(path=>path===l.root || path.startsWith(l.root+'/'))) fail('linux-configuration');
   const environment=createAgentEnvironments().describe(l.environment), instance=environment.instances.find(i=>i.id===l.instanceId);
-  if (!instance || environment.agent!=='codex') fail('environment');
+  if (!instance || !['codex','claude','gemini'].includes(environment.agent)) fail('environment');
   const resources=[environment.loginSpace,...environment.instances.flatMap(i=>[i.workspace,i.registration,i.service])];
   if (resources.some(r=>!guestPath(r) || !r.startsWith(l.root+'/'))) fail('guest-resources');
   const owned=[instance.workspace,instance.registration,instance.service];
+  const verificationRefs=new Map();let verificationBusy=false;
   let client=null, initialized=false, uncertain=false, retired=false, diagnostic='not-checked', hostPins=null;
   const executions=new Map();
   const unavailable=()=>({login:'unavailable',tool:'unavailable',isolation:'unsupported',read:'unsupported',write:'unsupported',
@@ -123,10 +124,36 @@ export function createWindowsWslBackend(config) {
   async function rpc(op,value) {
     if (!client || uncertain) fail('transport-unresolved');
     try {
-      const result=await client.request(op,copy(value),op==='readiness'?60000:30000);
+      const result=await client.request(op,copy(value),op==='readiness'?60000:['verificationCommand','prepareNode','nodeCommand'].includes(op)?Math.max(1,(l.deadlineAt??Date.now()+30000)-Date.now()):30000);
       if (Buffer.byteLength(JSON.stringify(result))>limit) throw Error();
       return result;
     } catch {uncertain=true;diagnostic='transport-unresolved';throw Error('wsl:transport-unresolved');}
+  }
+  async function retained(op,value,retain,signal) {
+    if(verificationBusy)return {status:'busy'};
+    if(typeof retain!=='function'||!executions.has(value.execution)||uncertain)fail('verification-unresolved');
+    if(signal?.aborted)return {status:'cancelled'};
+    verificationBusy=true;
+    const abort=()=>{rpc('stop',executions.get(value.execution)).catch(()=>{});};
+    signal?.addEventListener('abort',abort,{once:true});
+    try {
+      const envelope=await rpc(op,value);
+      if(!envelope||!Array.isArray(envelope.payloads))fail('verification-response');
+      for(const payload of envelope.payloads) {
+        if(typeof payload.reference!=='string'||payload.record?.execution!==value.execution||typeof payload.log!=='string')fail('verification-response');
+        const ref=await retain({record:payload.record,log:payload.log});if(typeof ref!=='string'||!ref)fail('retention');
+        verificationRefs.set(payload.reference,ref);
+      }
+      const project=v=>{
+        if(v&&typeof v==='object')for(const [k,item]of Object.entries(v)) {
+          if(k==='logReference') {if(!verificationRefs.has(item))fail('retention');v[k]=verificationRefs.get(item);}
+          else project(item);
+        }return v;
+      };
+      if(signal?.aborted)return {status:'cancelled'};
+      return project(envelope.result);
+    }catch{uncertain=true;fail('verification-unresolved');}
+    finally{verificationBusy=false;signal?.removeEventListener('abort',abort);}
   }
   function query(v) {
     const old=executions.get(v.execution);
@@ -164,6 +191,20 @@ export function createWindowsWslBackend(config) {
       try {task=l.task(copy(v.executionIdentity));} catch {fail('task');}
       executions.set(v.execution,copy({environment:v.environment,agent:v.agent,instance:v.instance,execution:v.execution,request:v.request}));
       return rpc('start',{input:v,task});
+    },
+    async verificationCommand(execution,command,retain,{reuse=false,signal}={}) {
+      return retained('verificationCommand',{execution,command,reuse},retain,signal);
+    },
+    async prepareNode(execution,options,retain,{signal}={}) {
+      const p=await retained('prepareNode',{execution,project:options.project??'.'},retain,signal);
+      if(p.status!=='prepared')return Object.freeze(p);
+      return Object.freeze({...p,command:(command,{reuse=false,signal}={})=>
+        retained('nodeCommand',{execution,id:p.id,command,reuse},retain,signal)});
+    },
+    verificationRoot:()=>instance.service+'/verification',
+    async verificationProcess(execution,command) {
+      if(!executions.has(execution)||uncertain)fail('verification-unresolved');
+      await host();return rpc('verificationProcess',{execution,command});
     },
     async collect(v) {query(v);return rpc('collect',v);},
     async stop(v) {query(v);return rpc('stop',v);},

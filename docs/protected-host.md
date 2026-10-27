@@ -200,3 +200,9 @@ in this mode. Approved deployment source may export a mode-keyed `custody` objec
 See [durable host custody](custody-host.md) and `host/custody.example.mjs` for
 provider/runtime prerequisites, original-request expectations, first-attempt
 permission and read-only recovery. Events cannot supply executable custody options.
+
+The maintained [role host](role-host.md) can now be supplied through the reviewed
+`roles` executable binding for execute/compute. It binds existing Core role owners
+to authenticated profiles, lifecycle, enforced network transport and bounded
+verification. Existing capability-only composition remains available; it does not
+by itself establish that a deployment supplied the new runtime obligations.

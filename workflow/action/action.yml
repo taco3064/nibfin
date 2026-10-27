@@ -49,7 +49,7 @@ runs:
       working-directory: ${{ github.action_path }}/../..
       run: npm ci --omit=dev --ignore-scripts --no-audit --no-fund
     - shell: bash
-      working-directory: ${{ github.workspace }}/nibfin-host
+      working-directory: ${{ github.workspace }}/nibfin-host/host
       run: npm ci --ignore-scripts --no-audit --no-fund
     - id: entry
       shell: bash
@@ -61,6 +61,10 @@ runs:
         NIBFIN_HOST_TOKEN: ${{ inputs.host_token }}
         NIBFIN_BUNDLE_COMMIT: ${{ inputs.bundle_commit }}
         NIBFIN_HOST_COMMIT: ${{ inputs.host_commit }}
+        NIBFIN_HOST_OPTIONS: ${{ vars.NIBFIN_HOST_OPTIONS }}
+        NIBFIN_HOST_CAPABILITY_SOURCE: ${{ vars.NIBFIN_HOST_CAPABILITY_SOURCE }}
+        NIBFIN_SOURCE_APPROVALS: ${{ vars.NIBFIN_SOURCE_APPROVALS }}
+        NIBFIN_HOST_REPOSITORY: ${{ vars.NIBFIN_HOST_REPOSITORY }}
         NIBFIN_HOST_ROOT: ${{ github.workspace }}/nibfin-host
         NIBFIN_ENTRY: ${{ github.action_path }}/../../src/workflow-entry.mjs
       run: node "$NIBFIN_ENTRY"

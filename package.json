@@ -5,7 +5,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.mjs"
+    ".": "./src/index.mjs",
+    "./protected-host": "./host/entry.mjs"
   },
   "engines": {
     "node": ">=22 <23",
@@ -105,7 +106,14 @@
     "workflow/templates/nibfin-register.yml",
     "src/release.mjs",
     "docs/releases.md",
-    "src/archive.mjs"
+    "src/archive.mjs",
+    "src/host-source.mjs",
+    "docs/protected-host.md",
+    "host/entry.mjs",
+    "host/package.json",
+    "host/package-lock.json",
+    "host/configuration.schema.json",
+    "host/configuration.example.json"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",
@@ -113,7 +121,8 @@
     "test:artifact-sdk": "node --test test-sdk/*.test.mjs",
     "test:workflows": "node --test test/workflows.test.mjs",
     "prepare:release": "node tooling/release.mjs",
-    "verify:release": "node tooling/release.mjs --verify"
+    "verify:release": "node tooling/release.mjs --verify",
+    "test:host": "node --test test/protected-host.test.mjs"
   },
   "dependencies": {
     "jose": "6.2.13"

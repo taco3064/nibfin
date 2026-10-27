@@ -716,3 +716,30 @@ see [Claude adapter](claude.md) for the explicit API-key selection, fixed CLI an
 Linux prerequisites, process contract, and unrun native/model evidence.
 
 See [workflow bundle v1](workflows.md) for `workflowInstallation`, shipped YAML/entry inventory, protected host capabilities and source/installed-consumer proof.
+
+## PR-scoped staged CI
+
+The `Core package` workflow keeps the required `core` check. On pull requests,
+`tooling/ci-tests.mjs` compares the exact PR base/head merge-base diff, checks
+changed module syntax, then runs changed suites and transitive module/fixture
+consumers. Public barrel exports are mapped to their defining modules; namespace
+and dynamic consumers are included conservatively. The Action summary lists the
+selected suites and SDK/archive/website decisions. Invalid or unavailable Git
+comparison fails the job; an empty diff uses full verification.
+
+An unrelated root suite, the official artifact SDK test and installed-archive
+verification need not run on an ordinary narrow PR. Recursive package-consumer
+suites (`archive.test.mjs` and `release.test.mjs`) run for direct suite changes
+or full gates; ordinary module changes defer that integration stage to main.
+SDK consumers run when their
+dependencies change. Website-only PRs need no root suite; core-only PRs retain a
+successful `website` scope check without rebuilding the site. Documentation
+changes also exercise the website. Both workflow names and completion wakeups
+remain stable for Kairo and branch protection.
+
+Shared package settings, the public barrel, host/skill/workflow assets, shared
+tooling, removed suites/modules and unclassified or uncovered inputs select full
+verification. This is deliberately conservative rather than a promise that every
+PR is small. Main pushes and formal release verification retain the full root,
+SDK and installed-consumer gates. Scoped PR success proves the selected tests for
+that candidate; it does not replace live integration or release evidence.

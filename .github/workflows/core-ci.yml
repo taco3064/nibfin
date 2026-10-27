@@ -11,7 +11,6 @@ jobs:
     # PRs use affected suites; main retains full source and installed consumers.
     timeout-minutes: 30
     env:
-      NIBFIN_CI_PLAN: ${{ runner.temp }}/nibfin-ci-plan.json
       PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
       PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
     steps:

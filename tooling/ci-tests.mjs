@@ -95,7 +95,8 @@ function run(args) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const mode = process.argv[2], planPath = process.env.NIBFIN_CI_PLAN;
+  const mode = process.argv[2], planPath = process.env.NIBFIN_CI_PLAN ??
+    (process.env.RUNNER_TEMP && resolve(process.env.RUNNER_TEMP,'nibfin-ci-plan.json'));
   if (!planPath) throw Error('ci:missing-plan-path');
   if (mode === 'plan') {
     const event = process.env.GITHUB_EVENT_NAME;

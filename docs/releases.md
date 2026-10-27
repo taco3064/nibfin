@@ -42,8 +42,11 @@ The publishing token is passed only to the publication step after local checks. 
 not enable settings or provision credentials on the Owner's behalf.
 
 CD verifies the public repository identity, protected main branch and the source's
-associated merged PR, executes the genuine pinned artifact SDK tests, source
-regression and existing archive/installed consumer checks, then creates a draft,
+associated merged PR using REST API `2022-11-28`, whose PR response includes
+`merge_commit_sha`. API `2026-03-10` removes that provenance field and cannot be
+substituted without updating the source-verification contract.
+CD executes the genuine pinned artifact SDK tests, source regression and existing
+archive/installed consumer checks, then creates a draft,
 uploads exact assets and publishes it. Readback must confirm `immutable: true`,
 the source tag, all three asset digests and a published result. The mechanism is
 [GitHub immutable Releases](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases);

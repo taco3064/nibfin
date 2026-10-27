@@ -15,7 +15,7 @@ const reject=(mutate,code)=>{
 function subset(){
   const p=fixture();p.boundary={kind:'subset',approval:'owner:subset-review-1'};
   p.items.pop();p.coverage.pop();p.exclusions=[{requirement:'release',reason:'Approved deferred release integration owned by later entry work.'}];
-  p.handoffs=[];p.dependencies=[];p.nativeDependencies=[];return p;
+  p.sourceInputs=[];p.projects=p.projects.filter(project=>project.id==='core');p.dependencies=[];p.nativeDependencies=[];return p;
 }
 function observed(p){
   p.audit={authority:{...p.authority},issues:p.items.map(i=>({item:i.id,repository:i.repository,outcome:i.outcome,
@@ -69,8 +69,8 @@ test('malformed and omitted/conflicting coverage is actionable',()=>{
 });
 
 test('dependency endpoints, cycles, duplicates, handoffs and independent branch',()=>{
-  reject(p=>p.handoffs=[],'missing-handoff');
-  reject(p=>p.handoffs[0].contract='','handoff');
+  reject(p=>p.sourceInputs=[],'missing-handoff');
+  reject(p=>p.sourceInputs[0].interface='','source-input');
   reject(p=>p.dependencies.push({from:'core',to:'missing'}),'endpoint');
   reject(p=>p.dependencies.push({from:'core',to:'core'}),'self-edge');
   reject(p=>p.dependencies.push({from:'core',to:'entry'}),'cycle');
@@ -161,4 +161,86 @@ test('malformed availability references return diagnostics without throwing',()=
   assert.ok(!codes(p).includes('unsafe-availability')); // Valid reference still resolves.
   p.resources.shift();
   assert.equal(checkPortfolio(p).ok,true);
+});
+
+test('source consumption replaces proof handoffs while legacy v1 remains accepted',()=>{
+  const p=fixture();assert.equal(Object.hasOwn(p,'handoffs'),false);
+  assert.equal(checkPortfolio(p).ok,true);
+  const legacy=structuredClone(p);delete legacy.projects;
+  for(const item of legacy.items)delete item.project;
+  legacy.handoffs=[{producer:'core',consumer:'entry',contract:'Consume src/index.mjs at the merged producer revision.',
+    verification:'Local consumer import and rejection tests; no producer report.'}];
+  delete legacy.sourceInputs;
+  assert.equal(checkPortfolio(legacy).ok,true);
+  legacy.handoffs[0].verification='';assert.ok(codes(legacy).includes('handoff'));
+  for(const mutate of [s=>s.paths=[],s=>s.paths=['../private'],s=>s.paths=['/absolute'],
+    s=>s.revision='',s=>s.producer='missing',s=>s.interface='']) {
+    const invalid=fixture();mutate(invalid.sourceInputs[0]);
+    assert.equal(checkPortfolio(invalid).ok,false);assert.ok(codes(invalid).includes('source-input'));
+  }
+  const absent=fixture();delete absent.sourceInputs;assert.ok(codes(absent).includes('schema'));
+  const malformed=fixture();malformed.handoffs={};assert.ok(codes(malformed).includes('schema'));
+});
+
+function emptyProject() {
+  const p=fixture();
+  p.projects=[{id:'shared',baseline:'empty',bootstrap:'core'}];
+  for(const item of p.items)item.project='shared';
+  Object.assign(p.items[0],{type:'bootstrap',outcome:'Pinned package/lockfile and shared check entry points only.',
+    verification:'Local setup and negative tool/config checks; no feature, release or E2E.'});
+  for(const id of ['feature-a','feature-b']) {
+    p.items.push({...p.items[0],id,type:'implementation',outcome:`Independent source feature ${id}.`,
+      verification:'Local contract and rejection tests.'});
+    p.coverage[0].items.push(id);
+  }
+  p.dependencies=[{from:'feature-a',to:'core'},{from:'feature-b',to:'core'},{from:'entry',to:'feature-a'}];
+  p.nativeDependencies=structuredClone(p.dependencies);
+  p.sourceInputs=[{...p.sourceInputs[0],producer:'feature-a'}];
+  return p;
+}
+
+test('one empty-project bootstrap supports independent branches and transitive consumers',()=>{
+  const p=emptyProject(),before=JSON.stringify(p);
+  assert.equal(checkPortfolio(p).ok,true,JSON.stringify(checkPortfolio(p)));
+  assert.equal(JSON.stringify(p),before);
+  for(const item of p.items)if(item.type==='implementation')assert.match(item.verification,/Local/);
+  const duplicate=structuredClone(p);duplicate.items.find(i=>i.id==='feature-b').type='bootstrap';
+  assert.ok(codes(duplicate).includes('bootstrap'));
+  const orphan=structuredClone(p);orphan.dependencies=orphan.dependencies.filter(e=>e.from!=='feature-b');
+  orphan.nativeDependencies=structuredClone(orphan.dependencies);
+  assert.ok(codes(orphan).includes('bootstrap-path'));assert.equal(checkPortfolio(orphan).ok,false);
+  const missing=structuredClone(p);delete missing.projects[0].bootstrap;
+  assert.ok(codes(missing).includes('bootstrap'));
+});
+
+test('initialized baseline is reused; malformed project observations cannot prove setup',()=>{
+  assert.equal(checkPortfolio(fixture()).ok,true);
+  reject(p=>p.items[0].type='bootstrap','bootstrap');
+  reject(p=>p.projects[0].bootstrap='core','bootstrap');
+  reject(p=>p.projects[0].revision='','baseline');
+  reject(p=>p.projects[0].baseline='unknown','baseline');
+  reject(p=>p.items[0].project='absent','project');
+  reject(p=>p.projects.push({...p.projects[0]}),'duplicate');
+  reject(p=>delete p.projects,'project');
+  // Two genuinely separate empty projects each get one root, not two roots
+  // initializing the same shared project.
+  const p=emptyProject();p.items.find(i=>i.id==='entry').type='bootstrap';
+  p.items.find(i=>i.id==='entry').project='entry';
+  p.projects.push({id:'entry',baseline:'empty',bootstrap:'entry'});
+  assert.equal(checkPortfolio(p).ok,true);
+});
+
+test('bounded Investigation observes actual package source without creating formal Shape',()=>{
+  const request={mode:'Plan',question:'Can a consumer retrieve instructions without a protected Scope role?',
+    paths:['src/index.mjs','src/portfolio.mjs','instructions/scope.md'],access:'read-only package files'};
+  const portfolio=observed(fixture()),before=JSON.stringify(portfolio);
+  const observations=request.paths.map(path=>({path,text:asset(path)}));
+  assert.match(observations[0].text,/scopeInstructions/);
+  assert.match(observations[1].text,/instructions\/scope.md/);
+  const finding={question:request.question,observations:observations.map(o=>o.path),
+    uncertainty:'No actual provider, host or release was observed.',
+    implication:'Consume source/exports directly; no new protected role or dependency inferred.'};
+  assert.ok(finding.uncertainty);assert.deepEqual(protectedSkills,['shape','deliver','accept']);
+  assert.equal(checkPortfolio(portfolio).ok,true);
+  assert.equal(JSON.stringify(portfolio),before); // Source inspection and Audit preserve supplied observations.
 });

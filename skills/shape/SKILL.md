@@ -21,7 +21,8 @@ Formal Shape targets one existing original Scope Issue in its owning repository.
 Inspect actual modules, interfaces, consumers, tests, package/lockfile conventions,
 generated outputs and repository-managed hook configuration. Distinguish existing
 behavior from planned APIs; resolve retrievable engineering facts from evidence.
-Cross-repository evidence is a traceable read-only handoff, never hidden writes.
+Cross-repository inputs are the actual merged producer source/interfaces accessed
+read-only, never hidden writes or a mandatory parallel proof/handoff package.
 Do not split work, invent product priority or change native dependencies.
 
 Write the problem, observable expected behavior, exclusions, concrete acceptance
@@ -74,6 +75,11 @@ Investigation supports Scope Plan/Audit by inspecting only the requested code,
 tests, interfaces and risks within the supplied bounded question and repository
 access. Return evidence locations, observations, uncertainties and limits to
 Plan/Audit for its ownership and dependency assessment. Stop at that boundary.
+Identify the bounded question, accessible source/tests/interfaces, observations,
+uncertainty and the implication for planning. Source completion and later actual
+release/host/provider/E2E verification have separate owners and stages; do not
+require a source Issue to furnish its own future release before Merge. Preserve
+installed native predecessor-completion checks and trusted lifecycle receipts.
 Investigation cannot publish Issues, edit dependencies, approve formal Shape,
 grant execution eligibility or produce completion proof. It cannot substitute for
 formal Shape or independent validation and creates no additional protected role.

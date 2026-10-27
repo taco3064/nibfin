@@ -7,8 +7,9 @@ Owner Grant, delivery eligibility assertion or completion certificate.
 
 The retained provider-response fixtures simulate remote effects. They prove local
 request construction, gates and reconciliation, not actual GitHub publication.
-Issue #124 owns live disposable portfolio, reciprocal-edge, restart and
-lost-response observations. No live account or registered Runner is necessary
+In the source-first portfolio, E04 (#208) and E08 (#209) own the later
+applicable provider/host/release observations, including real publication and
+recovery where assigned. No live account or registered Runner is necessary
 for this module's local checks.
 
 ## Trusted caller boundary
@@ -51,7 +52,7 @@ content, not credentials or private transport payloads.
 
 ## Manifest and request schema
 
-Use the N36 manifest `{version:1, approval, plan, operations}`. `plan` contains the
+Use the publication manifest `{version:1, approval, plan, operations}`. `plan` contains the
 entire concrete approved plan; `operations` is its exact executable inventory and
 must be part of the authenticated approval. Every operation is
 `{correlation, kind, target:{repository, repositoryId}, payload}`. Coordinates
@@ -147,7 +148,8 @@ assignments return to the baseline. Missing legacy baselines require separate
 authorized reconciliation; current assignments cannot reconstruct historical
 preservation proof. Fresh authorization/disclosure and repository checks apply during recovery.
 Read-only recovery need not reject a now-protected Issue merely to observe it;
-any new mutation still requires the full current protection check.
+any new mutation still requires the full current protection check. Removing the
+scope label does not revoke a signed Grant or replace lifecycle recovery.
 
 Success is `{outcome:'verified', handoff:{version:1, kind:'raw-scope', approval,
 plan, manifest, journal, mappings, edges, observations, completed}}`.

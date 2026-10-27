@@ -18,9 +18,13 @@ export function checkPortfolio(input) {
   if (!obj(input)) return {ok:false,graph:'unknown',resources:'unknown',diagnostics:[
     {code:'schema',path:'$',reason:'Expected a portfolio object.',severity:'error',remediation:'Supply the documented JSON schema.'}]};
   const p=input;
-  for (const field of ['requirements','items','coverage','exclusions','handoffs','dependencies','nativeDependencies','resources','claims']) {
+  for (const field of ['requirements','items','coverage','exclusions','dependencies','nativeDependencies','resources','claims']) {
     if (!Array.isArray(p[field])) add('schema',field,'Expected an explicit array, including when empty.');
   }
+  if (!Array.isArray(p.handoffs) && !Array.isArray(p.sourceInputs))
+    add('schema','sourceInputs','Supply explicit sourceInputs or legacy handoffs, including when empty.');
+  for (const field of ['handoffs','sourceInputs','projects'])
+    if (p[field]!==undefined && !Array.isArray(p[field])) add('schema',field,'Expected an array when supplied.');
   if (p.version!==1) add('schema','version','Expected version 1.');
   if (!ref(p.authority)) add('authority','authority','Preserve current source and revision; references do not authenticate authority.');
   if (!obj(p.boundary) || !['whole','subset'].includes(p.boundary.kind)) add('boundary','boundary','Declare whole or subset planning.');
@@ -78,7 +82,13 @@ export function checkPortfolio(input) {
   }
   list(p.handoffs).forEach((h,i)=>{
     if (!items.has(h?.producer) || !items.has(h?.consumer) || !text(h?.contract) || !text(h?.verification))
-      add('handoff',`handoffs[${i}]`,'Name known producer/consumer, normative interface and integration proof.');
+      add('handoff',`handoffs[${i}]`,'Name known producer/consumer, source interface and a local integration test method; no separate report is required.');
+  });
+  list(p.sourceInputs).forEach((source,i)=>{
+    if (!items.has(source?.producer) || !items.has(source?.consumer) || !ref(source)
+        || !text(source?.interface) || !Array.isArray(source?.paths) || !source.paths.length
+        || source.paths.some(path=>!text(path) || path.startsWith('/') || path.split('/').includes('..')))
+      add('source-input',`sourceInputs[${i}]`,'Identify known producer/consumer, actual source revision, relative paths and consumed interface.');
   });
   const graphCoverage=p.graphCoverage;
   if (!['complete','partial'].includes(graphCoverage)) add('graph-coverage','graphCoverage','Declare complete or partial observed graph coverage.');
@@ -116,12 +126,47 @@ export function checkPortfolio(input) {
     for(const e of observed) {
       if(!items.has(e?.from)||!items.has(e?.to)||e.from===e.to)continue;
       if(reaches(e.from,e.to,edgeKey(e))) add('redundant-edge',path,'A known alternate path makes this direct blocker redundant; propose review only.');
-      if(items.get(e.from).repository!==items.get(e.to).repository && !list(p.handoffs).some(h=>h?.producer===e.to&&h?.consumer===e.from))
-        add('missing-handoff','handoffs','Cross-repository dependency requires a producer-to-consumer contract.');
+      if(items.get(e.from).repository!==items.get(e.to).repository && ![...list(p.handoffs),...list(p.sourceInputs)].some(h=>h?.producer===e.to&&h?.consumer===e.from))
+        add('missing-handoff','handoffs','Cross-repository dependency requires a source/interface reference (sourceInputs or legacy handoffs), not a proof package.');
     }
   };
   analyze(edges,'dependencies');
   analyze(list(p.nativeDependencies),'nativeDependencies');
+  // Optional v1 extension: explicit project observations, not inferred setup truth.
+  if (Array.isArray(p.projects)) {
+    const projects=unique(p.projects,'projects');
+    for (const [id,item] of items) if (!projects.has(item.project))
+      add('project',`items.${id}.project`,'Reference one declared project when projects are supplied.');
+    for (const [id,project] of projects) {
+      const path=`projects.${id}`, members=[...items.values()].filter(item=>item.project===id);
+      const bootstraps=members.filter(item=>item.type==='bootstrap');
+      if (!members.length) add('project',path,'Project has no planned work.');
+      if (!['empty','initialized'].includes(project.baseline))
+        add('baseline',path,'Declare empty or initialized; baseline truth requires source inspection.');
+      if (project.baseline==='initialized') {
+        if (!ref(project)) add('baseline',path,'Identify the existing usable baseline source and revision.');
+        if (bootstraps.length || project.bootstrap!==undefined)
+          add('bootstrap',path,'Reuse the initialized baseline without another bootstrap.');
+      }
+      if (project.baseline==='empty') {
+        const root=items.get(project.bootstrap);
+        if (bootstraps.length!==1 || root?.project!==id || root?.type!=='bootstrap') {
+          add('bootstrap',path,'An empty project needs exactly one declared minimal bootstrap.');
+          continue;
+        }
+        const reaches=(start,seen=new Set())=>{
+          if(start===root.id)return true;
+          if(seen.has(start))return false;
+          seen.add(start);
+          return edges.filter(e=>e?.from===start && items.has(e?.to)).some(e=>reaches(e.to,seen));
+        };
+        for(const item of members) if(!reaches(item.id))
+          add('bootstrap-path',`items.${item.id}`,'Every item in an empty project must depend directly or transitively on its bootstrap.');
+      }
+    }
+  } else if ([...items.values()].some(item=>item.project!==undefined || item.type==='bootstrap')) {
+    add('project','projects','Explicit project/bootstrap annotations require project declarations.');
+  }
   if(bounded)add('partial-graph','graphCoverage','Only known subgraph conclusions are possible; global acyclicity/minimality is unproven.','warning');
   let resourceStatus='observed';
   if(!list(p.resources).length){resourceStatus='unknown';add('resource-observation','resources','No resource inventory supplied.','warning');}

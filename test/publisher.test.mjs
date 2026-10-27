@@ -389,3 +389,52 @@ for (const field of ['labels','title','body','milestone','invalid-labels','inval
     }
   });
 }
+
+for(const approval of ['absent','partial','changed-authority','changed-body','revoked']) {
+  test(`${approval} exact-manifest approval cannot authorize public writes`,async t=>{
+    const f=fixture(t);
+    if(approval==='absent')delete f.manifest.approval;
+    if(approval==='partial') {
+      const subset={...f.manifest,operations:f.manifest.operations.slice(0,1)};
+      f.options.authorize=async({manifest})=>contentIdentity(manifest)===contentIdentity(subset);
+    }
+    if(approval==='changed-authority') f.manifest.plan.authorityRevision='unapproved-2';
+    if(approval==='changed-body') {
+      const p=f.manifest.operations[0].payload;
+      p.scope.body+='unapproved';p.scope.identity=contentIdentity(p.scope.body);p.request.body=p.scope.body;
+    }
+    if(approval==='revoked')f.state.allow=false;
+    const result=await f.run();assert.equal(result.outcome,'unresolved');assert.equal(f.writes.length,0);
+  });
+}
+
+test('complete multiline Unicode raw content survives without hidden markers or normalization',async t=>{
+  const f=fixture(t),body='# Raw Scope\r\n\r\n世界 🐟 e\u0301 é\n```js\nconst s = "raw";\n```\n  trailing spaces  \n';
+  const p=f.manifest.operations[0].payload;
+  p.scope={body,identity:contentIdentity(body)};p.request.body=body;f.approve();
+  const result=await f.run();assert.equal(result.outcome,'verified');
+  assert.equal(JSON.parse(f.writes[0].body).body,body);
+  assert.equal(f.issues.get('a').body,body);assert.equal(result.handoff.mappings.a.scope.body,body);
+  assert.equal((await f.run(false)).outcome,'verified');assert.equal(f.writes.length,3);
+});
+
+test('Markdown relationships cannot replace the native dependency request',async t=>{
+  const f=fixture(t);f.manifest.operations[2].payload.markdown='Blocked by person/a#1';f.approve();
+  assert.equal((await f.run()).outcome,'unresolved');assert.equal(f.writes.length,0);
+});
+
+for(const source of ['provider','authorize','protection','storage']) {
+  test(`arbitrary ${source} exception text stays out of public diagnostics`,async t=>{
+    const f=fixture(t),secret='CREDENTIAL-SENTINEL-private-provider-response';
+    const fail=()=>{throw Error(secret);};
+    if(source==='provider')f.options.provider={request:fail,collection:fail};
+    else if(source==='storage')f.options.journalIO={...fs,fsyncSync:fail};
+    else f.options[source]=fail;
+    if(source==='protection') {
+      const op=f.manifest.operations[0];op.kind='metadata';delete op.payload.creation;
+      op.payload.issue={id:'101',nodeId:'I_1',number:1};f.issues.set('a',f.issue(op,1));f.approve();
+    }
+    const result=await f.run();assert.equal(result.outcome,'unresolved');assert.equal(f.writes.length,0);
+    assert.ok(!JSON.stringify(result).includes(secret));
+  });
+}

@@ -44,19 +44,21 @@
         "lines": 800,
         "confidence": "medium",
         "basis": "Checker, safety tests, packaged instructions and reference."
-      }
+      },
+      "project": "core"
     },
     {
       "id": "entry",
       "repository": "example/entry",
-      "ownership": "Entry owns packaging integration, consuming the Core API.",
+      "ownership": "Entry owns local consumer integration; formal release and external verification have separate owners when required.",
       "outcome": "A fresh consumer retrieves instructions and validates portfolios.",
       "verification": "Install the exact archive and exercise positive/negative cases.",
       "estimate": {
         "lines": 200,
         "confidence": "medium",
         "basis": "Consumer harness and release correspondence checks."
-      }
+      },
+      "project": "entry"
     }
   ],
   "coverage": [
@@ -90,14 +92,6 @@
     }
   ],
   "exclusions": [],
-  "handoffs": [
-    {
-      "producer": "core",
-      "consumer": "entry",
-      "contract": "@example/core versioned JSON checker and English instruction retrieval.",
-      "verification": "Fresh archive installation exercises both exported functions."
-    }
-  ],
   "dependencies": [
     {
       "from": "entry",
@@ -129,5 +123,33 @@
       "status": "unknown"
     }
   ],
-  "claims": []
+  "claims": [],
+  "sourceInputs": [
+    {
+      "producer": "core",
+      "consumer": "entry",
+      "source": "example/core",
+      "revision": "merged revision selected at consumption",
+      "paths": [
+        "src/index.mjs",
+        "src/portfolio.mjs",
+        "test/portfolio.test.mjs"
+      ],
+      "interface": "scopeInstructions() and checkPortfolio() from the merged producer source; no separate proof package."
+    }
+  ],
+  "projects": [
+    {
+      "id": "core",
+      "baseline": "initialized",
+      "source": "example/core",
+      "revision": "fixture baseline (inspect before real planning)"
+    },
+    {
+      "id": "entry",
+      "baseline": "initialized",
+      "source": "example/entry",
+      "revision": "fixture baseline (inspect before real planning)"
+    }
+  ]
 }

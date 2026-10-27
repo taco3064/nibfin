@@ -15,7 +15,7 @@ test('exact-head package entry observes GET-only policy, run, attempt and job/ch
   assert.equal(r.policy.strict,true);
   assert.equal(r.evaluations.length,2);
   assert.deepEqual(r.evaluations[1].evidence[0],{runId:'31',attempt:1,jobId:'51',checkId:'41',conclusion:'success',blob:f.pin.blob});
-  assert.ok(f.calls.every(c => c.method === 'GET' && c.headers['X-GitHub-Api-Version'] === '2026-03-10'));
+  assert.ok(f.calls.every(c => c.method === 'GET' && c.headers['X-GitHub-Api-Version'] === '2022-11-28'));
   assert.equal(f.counts['/pulls/7'],2);
   assert.equal(f.counts['/actions/runs/31'],2);
   assert.equal(f.counts['/actions/runs/31/attempts/1/jobs?per_page=100'],1);

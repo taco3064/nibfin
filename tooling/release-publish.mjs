@@ -2,6 +2,7 @@ import {readFileSync,writeFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {releaseHash,releaseVersion} from '../src/release.mjs';
+import {githubApiVersion} from '../src/provider.mjs';
 import {verifyPreparedRelease} from './release.mjs';
 const repository='taco3064/nibfin',repositoryId='1427838662';
 const requireValue=(ok,reason)=>{if(!ok) throw Error('publication:'+reason);};
@@ -135,7 +136,7 @@ export function githubReleaseRequest(token) {
       || url.startsWith('https://uploads.github.com/repos/'+repository+'/releases/'),'request-origin');
     const response=await fetch(url,{method,redirect:'error',signal:AbortSignal.timeout(30000),headers:{
       // The provenance contract needs merge_commit_sha, removed in 2026-03-10.
-      Authorization:'Bearer '+token,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',
+      Authorization:'Bearer '+token,Accept:'application/vnd.github+json','X-GitHub-Api-Version':githubApiVersion,
       'Content-Type':bytes?'application/octet-stream':'application/json'},body:bytes ?? (data?JSON.stringify(data):undefined)});
     const text=await response.text();
     return {status:response.status,data:text?JSON.parse(text):null};

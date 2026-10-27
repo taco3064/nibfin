@@ -206,7 +206,7 @@ const args=process.argv.slice(2);
 if (Object.keys(process.env).some(k=>['${inherited.join("','")}'].includes(k))) process.exit(7);
 if (args[0]==='auth') {if(args.join(' ')!=='auth status --hostname github.com')process.exit(8);process.exit(0);}
 let input='';process.stdin.on('data',c=>input+=c);process.stdin.on('end',()=>{
-if(!args.includes('Accept: application/vnd.github+json')||!args.includes('X-GitHub-Api-Version: 2026-03-10'))process.exit(9);
+if(!args.includes('Accept: application/vnd.github+json')||!args.includes('X-GitHub-Api-Version: 2022-11-28'))process.exit(9);
 console.log('HTTP/2.0 200 OK\\r\\nContent-Type: application/json\\r\\n\\r\\n'+JSON.stringify({id:42,args,input}));
 });`,{mode:0o755});
     const p = createGithubProvider({transport:localGhTransport({executable}),attempts:1,authorize:() => true});

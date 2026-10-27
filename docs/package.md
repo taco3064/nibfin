@@ -251,7 +251,7 @@ No real provider, Runner or model E2E is claimed by these local checks.
 
 `createGithubProvider`, `localGhTransport`, `parseGithubJson`, `publicDiagnostic`
 and `githubApiVersion` are exported from the same inert entry. The maintained
-provider supports JSON REST on `https://api.github.com`, API `2026-03-10`, with
+provider supports JSON REST on `https://api.github.com`, API `2022-11-28`, with
 `application/vnd.github+json`. Enterprise hosts, binary transfers, GraphQL,
 encoded endpoints and arbitrary headers are unsupported. No platform or live
 provider certification follows from fixture tests. Endpoint paths begin with `/`

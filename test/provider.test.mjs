@@ -63,7 +63,18 @@ test('real repository metadata opaque IDs do not invalidate numeric GitHub ident
  const data=parseGithubJson('{"id":9007199254740993,"owner":{"id":127829492,"gravatar_id":""},"license":{"key":"mit","spdx_id":"MIT"}}');
  assert.equal(data.id,'9007199254740993');assert.equal(data.owner.id,'127829492');
  assert.equal(data.owner.gravatar_id,'');assert.equal(data.license.spdx_id,'MIT');
+ const run=parseGithubJson(JSON.stringify({id:40427623781,runner_group_id:0,check_suite_id:109573840467,
+  check_suite_node_id:'CS_kwDOVRsWxs8AAAAZgyEeUw',external_id:'48e5a7ee-5963-5ab6-8c1f-a3cfe90df5e5',
+  app:{id:15368,client_id:'Iv1.05c79e9ad1f6bdfa'},head_commit:{id:'6d9904909ca604363ef2c4f97fc59fd3e73193e7',tree_id:'3312ad32f9bab61f6b0b234597b1b2278c83782e'}}));
+ assert.equal(run.id,'40427623781');assert.equal(run.app.id,'15368');
+ assert.equal(run.runner_group_id,'0');
+ assert.equal(run.app.client_id,'Iv1.05c79e9ad1f6bdfa');assert.equal(run.check_suite_node_id,'CS_kwDOVRsWxs8AAAAZgyEeUw');
+ assert.equal(run.head_commit.id,'6d9904909ca604363ef2c4f97fc59fd3e73193e7');
+ assert.equal(run.external_id,'48e5a7ee-5963-5ab6-8c1f-a3cfe90df5e5');
  assert.throws(()=>parseGithubJson('{"owner":{"id":"01","gravatar_id":""}}'));
+ assert.throws(()=>parseGithubJson('{"check_suite_id":"01"}'));
+ assert.throws(()=>parseGithubJson('{"id":0}'));
+ assert.throws(()=>parseGithubJson('{"check_suite_node_id":"invalid!"}'));
 });
 
 test('no partial collection escapes a later failure, hostile link, cycle or page budget', async () => {

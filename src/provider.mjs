@@ -7,7 +7,7 @@ export const githubApiVersion = '2022-11-28';
 const origin = 'https://api.github.com';
 const media = 'application/vnd.github+json';
 const writes = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
-const opaqueIdFields = new Set(['gravatar_id', 'spdx_id']);
+const opaqueIdFields = new Set(['gravatar_id', 'spdx_id', 'external_id', 'client_id', 'tree_id']);
 const token = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(value);
 const id = value => typeof value === 'string' && /^[1-9][0-9]*$/.test(value);
 function endpoint(value) {
@@ -19,12 +19,17 @@ function endpoint(value) {
 }
 // Node 22's reviver source retains numeric spelling before lossy Number conversion.
 export function parseGithubJson(text) {
-  return JSON.parse(text, (key, value, context) => {
-    if (key === 'id' || (key.endsWith('_id') && key !== 'node_id' && !opaqueIdFields.has(key))) {
+  return JSON.parse(text, function (key, value, context) {
+    const nodeId = key === 'node_id' || key.endsWith('_node_id');
+    // Actions head_commit contains Git object hashes, not numeric resource IDs.
+    const commitId = key === 'id' && typeof value === 'string' && /^[a-f0-9]{40}$/.test(value)
+      && typeof this.tree_id === 'string' && /^[a-f0-9]{40}$/.test(this.tree_id);
+    if (!commitId && (key === 'id' || (key.endsWith('_id') && !nodeId && !opaqueIdFields.has(key)))) {
       if (typeof value === 'number') value = context.source;
-      if (value !== null && !id(value)) throw Error('identity');
+      // GitHub-hosted jobs use group 0 to denote no self-hosted runner group.
+      if (value !== null && !id(value) && !(key === 'runner_group_id' && value === '0')) throw Error('identity');
     }
-    if (key === 'node_id' && (typeof value !== 'string' || !/^[A-Za-z0-9_=-]{1,256}$/.test(value))) throw Error('identity');
+    if (nodeId && (typeof value !== 'string' || !/^[A-Za-z0-9_=-]{1,256}$/.test(value))) throw Error('identity');
     return value;
   });
 }

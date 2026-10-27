@@ -7,6 +7,7 @@ export const githubApiVersion = '2022-11-28';
 const origin = 'https://api.github.com';
 const media = 'application/vnd.github+json';
 const writes = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const opaqueIdFields = new Set(['gravatar_id', 'spdx_id']);
 const token = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(value);
 const id = value => typeof value === 'string' && /^[1-9][0-9]*$/.test(value);
 function endpoint(value) {
@@ -19,7 +20,7 @@ function endpoint(value) {
 // Node 22's reviver source retains numeric spelling before lossy Number conversion.
 export function parseGithubJson(text) {
   return JSON.parse(text, (key, value, context) => {
-    if (key === 'id' || (key.endsWith('_id') && key !== 'node_id')) {
+    if (key === 'id' || (key.endsWith('_id') && key !== 'node_id' && !opaqueIdFields.has(key))) {
       if (typeof value === 'number') value = context.source;
       if (value !== null && !id(value)) throw Error('identity');
     }

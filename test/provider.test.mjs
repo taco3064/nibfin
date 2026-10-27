@@ -59,6 +59,13 @@ test('complete array and envelope traversals and empty collection', async () => 
   }
 });
 
+test('real repository metadata opaque IDs do not invalidate numeric GitHub identities',()=>{
+ const data=parseGithubJson('{"id":9007199254740993,"owner":{"id":127829492,"gravatar_id":""},"license":{"key":"mit","spdx_id":"MIT"}}');
+ assert.equal(data.id,'9007199254740993');assert.equal(data.owner.id,'127829492');
+ assert.equal(data.owner.gravatar_id,'');assert.equal(data.license.spdx_id,'MIT');
+ assert.throws(()=>parseGithubJson('{"owner":{"id":"01","gravatar_id":""}}'));
+});
+
 test('no partial collection escapes a later failure, hostile link, cycle or page budget', async () => {
   const link = '<https://api.github.com/repos/org/core?page=2>; rel="next"';
   for (const second of [response(403), response(200,'{'), response(200,'{}'), response(200,'[{}]')]) {

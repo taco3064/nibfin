@@ -1,4 +1,5 @@
-import {createHash, createPrivateKey, createPublicKey, sign, verify} from 'node:crypto';
+import {createHash, createPrivateKey, createPublicKey, sign} from 'node:crypto';
+import {verifyOwnerSignature} from './collaboration.mjs';
 import {githubId, repositoryCoordinates} from './index.mjs';
 
 const fail = category => { throw new TypeError(category); };
@@ -170,7 +171,7 @@ export function verifyGrant(grant, context) {
     if (typeof g.signature !== 'string' || !/^[A-Za-z0-9+/]{86}==$/.test(g.signature)) fail('signature');
     const sig = Buffer.from(g.signature, 'base64');
     if (sig.length !== 64 || sig.toString('base64') !== g.signature
-        || !verify(null, bytes({keyId: g.keyId, payload: g.payload}), key, sig)) fail('signature');
+        || !verifyOwnerSignature(bytes({keyId: g.keyId, payload: g.payload}), sig, c.trustedKeys.get(g.keyId))) fail('signature');
     const p = g.payload;
     if (!Number.isSafeInteger(c.now) || c.now < p.validFrom || c.now >= p.expiresAt) fail('time');
     object(c.revocation, 'revocation');

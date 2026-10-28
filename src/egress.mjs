@@ -1,3 +1,6 @@
+import {assertContainerConfiguration} from './docker-security.mjs';
+import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
 import {randomUUID} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {validateEndpoints} from './egress-gateway.mjs';
@@ -20,7 +23,9 @@ export function createContainerEgress({command,image,profile,node=false}={}) {
   const endpoints=validateEndpoints([...new Set([...endpointProfiles[profile],...(node?endpointProfiles['dependency-download']:[])])]);
   const network='nibfin-net-'+randomUUID(), gateway='nibfin-gateway-'+randomUUID();
   let reserved=false,created=false,ready=false,unresolved=false,closed=false;
+  let gatewayArguments;const roles=new Map();
   const entry=fileURLToPath(new URL('./egress-gateway.mjs',import.meta.url));
+  const sourceDigest=createHash('sha256').update(readFileSync(entry)).digest('hex');
   const environment=Object.freeze({HTTP_PROXY:'http://nibfin-egress:8080',HTTPS_PROXY:'http://nibfin-egress:8080',
     http_proxy:'http://nibfin-egress:8080',https_proxy:'http://nibfin-egress:8080',NO_PROXY:'',no_proxy:''});
   async function checked(args) {const r=await command(args);if(!r.ok)fail('process');return r.output;}
@@ -28,26 +33,42 @@ export function createContainerEgress({command,image,profile,node=false}={}) {
     const [n]=JSON.parse(await checked(['network','inspect',network]));
     if(n.Name!==network||n.Internal!==true||n.Driver!=='bridge'||n.EnableIPv6!==false
       ||n.Options?.['com.docker.network.bridge.gateway_mode_ipv4']!=='isolated'||n.Labels?.['nibfin.egress']!==network)fail('network');
+    if(createHash('sha256').update(readFileSync(entry)).digest('hex')!==sourceDigest)fail('source-changed');
     const [g]=JSON.parse(await checked(['inspect',gateway]));
     if(g.Name!=='/'+gateway||g.Image!==image||g.Config?.Labels?.['nibfin.egress']!==network||g.State?.Running!==true
         ||g.HostConfig?.Privileged!==false||g.HostConfig?.ReadonlyRootfs!==true
         ||Object.keys(g.NetworkSettings?.Networks??{}).sort().join(',')!==['bridge',network].sort().join(','))fail('gateway');
+    assertContainerConfiguration(g,gatewayArguments);
+    if(JSON.stringify(g.Config.Cmd)!==JSON.stringify(['/gateway.mjs']))fail('gateway-command');
+    const attachment=g.NetworkSettings.Networks[network],member=n.Containers?.[g.Id];
+    if(!g.Id||!attachment?.Aliases?.includes('nibfin-egress')||!attachment?.IPAddress||!member||member.Name!==gateway||member.IPv4Address?.split('/')[0]!==attachment.IPAddress)fail('proxy-membership');
+    for(const [id,member] of Object.entries(n.Containers??{})) {
+      if(id===g.Id)continue;
+      const role=roles.get(id);
+      if(!role||role.name!==member.Name||role.address&&member.IPv4Address?.split('/')[0]!==role.address)fail('unexpected-network-member');
+    }
+    const digest=await checked(['exec',gateway,'/usr/local/bin/node','-e',"process.stdout.write(require('node:crypto').createHash('sha256').update(require('node:fs').readFileSync('/gateway.mjs')).digest('hex'))"]);
+    if(digest!==sourceDigest)fail('proxy-source');
   }
   return Object.freeze({network,environment,
     async ensure() {
       if(closed)fail('retired');if(ready){await inspect();return;}if(reserved)fail('unresolved');reserved=true;
       try {
         created=true;await checked(['network','create','--internal','--driver','bridge','--ipv6=false','--opt','com.docker.network.bridge.gateway_mode_ipv4=isolated','--label',`nibfin.egress=${network}`,network]);
-        await checked(['create','--name',gateway,'--label',`nibfin.egress=${network}`,'--pull','never','--read-only',
+        gatewayArguments=['create','--name',gateway,'--label',`nibfin.egress=${network}`,'--pull','never','--read-only',
           '--cap-drop','ALL','--security-opt','no-new-privileges','--pids-limit','32','--memory','128m',
-          '--network','bridge','--log-driver','none','--env',`NIBFIN_ENDPOINTS=${JSON.stringify(endpoints)}`,
+          '--cpus','1','--user','0:0','--network','bridge','--log-driver','none','--env','PATH=/usr/local/bin:/usr/bin:/bin','--env',`NIBFIN_ENDPOINTS=${JSON.stringify(endpoints)}`,
           '--mount',`type=bind,src=${entry},dst=/gateway.mjs,readonly,bind-recursive=disabled`,
-          '--entrypoint','/usr/local/bin/node',image,'/gateway.mjs']);
+          '--entrypoint','/usr/local/bin/node',image,'/gateway.mjs'];
+        await checked(gatewayArguments);
         await checked(['network','connect','--alias','nibfin-egress',network,gateway]);
         await checked(['start',gateway]);await inspect();ready=true;
       }catch{unresolved=true;fail('enforcement-unavailable');}
     },
     async verifyRole(container) {
+      const name=container.Name?.slice(1),attachment=container.NetworkSettings?.Networks?.[network];
+      if(!container.Id||container.Config?.Labels?.['nibfin.execution']!==name||container.State?.Running&&!attachment?.IPAddress)fail('role-membership');
+      roles.set(container.Id,{name,address:attachment?.IPAddress||null});
       await inspect();
       if(Object.keys(container.NetworkSettings?.Networks??{}).join(',')!==network
           ||container.HostConfig?.NetworkMode!==network

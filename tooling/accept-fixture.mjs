@@ -1,3 +1,4 @@
+import {dockerObservation} from './docker-observation-fixture.mjs';
 // Credential-free local contracts only, never live model or native isolation proof.
 import {execFileSync,spawnSync} from 'node:child_process';
 import {mkdtempSync,writeFileSync,readFileSync,rmSync,chmodSync,unlinkSync} from 'node:fs';
@@ -33,8 +34,13 @@ export async function acceptFixture({empty=false,ownership='personal',child=fals
   const observation={hooks:hooks.map(v=>({...v,evidenceReference:'fixture',applicability:'required',prerequisites:[]})),
     areas:hookConfigurationAreas.map(area=>({area,status:'resolved',evidenceReference:'fixture',detail:'inspected'}))};
   const events=[], records=[], expected=new Map(), lives=[];
+  const hookCommands=[];
   const runner=createHookRunner({image,socket:'/run/user/1000/docker.sock',process:async c=>{
-    if(c.args[2]==='info')return {outcome:'success',output:JSON.stringify({ServerVersion:'28.5.1',OSType:'linux',Architecture:'x86_64',SecurityOptions:['name=rootless']})};
+    hookCommands.push(c);
+    if(c.args[2]==='image')return {outcome:'success',output:JSON.stringify([{Id:image,Os:'linux',Architecture:'amd64',Config:{Env:['PATH=/usr/bin:/bin']}}])};
+    if(c.args[2]==='inspect'){const launched=hookCommands.find(v=>v.args[2]==='run'&&v.args.includes(c.args[3])),observed=dockerObservation(launched.args.slice(2),image);return {outcome:'success',output:JSON.stringify([{...observed,Name:'/'+c.args[3],Image:image,Config:{...observed.Config,Labels:{'nibfin.hook':c.args[3]}}}])};}
+    if(c.args[2]==='container')return {outcome:'success',output:''};
+    if(c.args[2]==='info')return {outcome:'success',output:JSON.stringify({ServerVersion:'28.5.1',OSType:'linux',Architecture:'x86_64',CgroupVersion:'2',CgroupDriver:'systemd',MemoryLimit:true,PidsLimit:true,CpuCfsPeriod:true,CpuCfsQuota:true,SecurityOptions:['name=rootless','name=seccomp,profile=builtin']})};
     if(c.args[2]==='rm')return {outcome:'success'};
     const mount=c.args[c.args.indexOf('--mount')+1], job=mount.slice('type=bind,src='.length).split(',dst=')[0];
     const args=c.args.slice(c.args.indexOf(image)+1).map(v=>v.replaceAll('/job/',job+'/'));

@@ -91,7 +91,7 @@ export function createWindowsWslBackend(config) {
   p.cwd=windowsLocalPath(p.cwd); p.wsl=windowsLocalPath(p.wsl);
   if (p.wsl!=='C:\\Windows\\System32\\wsl.exe' || !Array.isArray(p.files) || p.files.length!==2
       || !same(p.files.map(f=>f.path),[p.cwd,p.wsl]) || p.files.some(f=>!token(f.identity))) fail('host-files');
-  if (Object.keys(l).some(k=>!['root','image','socket','environment','instanceId','timeout','task','egress','recovery','deadlineAt','reserveMs'].includes(k))
+  if (Object.keys(l).some(k=>!['root','image','socket','environment','instanceId','timeout','task','egress','recovery','deadlineAt','reserveMs','githubRead'].includes(k))
       || typeof l.task!=='function' || !guestPath(l.root) || l.socket!==`/run/user/${p.uid}/docker.sock`
       || [p.node,p.bridge].some(path=>path===l.root || path.startsWith(l.root+'/'))) fail('linux-configuration');
   const environment=createAgentEnvironments().describe(l.environment), instance=environment.instances.find(i=>i.id===l.instanceId);
@@ -99,7 +99,7 @@ export function createWindowsWslBackend(config) {
   const resources=[environment.loginSpace,...environment.instances.flatMap(i=>[i.workspace,i.registration,i.service])];
   if (resources.some(r=>!guestPath(r) || !r.startsWith(l.root+'/'))) fail('guest-resources');
   const owned=[instance.workspace,instance.registration,instance.service];
-  const verificationRefs=new Map();let verificationBusy=false;
+  const verificationRefs=new Map(),verificationRetainers=new Map();let verificationBusy=false;
   let client=null, initialized=false, uncertain=false, retired=false, diagnostic='not-checked', hostPins=null;
   const executions=new Map();
   const unavailable=()=>({login:'unavailable',tool:'unavailable',isolation:'unsupported',read:'unsupported',write:'unsupported',
@@ -133,7 +133,7 @@ export function createWindowsWslBackend(config) {
     if(verificationBusy)return {status:'busy'};
     if(typeof retain!=='function'||!executions.has(value.execution)||uncertain)fail('verification-unresolved');
     if(signal?.aborted)return {status:'cancelled'};
-    verificationBusy=true;
+    verificationRetainers.set(value.execution,retain);verificationBusy=true;
     const abort=()=>{rpc('stop',executions.get(value.execution)).catch(()=>{});};
     signal?.addEventListener('abort',abort,{once:true});
     try {
@@ -206,6 +206,10 @@ export function createWindowsWslBackend(config) {
       return Object.freeze({...p,command:(command,{reuse=false,signal}={})=>
         retained('nodeCommand',{execution,id:p.id,command,reuse},retain,signal)});
     },
+    async validateVerificationEvidence(execution,evidence) {return rpc('validateVerificationEvidence',{execution,evidence});},
+    async verificationEvidence(execution) {await host();return rpc('verificationEvidence',{execution});},
+    async acknowledgeVerification(identities) {return rpc('acknowledgeVerification',{identities});},
+    async assertCandidate(execution) {if(!executions.has(execution)||uncertain)fail('candidate-unresolved');await host();return rpc('assertCandidate',{execution});},
     verificationRoot:()=>instance.service+'/verification',
     async verificationProcess(execution,command) {
       if(!executions.has(execution)||uncertain)fail('verification-unresolved');
@@ -219,7 +223,16 @@ export function createWindowsWslBackend(config) {
       if (retired) return {status:'completed',residuals:[]};
       if (uncertain) return {status:'unresolved',residuals:owned};
       try {
-        await host();const result=await rpc('cleanup',v);
+        await host();
+        for(const [execution,retain] of verificationRetainers) {
+          const records=await rpc('verificationEvidence',{execution});
+          if(!Array.isArray(records))fail('verification-response');
+          const identities=[];
+          for(const {identity,payload} of records){const reference=await retain(payload);if(typeof reference!=='string'||!reference)fail('retention');
+            if(!same(await rpc('validateVerificationEvidence',{execution,evidence:{reference}}),{status:'verified'}))fail('verification-response');identities.push(identity);}
+          await rpc('acknowledgeVerification',{identities});
+        }
+        const result=await rpc('cleanup',v);
         if (same(result,{status:'completed',residuals:[]})) {retired=true;try {client.close();} catch { /* Guest removal is already verified. */ }}
         return result;
       } catch {return {status:'unresolved',residuals:owned};}

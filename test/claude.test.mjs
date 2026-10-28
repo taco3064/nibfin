@@ -25,7 +25,7 @@ test('AC1/3: exported inert backend, all roles and both public ownership types, 
     assert.equal((await f.life.start(f.input)).start.status,'started');
     const c=f.calls.find(c=>c.args[2]==='create' && c.args.at(-1)==='execute');
     const mounts=c.args.flatMap((v,i)=>v==='--mount'?[c.args[i+1]]:[]);
-    assert.equal(mounts.length,8);
+    assert.equal(mounts.length,14);
     assert.equal(mounts.find(m=>m.includes('dst=/work,')).endsWith(',readonly'),role!=='deliver');
     assert.ok(mounts.find(m=>m.includes('dst=/login.json,')).endsWith(',readonly'));
     assert.ok(c.args.includes('--read-only'));assert.ok(c.args.includes('no-new-privileges'));
@@ -58,10 +58,10 @@ test('AC2/3: real CLI child boundary captures args, clean env, stdin, schema and
       assert.equal(value('--system-prompt-file'),'/input/instructions.md');
       assert.equal(value('--json-schema'),schema);assert.equal(value('--output-format'),'json');
       assert.equal(value('--tools'),role==='deliver'?'Read,Glob,Grep,Edit,Write,Bash':'Read,Glob,Grep');
-      assert.equal(value('--allowedTools'),value('--tools'));assert.equal(value('--permission-mode'),'dontAsk');
+      assert.equal(value('--allowedTools'),role==='deliver'?value('--tools'):'Read,Glob,Grep,mcp__nibfin__verify,mcp__nibfin__github_read');assert.equal(value('--permission-mode'),'dontAsk');
       assert.equal(value('--setting-sources'),'');assert.deepEqual(JSON.parse(value('--settings')),{disableAllHooks:true});
-      assert.ok(c.args.includes('--strict-mcp-config'));assert.equal(value('--disallowedTools'),'mcp__*');
-      assert.deepEqual(JSON.parse(value('--mcp-config')),{mcpServers:{}});
+      assert.ok(c.args.includes('--strict-mcp-config'));assert.equal(value('--disallowedTools'),role==='deliver'?'mcp__*':'Edit,Write,Bash');
+      const servers=JSON.parse(value('--mcp-config')).mcpServers;assert.deepEqual(Object.keys(servers),role==='deliver'?[]:['nibfin']);if(role!=='deliver')assert.equal(servers.nibfin.args[0],'/readonly-tools.mjs');
       assert.ok(c.args.includes('--no-session-persistence'));
       for(const flag of ['--resume','--continue','--dangerously-skip-permissions'])assert.ok(!c.args.includes(flag));
       sessions.add(value('--session-id'));

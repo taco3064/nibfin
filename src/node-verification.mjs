@@ -1,7 +1,8 @@
-import {lstatSync,realpathSync,readlinkSync,readdirSync,readFileSync,writeFileSync,mkdirSync,mkdtempSync,chmodSync,openSync,fstatSync,closeSync,constants} from 'node:fs';
+// Adapted from Kairo d1b47d5e073cf15bdcdc1fbbec098401649878d9 verification-prepare; stronger Nibfin input/cache guards retained.
+import {lstatSync,realpathSync,readlinkSync,readdirSync,readFileSync,writeFileSync,mkdirSync,mkdtempSync,chmodSync,openSync,fstatSync,closeSync,constants,existsSync} from 'node:fs';
 import {join,resolve,relative,dirname,sep} from 'node:path';
 import {createHash} from 'node:crypto';
-import {canonicalJSON,bodyDigest} from './grants.mjs';
+import {canonicalJSON,bodyDigest} from './canonical.mjs';
 const fail = code => {throw Error(`node-verification:${code}`);};
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 function readSafe(path) {
@@ -54,6 +55,30 @@ function nodeInputIdentity(root,prepared) {
   walk(root);
   return Object.freeze({identity:bodyDigest(canonicalJSON(files)),files:Object.freeze(files)});
 }
+/** Revalidate a CLI command's prepared cwd; manifest is outside writable source.
+ * Hash current installed inputs and cache, never inherit a previous pass. */
+export function preparedCommandInputs(cwd,{pathMappings=[]}={}) {
+  if(!Array.isArray(pathMappings)||pathMappings.some(m=>!m||Object.keys(m).sort().join(' ')!=='from to'||
+    ![m.from,m.to].every(p=>typeof p==='string'&&p!=='/'&&resolve(p)===p)))fail('preparation-path-mapping');
+  const mapped=path=>{const m=pathMappings.find(m=>within(m.from,path));return m?m.to+path.slice(m.from.length):path;};
+  let cursor=resolve(cwd);
+  for(let depth=0;depth<32&&cursor!=='/';depth++,cursor=dirname(cursor)) {
+    const manifest=join(cursor,'prepared.json');
+    if(!existsSync(manifest)||!existsSync(join(cursor,'source')))continue;
+    const stored=JSON.parse(readSafe(manifest));
+    const value={...stored,source:mapped(stored.source),directory:mapped(stored.directory),cache:mapped(stored.cache)};
+    if(value.version!==1||value.directory!==join(cursor,'source')||value.cache!==join(cursor,'cache')||
+      !within(value.directory,resolve(cwd)))fail('preparation-manifest');
+    const original=nodeSourceIdentity(value.source);
+    if(original.identity!==value.sourceIdentity)fail('stale-copy');
+    for(const entry of original.files) {
+      const path=join(value.directory,entry.path);
+      if(hash(readSafe(path))!==entry.digest||(lstatSync(path).mode&0o111?'executable':'file')!==entry.mode)fail('modified-copy');
+    }
+    return {source:original.identity,copy:nodeInputIdentity(value.directory,true).identity,cache:nodeInputIdentity(value.cache,true).identity};
+  }
+  return null;
+}
 /** Explicitly prepare each required nested project by project path. No workspace discovery,
  * dependency scripts, ambient npm configuration, inherited cache or Candidate fixture writes.
  * Must run INSIDE the selected runtime's enforced dependency-download boundary.
@@ -97,7 +122,8 @@ export async function prepareNodeVerification({source,scratch,lane,project='.',
     inputs:{source:before.identity,lock:hash(readFileSync(lock)),package:hash(readFileSync(pkg))}},{signal});
   if (receipt.status !== 'passed') return Object.freeze({status:'failed',diagnostic:'dependency-preparation',receipt,
     directory:copy,cache,sourceIdentity:before.identity});
-  if (nodeSourceIdentity(source).identity !== before.identity) fail('source-changed');
+  if (nodeSourceIdentity(source).identity !== before.identity || nodeSourceIdentity(copy).identity !== before.identity) fail('source-changed');
+  writeFileSync(join(work,'prepared.json'),JSON.stringify({version:1,source,directory:copy,cache,sourceIdentity:before.identity}),{flag:'wx',mode:0o600});
   // Tests can create cwd fixtures in this writable copy. Original identity is checked on
   // every use; test-created files in the copy do not falsely invalidate original inputs.
   return Object.freeze({status:'prepared',directory:copy,cwd,cache,environment:Object.freeze(env),
@@ -106,8 +132,8 @@ export async function prepareNodeVerification({source,scratch,lane,project='.',
     async command({file,args,timeoutMs,inputs={}},{signal,reuse=false}={}) {
       const current = nodeSourceIdentity(source).identity;
       if (current !== before.identity) fail('stale-copy');
-      for(const entry of before.files)if(hash(readSafe(join(copy,entry.path)))!==entry.digest)fail('modified-copy');
-      const result=await lane.command({file,args,timeoutMs,cwd,env,inputs:{...inputs,source:current,copy:nodeInputIdentity(copy,true).identity}},{signal,reuse});
+      for(const entry of before.files)if(hash(readSafe(join(copy,entry.path)))!==entry.digest || (lstatSync(join(copy,entry.path)).mode&0o111?'executable':'file')!==entry.mode)fail('modified-copy');
+      const result=await lane.command({file,args,timeoutMs,cwd,env,inputs:{...inputs,source:current,copy:nodeInputIdentity(copy,true).identity,cache:nodeInputIdentity(cache,true).identity}},{signal,reuse});
       if(nodeSourceIdentity(source).identity!==before.identity)fail('source-changed');
       return result;
     }

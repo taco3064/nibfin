@@ -1,3 +1,5 @@
+import {existsSync,writeFileSync} from 'node:fs';
+import {containsCredentials} from './credential-output.mjs';
 // Shared trusted CLI-session owner. Standalone: mounted beside each fixed entrypoint.
 // Provider errors are inspected structurally, never matched against model prose.
 import {connect as netConnect} from 'node:net';
@@ -108,7 +110,7 @@ export function rejectSecrets(value,secrets) {
   while(pending.length) {
     if(++count>50000)fail('output');const v=pending.pop();
     if(typeof v==='string') {
-      if(secrets.some(secret=>v.includes(secret)||v.includes(JSON.stringify(secret).slice(1,-1))))fail('credential-output');
+      if(containsCredentials(v,secrets))fail('credential-output');
       // Decode nested JSON strings too, including discarded metadata and JSON-escaped sentinels.
       if(v.length<1048576 && /^[\s]*[\[{\"]/.test(v))try{const decoded=JSON.parse(v);if(decoded!==v)pending.push(decoded);}catch(e){if(e.message==='agent-session:credential-output')throw e;}
     }else if(v&&typeof v==='object')for(const[k,item]of Object.entries(v))pending.push(k,item);
@@ -150,4 +152,16 @@ export async function probeGateway(hosts,timeoutMs=10000,{connect=netConnect}={}
     results.push(result);
   }
   return results;
+}
+
+/** Adapted upstream read-only bootstrap: dependency work happens in a writable
+ * copy before the model begins; failure remains a diagnostic, never a test pass. */
+export function prepareReadonlyVerification(request,run=spawnSync,{exists=existsSync,write=writeFileSync}={}) {
+  if(request.access!=='read'||!exists('/work/package.json'))return request;
+  const log='/verification/node-preparation.log';
+  const response=run('/usr/local/bin/node',['/verification-runner.mjs','--','node','/verification-prepare.mjs','/work','/tmp'],
+    {cwd:'/work',env:{PATH:'/usr/local/bin:/usr/bin:/bin',HOME:'/tmp/home'},encoding:'utf8',
+      timeout:Math.max(1,(request.verificationPolicy?.budget?.stopVerificationAt??Date.now())-Date.now()+3000),killSignal:'SIGTERM',maxBuffer:16777216});
+  write(log,String(response.stdout??'')+String(response.stderr??''),{mode:0o600});
+  return {...request,prompt:request.prompt+'\nRead-only Node bootstrap attempted dependency preparation before this model started. Inspect /verification/node-preparation.log and its command receipt; reuse its prepared directory only while source is unchanged. Failure is not a test result and must be diagnosed.'};
 }

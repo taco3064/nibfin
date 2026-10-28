@@ -1,3 +1,4 @@
+import {prepareReadonlyVerification} from './agent-session.mjs';
 import {probeVerificationSupervisor} from './verification-child.mjs';
 // Fixed container entrypoint. No repository code is loaded by this module.
 import {probeGateway,executeSession,codexEvents,capacityError} from './agent-session.mjs';
@@ -48,7 +49,7 @@ try {
       verificationSupervisor:probeVerificationSupervisor(),network:await probeGateway([...["chatgpt.com", "auth.openai.com"],...(process.env.NIBFIN_NODE_WORKLOAD==='1'?['registry.npmjs.org']:[])]),
       version:version.status === 0 ? version.stdout.trim() : null, login:login.status === 0}));
   } else {
-    const request = JSON.parse(readCodexFile('/input/request.json'));
+    const request = prepareReadonlyVerification(JSON.parse(readCodexFile('/input/request.json')));
     const auth=JSON.parse(readCodexFile('/tmp/home/.codex/auth.json'));
     const secrets=Object.values(auth.tokens??{}).filter(v=>typeof v==='string'&&v);
     const result=executeCodex(request,secrets);

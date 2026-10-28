@@ -1,3 +1,4 @@
+import {redactCredentials} from './credential-output.mjs';
 import {runVerificationChild} from './verification-child.mjs';
 import {randomUUID} from 'node:crypto';
 import {canonicalJSON, bodyDigest} from './grants.mjs';
@@ -19,13 +20,8 @@ export function createRoleBudget({deadlineAt, reserveMs = 300000, now = Date.now
 }
 /** Sanitization is performed before evidence leaves this owner, including discarded logs. */
 export function redactRuntimeText(text, secrets = []) {
-  let result = String(text);
-  for (const secret of secrets) {
-    if (typeof secret !== 'string' || !secret) fail('secret');
-    const forms = [secret, JSON.stringify(secret).slice(1,-1), encodeURIComponent(secret),
-      Buffer.from(secret).toString('base64'), Buffer.from(secret).toString('hex')];
-    for (const value of forms.sort((a,b)=>b.length-a.length)) result = result.split(value).join('[redacted]');
-  }
+  for(const secret of secrets)if(typeof secret!=='string'||!secret)fail('secret');
+  let result = redactCredentials(String(text),secrets);
   let decoded=result;
   for(let n=0;n<4;n++) {
     decoded=decoded.replace(/\\+u([a-f0-9]{4})/gi,(_,h)=>String.fromCharCode(parseInt(h,16)))
@@ -36,8 +32,11 @@ export function redactRuntimeText(text, secrets = []) {
   return result;
 }
 /** Shared kernel-subreaper owner reconciles descendants across process groups. */
-export function verificationProcess({signal,maxBytes=1048576,...command}) {
-  return runVerificationChild(command,{signal,maxBytes});
+export async function verificationProcess({signal,maxBytes=1048576,...command}) {
+  const result=await runVerificationChild(command,{signal,maxBytes});
+  // Preserve the existing public process adapter failure vocabulary. The guarded
+  // CLI and container transport retain their more specific spawn_failed receipt.
+  return result.status==='spawn_failed'?{...result,status:'failed'}:result;
 }
 /** One lane per role execution. retain is the existing custody owner's protected evidence
  * capability, not a parallel store. No command may execute without durable retention.
@@ -58,7 +57,7 @@ export function createVerificationLane({execution, budget, retain, process:run =
     // Reserve synchronously, before any hashing, preparation or custody operation can yield.
     if(unresolved)return {status:'unresolved'};
     if (busy) return {status:'busy'};
-    busy = true;
+    busy = true;let retentionStarted=false;
     try {
       const v = snapshot(input);
       if (Object.keys(v).sort().join(' ') !== 'args cwd env file inputs timeoutMs'
@@ -82,7 +81,7 @@ export function createVerificationLane({execution, budget, retain, process:run =
         catch {result = {status:'unresolved',exitCode:null,signal:null,log:''};}
       }
       if(signal?.aborted&&result.status==='passed')result={...result,status:'cancelled'};
-      if (!['passed','failed','cancelled','timeout','output-limit','unresolved','budget_exhausted'].includes(result.status)
+      if (!['passed','failed','cancelled','timeout','output-limit','unresolved','spawn_failed','busy','budget_exhausted'].includes(result.status)
           || result.status === 'passed' && (result.exitCode !== 0 || result.signal))
         result = {status:'unresolved',exitCode:null,signal:null,log:''};
       if(result.status==='unresolved')unresolved=true;
@@ -91,11 +90,11 @@ export function createVerificationLane({execution, budget, retain, process:run =
       // Sensitive inputs are prohibited, not persisted with a partly redacted identity.
       const log = redactRuntimeText(result.log ?? '',secrets);
       const payload = {record:snapshot(record),log};assertSafe(payload);
-      const ref = await retain(payload);
+      retentionStarted=true;const ref = await retain(payload);
       if (!ref || typeof ref !== 'string') fail('retention');
       const receipt = {...record,logReference:ref};assertSafe(receipt);records.set(identity,receipt);
       return snapshot(receipt);
-    } finally {busy = false;}
+    } catch(error) {if(retentionStarted)unresolved=true;throw error;} finally {busy = false;}
   }
   return Object.freeze({execution,budget,command});
 }

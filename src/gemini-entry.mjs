@@ -1,3 +1,5 @@
+import {readonlyMcpServer,readonlyToolNames} from './readonly-tools.mjs';
+import {prepareReadonlyVerification} from './agent-session.mjs';
 import {probeVerificationSupervisor} from './verification-child.mjs';
 // Trusted standalone container entrypoint. Never import checkout modules.
 import {probeGateway,executeSession,capacityError,rejectSecrets} from './agent-session.mjs';
@@ -14,12 +16,17 @@ export const geminiSettings=Object.freeze({
   security:{auth:{selectedType:'gemini-api-key',enforcedType:'gemini-api-key'}},
   telemetry:{enabled:false},mcpServers:{},
 });
+export function geminiRoleSettings(access) {
+  if(!['read','write'].includes(access))throw Error('gemini:access');
+  return access==='write'?geminiSettings:{...geminiSettings,admin:{...geminiSettings.admin,mcp:{enabled:true}},
+    mcpServers:{nibfin:{...readonlyMcpServer,includeTools:readonlyToolNames,timeout:3600000}}};
+}
 export function geminiPolicy(access) {
   if(!['read','write'].includes(access))throw Error('gemini:access');
   const tools=['read_file','read_many_files','list_directory','glob','grep_search',
     ...(access==='write'?['write_file','replace','run_shell_command']:[])];
   return '[[rule]]\ntoolName = "*"\ndecision = "deny"\npriority = 900\n'+tools.map(tool=>
-    `\n[[rule]]\ntoolName = "${tool}"\ndecision = "allow"\npriority = 999\n`).join('');
+    `\n[[rule]]\ntoolName = "${tool}"\ndecision = "allow"\npriority = 999\n`).join('')+(access==='read'?readonlyToolNames.map(tool=>`\n[[rule]]\nmcpName = "nibfin"\ntoolName = "${tool}"\ndecision = "allow"\npriority = 999\n`).join(''):'');
 }
 export function readGeminiFile(path) {
   const fd=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);
@@ -101,7 +108,7 @@ export async function runGeminiEntry() {
         verificationSupervisor:probeVerificationSupervisor(),network:await probeGateway([...["generativelanguage.googleapis.com"],...(process.env.NIBFIN_NODE_WORKLOAD==='1'?['registry.npmjs.org']:[])]),
         guest:/^ID=debian$/m.test(os) && /^VERSION_ID="12"$/m.test(os)}));
     } else {
-      const request=JSON.parse(readGeminiFile('/input/request.json'));
+      const request=prepareReadonlyVerification(JSON.parse(readGeminiFile('/input/request.json')));
       const r=executeGemini(request,login.api_key);
       process.stdout.write(JSON.stringify(r.evidence??r));if(!r.evidence)process.exitCode=1;
     }

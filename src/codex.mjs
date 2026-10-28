@@ -1,8 +1,11 @@
+import {verificationBudget} from './verification-runner.mjs';
+import {authorizedRepositories} from './agent-gh-read.mjs';
 import {recoveryPolicy,rejectSecrets} from './agent-session.mjs';
 import {redactRuntimeText} from './verification.mjs';
 import {createContainerEgress,endpointProfiles} from './egress.mjs';
-import {spawn} from 'node:child_process';
-import {randomUUID} from 'node:crypto';
+import {containerProcess} from './process.mjs';
+import {dockerArguments,assertDockerInfo,assertContainerConfiguration} from './docker-security.mjs';
+import {randomUUID,createHash} from 'node:crypto';
 import {lstatSync, realpathSync, readdirSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync} from 'node:fs';
 import {resolve, join, dirname, sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -20,25 +23,7 @@ const entry = fileURLToPath(new URL('./codex-entry.mjs', import.meta.url));
 const cleanEnv = Object.freeze({PATH:'/usr/bin:/bin',LANG:'C'});
 
 /** External process boundary only. It cannot supply a readiness/permission override. */
-export function codexProcess(command) {
-  return new Promise(resolveResult => {
-    let child,chunks=[],bytes=0,settled=false,timer,failed=false;
-    const finish=value=>{if(!settled){settled=true;clearTimeout(timer);resolveResult(value);}};
-    const kill=()=>{failed=true;try{if(child?.pid)process.kill(-child.pid,'SIGKILL');}catch{child?.kill('SIGKILL');}};
-    try {
-      child=spawn(command.file,command.args,{env:command.env,cwd:'/',shell:false,detached:true,stdio:['ignore','pipe','ignore']});
-      child.stdout.on('data',data=>{bytes+=data.length;if(bytes>command.limit)kill();else chunks.push(data);});
-      child.on('error',()=>{failed=true;if(!child.pid)finish({ok:false,output:''});});
-      child.on('close',code=>{
-        // Reap the attached CLI and its process group. The owned container is
-        // independently reconciled/stopped by the backend before cleanup.
-        try{if(child.pid)process.kill(-child.pid,'SIGKILL');}catch{}
-        finish({ok:!failed&&code===0,output:!failed&&(code===0||command.failureOutput)?Buffer.concat(chunks).toString('utf8'):''});
-      });
-      timer=setTimeout(kill,command.timeout);
-    }catch{finish({ok:false,output:''});}
-  });
-}
+export async function codexProcess(command) {const {ok,output}=await containerProcess(command);return {ok,output};}
 
 /** Construction is inert. Configuration belongs to trusted Core, never model input. */
 export function createLinuxCodexBackend(config) { return createLinuxBackend(config); }
@@ -49,12 +34,21 @@ export function createLinuxBackend(config, profile = null) {
   const selectedEntry = profile?.entry ?? entry;
   const selectedProfile = profile?.identity ?? linuxCodexProfile;
   const {root, image, socket, environment:original, instanceId, process:run = codexProcess,
-    timeout = 300000, task, egress, recovery, deadlineAt = Date.now()+timeout+60000, reserveMs = 30000} = config;
-  if (Object.keys(config).some(k => !['root','image','socket','environment','instanceId','process','timeout','task','egress','recovery','deadlineAt','reserveMs'].includes(k))) fail('configuration');
+    timeout = 300000, task, egress, recovery, githubRead, deadlineAt = Date.now()+timeout+60000, reserveMs = 30000} = config;
+  if (Object.keys(config).some(k => !['root','image','socket','environment','instanceId','process','timeout','task','egress','recovery','deadlineAt','reserveMs','githubRead'].includes(k))) fail('configuration');
   if (!safePath(root) || !/^sha256:[a-f0-9]{64}$/.test(image) || !safePath(socket)
       || !/^\/run\/user\/[1-9][0-9]*\/docker.sock$/.test(socket)
       || typeof task !== 'function' || typeof run !== 'function' || !Number.isInteger(timeout) || timeout < 50 || timeout > 3600000) fail('profile');
   if(!Number.isSafeInteger(deadlineAt)||!Number.isSafeInteger(reserveMs)||reserveMs<0||reserveMs>300000)fail('deadline');
+  if(githubRead && (Object.keys(githubRead).sort().join(' ')!=='directory repositories'||!safePath(githubRead.directory)))fail('github-read');
+  const readRepositories=githubRead?authorizedRepositories(githubRead.repositories):null;
+  function brokerMounts() {
+    if(!githubRead)return [];
+    const directory=githubRead.directory;
+    if(realpathSync(directory)!==directory||!lstatSync(directory).isDirectory()||
+      readdirSync(directory).join(',')!=='read.sock'||!lstatSync(join(directory,'read.sock')).isSocket())fail('github-read');
+    return [...mount(directory,'/github-read'),...mount(fileURLToPath(new URL('./agent-gh-client.mjs',import.meta.url)),'/usr/local/bin/gh')];
+  }
   recoveryPolicy(recovery,agent,profile?.version??selectedProfile.codex);
   const environment = createAgentEnvironments().describe(original);
   const instance = environment.instances.find(i => i.id === instanceId);
@@ -63,14 +57,14 @@ export function createLinuxBackend(config, profile = null) {
   const all = [environment.loginSpace,...environment.instances.flatMap(i => [i.workspace,i.registration,i.service])];
   if (all.some(p => !safePath(p) || !within(root,p))) fail('resource-root');
   const scratch = join(instance.service,agent), verificationRoot=join(instance.service,'verification');
-  let verificationPin=null;
+  let verificationPin=null;const verificationRetained=new Set();
   const states = new Map(), containers = new Map(), pins = new Map();
   let deleting = false,workPhase=false;
   let diagnostic = 'not-checked', ready = false, retired = false;
   async function command(args, ms = 15000, limit = 1048576) {
     try {
       ms=Math.min(ms,deadlineAt-(workPhase?reserveMs:0)-Date.now());if(ms<=0)return {ok:false,output:''};
-      const response = await run(Object.freeze({file:'/usr/bin/docker',args:Object.freeze(['--host',`unix://${socket}`,...args]),
+      const response = await run(Object.freeze({file:'/usr/bin/docker',args:Object.freeze(dockerArguments(socket,args)),
         env:cleanEnv,timeout:ms,limit,...(profile?{failureOutput:true}:{})}));
       if (!response || typeof response.ok !== 'boolean' || typeof response.output !== 'string'
           || Buffer.byteLength(response.output) > limit) return {ok:false,output:''};
@@ -157,8 +151,10 @@ export function createLinuxBackend(config, profile = null) {
       '--tmpfs','/tmp:rw,nosuid,nodev,size=64m,mode=1777','--workdir','/work',
       '--env','HOME=/tmp/home','--env',`NIBFIN_NODE_WORKLOAD=${egress?.node?'1':'0'}`,...(profile?.agent === 'claude' ? ['--env','CLAUDE_CONFIG_DIR=/tmp/home/.claude'] : profile ? [] : ['--env','CODEX_HOME=/tmp/home/.codex']),
       '--env','PATH=/usr/local/bin:/usr/bin:/bin',
-      ...Object.entries(network.environment).flatMap(([key,value])=>['--env',`${key}=${value}`]),...mount(auth,profile?.authTarget ?? '/tmp/home/.codex/auth.json'),
+      ...Object.entries(network.environment).flatMap(([key,value])=>['--env',`${key}=${value}`]),...brokerMounts(),...mount(auth,profile?.authTarget ?? '/tmp/home/.codex/auth.json'),
       ...mount(selectedEntry,'/entry.mjs'),...mount(fileURLToPath(new URL('./agent-session.mjs',import.meta.url)),'/agent-session.mjs'),
+      ...mount(fileURLToPath(new URL('./credential-output.mjs',import.meta.url)),'/credential-output.mjs'),
+      ...['readonly-tools.mjs','verification-runner.mjs','verification-prepare.mjs','node-verification.mjs','canonical.mjs'].flatMap(name=>mount(fileURLToPath(new URL('./'+name,import.meta.url)),'/'+name)),
       ...mount(fileURLToPath(new URL('./verification-child.mjs',import.meta.url)),'/verification-child.mjs'),
       ...mount(fileURLToPath(new URL('./verification-supervisor.py',import.meta.url)),'/verification-supervisor.py'),
       '--entrypoint','/usr/local/bin/node'];
@@ -169,6 +165,8 @@ export function createLinuxBackend(config, profile = null) {
     const c = data[0];
     if (c.Name !== '/' + s.name || c.Config?.Labels?.['nibfin.execution'] !== s.name || c.Image !== image
         || !c.State || typeof c.State.Running !== 'boolean' || !Number.isInteger(c.State.ExitCode)) throw Error();
+    assertContainerConfiguration(c,s.arguments);
+    if(JSON.stringify(c.Config.Cmd)!==JSON.stringify([image,'/entry.mjs',s.kind==='probe'?'probe':'execute'].slice(1)))throw Error('container-command');
     await network.verifyRole(c);
     return c;
   }
@@ -192,7 +190,8 @@ export function createLinuxBackend(config, profile = null) {
   async function reserve(args, kind, record = ()=>{}) {
     const s = {name:'nibfin-'+randomUUID(), kind, absent:false, output:null, failed:false, launched:false};
     containers.set(s.name,s); record(s); // State survives a lost create response; never retry create/start.
-    const r = await command(args(s.name));
+    s.arguments=args(s.name);
+    const r = await command(s.arguments);
     if (!r.ok) { s.failed = true; return s; }
     try { await inspect(s); } catch { s.failed=true; }
     return s;
@@ -206,6 +205,26 @@ export function createLinuxBackend(config, profile = null) {
     isolation:ready?'verified':'unsupported',read:ready?'verified':'unsupported',write:ready?'verified':'unsupported',
     evidence:[`profile:${selectedProfile.id}`,`diagnostic:${diagnostic}`],
     limitations:[profile ? `${agent} native/model execution is Unverified; fixtures establish process contracts only` : 'Local fixtures do not establish measured native support; #121 owns native evidence']});
+  function verificationEvidence(execution) {
+      const state=states.get(execution);if(!state||state.pending)fail('verification-evidence-before-termination');
+      physical();const directory=join(verificationRoot,'commands');if(!existsSync(directory))return [];
+      if(realpathSync(directory)!==directory||!lstatSync(directory).isDirectory())fail('verification-evidence-directory');
+      const names=readdirSync(directory);if(names.length>1000||names.includes('active.lock'))fail('verification-evidence-unresolved');
+      const payloads=[];
+      for(const name of names.filter(n=>n.endsWith('.json'))) {
+        if(!/^[a-f0-9-]{36}\.json$/.test(name))fail('verification-evidence-name');
+        const read=name=>{const path=join(directory,name),s=lstatSync(path);if(!s.isFile()||s.isSymbolicLink()||s.nlink!==1||s.size>16777216)fail('verification-evidence-file');return readFileSync(path,'utf8');};
+        const record=JSON.parse(read(name));
+        if(!states.has(record.execution)||record.id+'.json'!==name||!['passed','failed','cancelled','budget_exhausted','spawn_failed','output-limit','unresolved'].includes(record.status))fail('verification-evidence-record');
+        if(record.execution!==execution)continue;
+        const log=read(record.id+'.log');
+        if(!record.logDigest)fail('verification-evidence-log');
+        if(createHash('sha256').update(log).digest('hex')!==record.logDigest)fail('verification-evidence-log');
+        const payload={record,log};assertVerificationInput(execution,payload);
+        const identity=bodyDigest(canonicalJSON(payload));if(!verificationRetained.has(identity))payloads.push({identity,payload});
+      }
+      return payloads;
+    }
   return Object.freeze({
     diagnostic:()=>diagnostic,
     async readiness() {
@@ -216,6 +235,7 @@ export function createLinuxBackend(config, profile = null) {
         diagnostic='runtime-unavailable';
         if (await json(['version','--format','{{json .Client.Version}}']) !== selectedProfile.docker) return readinessResult();
         const info = await json(['info','--format','{{json .}}']);
+        assertDockerInfo(info);
         if (info.ServerVersion !== selectedProfile.docker || info.OSType !== 'linux' || info.Architecture !== 'x86_64'
             || info.CgroupVersion !== '2' || !['MemoryLimit','PidsLimit','CpuCfsQuota','CpuCfsPeriod'].every(k=>info[k] === true)
             || !info.SecurityOptions?.includes('name=rootless') || !info.SecurityOptions?.includes('name=seccomp,profile=builtin'))
@@ -294,11 +314,17 @@ export function createLinuxBackend(config, profile = null) {
       const schema = {type:'object',properties,required:Object.keys(properties),additionalProperties:false};
       writeFileSync(join(input,'schema.json'),JSON.stringify(schema),{flag:'wx',mode:0o400});
       if (profile?.prepare) profile.prepare(input,v.instructions.content,schema,v.workspace.access);
-      const prompt = context.prompt;
+      const prompt = context.prompt+'\nRead-only Claude/Gemini roles: call nibfin MCP verify with file, args and cwd for the guarded lane, and github_read with native gh args and explicit --repo for broker reads. verify returns receipts/status; non-passed results are never passes. Verification discipline (all roles/customizations): use node /verification-runner.mjs -- <absolute executable> [arguments] for dependency preparation and regressions. It shares this execution deadline and a single command lane, retaining receipts/logs under /verification/commands. A busy, failed, cancelled, unresolved or budget_exhausted result is never a pass. Before Node regressions prepare a writable exact source copy: node /verification-runner.mjs -- node /verification-prepare.mjs /work /tmp [nested-project]. Reprepare after source changes; do not test stale copies. Preparation alone proves no test result. Independent Acceptance and CI remain required.';
+
       if (Buffer.byteLength(prompt) > 524288 || Buffer.byteLength(JSON.stringify(context.inputs)) > 262144) fail('input-bound');
       const remaining=Math.min(timeout,deadlineAt-reserveMs-Date.now());if(remaining<=0)fail('budget-exhausted');
+      const commandStartedAt=Date.now(),commandBudget={...verificationBudget(deadlineAt-commandStartedAt,commandStartedAt,reserveMs),execution:e.id};
+      writeFileSync(join(input,'verification-budget.json'),JSON.stringify(commandBudget),{flag:'wx',mode:0o400});
+      writeFileSync(join(input,'verification-paths.json'),JSON.stringify([{from:instance.workspace,to:'/work'},{from:verificationRoot,to:'/verification'}]),{flag:'wx',mode:0o400});
       writeFileSync(join(input,'request.json'),JSON.stringify({access:v.workspace.access,prompt,timeout:remaining,
         deadlineAt:deadlineAt-reserveMs,...(recovery?{recovery}:{}),
+        githubRead:readRepositories?{repositories:readRepositories}:null,
+        verificationPolicy:{runner:'/verification-runner.mjs',maxConcurrent:1,budget:commandBudget,evidenceDirectory:'/verification/commands'},
         context:{version:1,stage:e.role,execution:e,binding:v.binding,inputs:context.inputs}}),{flag:'wx',mode:0o400});
       mkdirSync(verificationRoot,{recursive:true,mode:0o700});
       const verificationStat=lstatSync(verificationRoot);if(!verificationStat.isDirectory()||verificationStat.isSymbolicLink())fail('verification-root');
@@ -344,6 +370,13 @@ export function createLinuxBackend(config, profile = null) {
       return {status:'complete',exitCode:s.failed || !s.output?.ok ? 1 : c.State.ExitCode,evidence};
     },
     assertVerificationInput,
+    assertCandidate(execution) {
+      const state=states.get(execution);if(!state)fail('candidate-execution');
+      const secrets=[...state.secrets,...loginFile(physical())];
+      let bytes=0;const walk=path=>{const stat=lstatSync(path);if(stat.isDirectory()){for(const name of readdirSync(path)){if(name!=='.git')walk(join(path,name));}}
+        else if(stat.isFile()){if(stat.size>16777216||(bytes+=stat.size)>134217728)fail('candidate-bound');const text=readFileSync(path,'utf8');if(redactRuntimeText(text,secrets)!==text)fail('candidate-credential');}};
+      walk(instance.workspace);return {status:'verified'};
+    },
     async verificationProcess(execution, commandInput) {
       const {signal:ignoredSignal,...inputEvidence}=commandInput;
       assertVerificationInput(execution,inputEvidence);
@@ -370,7 +403,7 @@ export function createLinuxBackend(config, profile = null) {
         if(!input.cwd.startsWith('/verification/')||resolve(input.cwd)!==input.cwd||input.timeoutMs<=0)fail('verification-input');
         // Proxy configuration is selected by the transport, not a checkout/npmrc.
         Object.assign(input.env,network.environment,{NODE_USE_ENV_PROXY:'1'});
-        const response=await command(['exec','--user','0:0',s.name,'/usr/local/bin/node','/verification-child.mjs',JSON.stringify(input)],input.timeoutMs+5000,2097152);
+        const response=await command(['exec','--user','0:0',s.name,'/usr/local/bin/node','/verification-runner.mjs','--protocol',JSON.stringify(input)],input.timeoutMs+5000,2097152);
         if(cancelled) {
           await cancellation;const ended=await inspect(s);
           if(ended.State.Running){s.verificationUnresolved=true;return {status:'unresolved',exitCode:null,signal:null,log:''};}
@@ -383,6 +416,8 @@ export function createLinuxBackend(config, profile = null) {
       }catch{s.verificationUnresolved=true;return {status:'unresolved',exitCode:null,signal:null,log:''};}
       finally{commandInput.signal?.removeEventListener('abort',abort);if(cancellation)await cancellation;s.verificationBusy=false;}
     },
+    verificationEvidence,
+    acknowledgeVerification(identities) {for(const identity of identities){if(!/^[a-f0-9]{64}$/.test(identity))fail('verification-evidence-identity');verificationRetained.add(identity);}},
     verificationRoot:()=>verificationRoot,
     async stop(v) {
       const s=query(v);
@@ -397,6 +432,7 @@ export function createLinuxBackend(config, profile = null) {
     },
     async cleanup(v) {
       if (!same(v.resources,resources) || v.environment !== environment.id || v.instance !== instanceId) fail('cleanup');
+      try {for(const execution of states.keys())if(verificationEvidence(execution).length)return {status:'unresolved',residuals:resources};}catch{return {status:'unresolved',residuals:resources};}
       for (const s of containers.values()) if (!await remove(s)) return {status:'unresolved',residuals:resources};
       if (network && (await network.cleanup()).status !== 'completed') return {status:'unresolved',residuals:resources};
       try {

@@ -38,7 +38,7 @@ export function tlsServerName(bytes) {
   if (bytes.length < 5) return null;
   if (bytes[0]!==22 || bytes.readUInt16BE(3)>16384) throw Error('egress:tls');
   const end = 5 + bytes.readUInt16BE(3);if (bytes.length < end) return null;
-  if (bytes[5]!==1 || end<44) throw Error('egress:tls');
+  if (bytes[5]!==1 || end<44 || bytes.readUIntBE(6,3)!==end-9) throw Error('egress:tls');
   let i=43;i+=1+bytes[i];
   if (i+2>end) throw Error('egress:tls');i+=2+bytes.readUInt16BE(i);
   if (i+1>end) throw Error('egress:tls');i+=1+bytes[i];

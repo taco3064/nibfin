@@ -51,7 +51,7 @@ test('AC2: six roles, selected instructions, exact production args/mounts/env; o
     assert.equal(create.args[create.args.indexOf('--pull')+1],'never');
     assert.deepEqual(create.args.slice(-3),[f.config.image,'/entry.mjs','execute']);
     const mounts=create.args.flatMap((v,i)=>v==='--mount'?[create.args[i+1]]:[]);
-    assert.equal(mounts.length,8);
+    assert.equal(mounts.length,14);
     const workspace=mounts.find(m=>m.includes('dst=/work,'));
     assert.equal(workspace.endsWith(',readonly'),role!=='deliver');
     assert.ok(workspace.includes('bind-recursive=disabled'));assert.ok(workspace.includes('bind-propagation=rprivate'));

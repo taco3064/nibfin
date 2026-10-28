@@ -1,3 +1,4 @@
+import {verifyRepositoryIdentity} from './collaboration.mjs';
 import {createActionsVerifier, createSyntheticActionsVerifierForTest, verifyNativeNeeds} from './actions.mjs';
 import {createGithubProvider, localGhTransport, publicDiagnostic, githubEndpointPermission} from './provider.mjs';
 import {createAuthorizationBoundary} from './authorization.mjs';
@@ -198,9 +199,7 @@ function compose(configuration, testFacility) {
       if(target.outcome!=='read')return {ok:false,...publicDiagnostic(target)};
       need(!signal.aborted);
       const t=target.data;
-      need(t?.id===options.repositoryId && t.full_name?.toLowerCase()===options.repository && t.private===false
-        && t.visibility==='public' && t.owner?.login?.toLowerCase()===options.repository.split('/')[0]
-        && ['User','Organization'].includes(t.owner.type));
+      verifyRepositoryIdentity(t,{version:1,repository:options.repository,repositoryId:options.repositoryId});
       sourceDeadline=deadline;need(sourceFresh());
       return {ok:true,identity:{repository:options.repository,repositoryId:options.repositoryId,
         visibility:'public',ownership:t.owner.type==='User'?'personal':'organization',run:{id:policy.run_id,attempt:policy.run_attempt}},

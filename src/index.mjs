@@ -119,3 +119,6 @@ export {createProtectedRoleHost} from './role-host.mjs';
 export {createContainerEgress,endpointProfiles} from './egress.mjs';
 export {createEgressGateway,publicAddress,connectDestination,tlsServerName} from './egress-gateway.mjs';
 export {executeSession,recoveryPolicy,capacityError,codexEvents,rejectSecrets} from './agent-session.mjs';
+
+export {collaborationVersion,verifyRepositoryIdentity,validateMemberBinding} from './collaboration.mjs';
+export {localRunnerCount,createLocalRunnerLifecycle} from './runner-lifecycle.mjs';

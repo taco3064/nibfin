@@ -1,3 +1,4 @@
+import {verifySessionResult} from './collaboration.mjs';
 import {createCore, createEventRelay, createRegistrationHost, canonicalJSON, githubId,
   memberRunnerLabel, repositoryCoordinates} from './index.mjs';
 
@@ -127,9 +128,7 @@ export function createWorkflowEntry(host) {
         const prior=await host.beginStage({identity,key:request.request,value:{request},signal});
         if(prior.outcome==='recovered') {
           const value=prior.value;
-          need(value.version===1&&same(value.target,request.target)&&value.cycle===request.cycle
-            &&value.request===request.request&&same(value.run,request.run)&&same(value.requested,request.expected)
-            &&['completed','blocked','waiting','superseded','rejected','unresolved'].includes(value.disposition)&&opaque(prior.key));
+          verifySessionResult(value,request);need(opaque(prior.key));
           if(typeof host.runnerObservation==='function') {
             need(value.routing?.memberId===held.memberId&&same(value.routing.route,route));
             const execution=value.routing.execution;githubId(execution?.runnerId);

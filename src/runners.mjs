@@ -1,3 +1,4 @@
+import {verifyRepositoryIdentity,validateMemberBinding} from './collaboration.mjs';
 import {githubId, repositoryCoordinates, memberRunnerLabel} from './index.mjs';
 import {publicDiagnostic} from './provider.mjs';
 
@@ -51,7 +52,8 @@ async function observe(provider, input, matchJob) {
     if (!Array.isArray(records)) fail('records');
     const ids = new Set(), instanceIds = new Set();
     for (const record of records) {
-      githubId(record.runnerId); githubId(record.memberId);
+      try {validateMemberBinding(record,{repositoryId:target.id,registration});}
+      catch {fail('record_scope');}
       if (!text(record.instanceId) || !platforms.has(record.platform)) fail('record_schema');
       if (ids.has(record.runnerId) || instanceIds.has(record.instanceId)) fail('duplicate_record');
       ids.add(record.runnerId); instanceIds.add(record.instanceId);
@@ -68,9 +70,7 @@ async function observe(provider, input, matchJob) {
     const repoPath = `/repos/${coordinates.key}`;
     const repo = await provider.request({...request, endpoint:repoPath, expectedId:target.id});
     if (repo.outcome !== 'read') throw {code:'target_unavailable', kind:'unavailable', provider:publicDiagnostic(repo).diagnostic};
-    if (repo.data.owner?.id !== target.ownerId || repo.data.owner?.type !== target.ownerType
-        || typeof repo.data.full_name !== 'string' || lower(repo.data.full_name) !== coordinates.key) fail('wrong_target');
-    if (repo.data.private !== false || repo.data.visibility !== 'public') fail('private_or_unknown_target', 'unsupported');
+    verifyRepositoryIdentity(repo.data,{version:1,repository:coordinates.key,repositoryId:target.id,ownerId:target.ownerId,ownerType:target.ownerType});
     const maxPages = input.maxPages ?? 100;
     if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > 1000) fail('page_bound');
     // Each collection has a single identity; only page/per_page may vary in continuation.

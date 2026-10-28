@@ -133,7 +133,10 @@
     "src/agent-session.mjs",
     "docs/role-host.md",
     "host/runner.schema.json",
-    "host/runner.example.json"
+    "host/runner.example.json",
+    "src/collaboration.mjs",
+    "src/runner-lifecycle.mjs",
+    "docs/collaboration.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

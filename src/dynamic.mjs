@@ -1,3 +1,4 @@
+import {prerequisiteTraversal} from './collaboration.mjs';
 import {githubId, repositoryCoordinates} from './index.mjs';
 import {verifyCompletion} from './evidence.mjs';
 
@@ -65,13 +66,10 @@ export function createDependencyEvaluator({provider, authorize, current, retriev
         gate(issue); return value;
       };
       const read = async (fn,n) => {if (++reads > maxReads) stop('limit',n); return call(fn,n);};
-      const visited = new Set(), visiting = new Set();
-      async function visit(n, depth, upstream) {
-        gate(n);
-        if (visiting.has(key(n))) stop('cycle',n);
-        if (visited.has(key(n))) return;
-        if (depth > maxDepth || visited.size + visiting.size >= maxNodes) stop('limit',n);
-        visiting.add(key(n));
+      const visit=prerequisiteTraversal({key,
+        cycle:n=>stop('cycle',n),limit:(n,depth,count)=>{
+          gate(n);if(depth>maxDepth||count>=maxNodes)stop('limit',n);
+        },enter:async n=>{
         const auth = clone(await call(() => authorize(clone(n),{signal:active}),n));
         if (auth?.ok !== true || auth.observation?.repositoryId !== n.repositoryId
             || auth.observation?.issueId !== n.issueId || auth.observation?.operation !== 'readiness'
@@ -118,7 +116,8 @@ export function createDependencyEvaluator({provider, authorize, current, retriev
         observations.push({issue:clone(n),authorization:{repositoryId:auth.observation.repositoryId,issueId:auth.observation.issueId,
           operation:auth.observation.operation,startedAt:auth.observation.startedAt,observedAt:auth.observation.observedAt},
           observedAt:issue.observedAt,upstreams:upstreams.map(n=>clone(n))});
-        for (const parent of upstreams) await visit(parent,depth+1,true);
+        return upstreams;
+      },leave:async (n,upstream)=>{
         if (upstream) {
           const c = clone(await call(() => current(clone(n),{signal:active}),n));
           if (!c || !hash(c.identity) || !c.expected) stop('completion_missing',n,true);
@@ -140,8 +139,7 @@ export function createDependencyEvaluator({provider, authorize, current, retriev
             completions.push({issue:clone(n),identity:valid.identity});
           } catch {stop('completion_invalid',n);}
         }
-        visiting.delete(key(n)); visited.add(key(n));
-      }
+      }});
       await visit(target,0,false);
       gate(target);
     } catch (e) {

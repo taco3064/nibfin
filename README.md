@@ -55,3 +55,5 @@ The [immutable release contract](docs/releases.md) defines the release CD workfl
 exact local Candidate assets, installer identity checks and evidence limits.
 Publication success is confirmed after protected Merge; local packaging does not
 certify CLI/platform support or full P1 delivery.
+
+The [public collaboration adapter](docs/collaboration.md) documents versioned identity and binding checks, the reusable local Runner instance lifecycle, and the approved source origin mapping. Local source tests do not certify live multi-member isolation or external E2E.

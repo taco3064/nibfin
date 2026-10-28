@@ -1,3 +1,4 @@
+import {deliveryWriteRequest,requireMergeIdentity} from './github.mjs';
 import {randomUUID} from 'node:crypto';
 import {githubId, repositoryCoordinates, canonicalJSON, bodyDigest, contentIdentity, prepareCustodyManifest, publishCustody} from './index.mjs';
 
@@ -98,13 +99,8 @@ export function controlledIntent(input) {
   }
   return v;
 }
-function requestFor(v) {
-  const root = `/repos/${v.binding.repository}`, t = v.target;
-  return {method: ({dispatch: 'POST', pr: 'POST', merge: 'PUT', close: 'PATCH', reopen:'PATCH', comment:'POST', label: 'POST', 'issue-body': 'PATCH'})[v.kind],
-    endpoint: root + ({dispatch: `/actions/workflows/${t.workflow}/dispatches`, pr: '/pulls',
-      merge: `/pulls/${t.number}/merge`, comment:`/issues/${t.number}/comments`, reopen:`/issues/${t.number}`, close: `/issues/${t.number}`, 'issue-body': `/issues/${t.number}`, label: `/issues/${t.number}/labels`})[v.kind],
-    operation: v.kind, target: t.id, correlation: v.correlation, body: v.kind === 'dispatch' ? {ref:v.payload.ref,inputs:v.payload.inputs} : v.payload};
-}
+const requestFor=deliveryWriteRequest;
+
 function custodyBinding(v, phase, source) {
   const b = v.binding;
   return {repository: b.repository, repositoryId: b.repositoryId, issueId: b.issueId, cycle: b.cycle,
@@ -170,7 +166,7 @@ async function observe(provider, v, signal, allowAbsent = false, reconcilePR = f
       observedAt: r.observedAt, identity: contentIdentity(r.data)};
   }
   if (v.kind === 'merge') {
-    r = await read(`${root}/pulls/${v.target.number}`);
+    r = await read(`${root}/pulls/${v.target.number}`);requireMergeIdentity(r.data);
     const d = r.data;
     if (d.id !== v.target.id || String(d.number) !== v.target.number || d.base?.repo?.id !== v.binding.repositoryId
         || d.base?.ref !== v.binding.baseRef || !sha(d.base?.sha)

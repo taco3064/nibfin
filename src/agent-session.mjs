@@ -1,3 +1,5 @@
+import {sessionId,sessionIdFromEvents,createRoleSession} from './role-session.mjs';
+export {sessionId} from './role-session.mjs';
 import {existsSync,writeFileSync} from 'node:fs';
 import {containsCredentials} from './credential-output.mjs';
 // Shared trusted CLI-session owner. Standalone: mounted beside each fixed entrypoint.
@@ -6,7 +8,6 @@ import {connect as netConnect} from 'node:net';
 import {connect as tlsConnect} from 'node:tls';
 import {spawnSync} from 'node:child_process';
 const fail=code=>{throw Error(`agent-session:${code}`);};
-export const sessionId = value => typeof value==='string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
 export function recoveryPolicy(value,adapter,version) {
   if(value===undefined)return Object.freeze({attempts:1,delayMs:0,model:null,fallbacks:[],models:[]});
   if(!value||Object.keys(value).sort().join(' ')!=='attempts delayMs fallbacks model models'
@@ -44,15 +45,17 @@ export function capacityError(adapter,envelope) {
  * No fallback exists without an explicitly listed versioned capability and policy.
  */
 export function executeSession({request,adapter,version,invoke,decode,inspect,run=spawnSync,now=Date.now,
-  wait=ms=>Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,ms)}={}) {
+  wait=ms=>Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,ms),persisted}={}) {
   const policy=recoveryPolicy(request.recovery,adapter,version);
   const deadline=Math.min(request.deadlineAt??now()+request.timeout,now()+request.timeout);
   if(!Number.isSafeInteger(deadline)||!Number.isSafeInteger(request.timeout)||request.timeout<=0)fail('deadline');
+  const continuity=createRoleSession(request,adapter,version,{persisted});
   let session=null,model=policy.model,attempt=0;
   const fallbacks=[...policy.fallbacks];
   while(attempt++<policy.attempts) {
     if(request.signal?.aborted)return {diagnostic:'cancelled'};
     const left=deadline-now();if(left<=0)return {diagnostic:'budget-exhausted'};
+    try{continuity.start();}catch{return {diagnostic:'invalid-result'};}
     const command=invoke({...request,timeout:left,session,model,attempt});
     let response;try{response=run(command.file,command.args,command.options);}catch{return {diagnostic:'provider-failure'};}
     let observation;try{observation=inspect(response);}catch{return {diagnostic:response.error||response.status!==0?'provider-failure':'invalid-result'};}
@@ -61,13 +64,15 @@ export function executeSession({request,adapter,version,invoke,decode,inspect,ru
     // a valid session. Once established, every later observation must name it.
     if(observation.success===true||observation.capacity===true||session!==null||observation.session!==undefined) {
       if(!sessionId(observation.session)||session!==null&&session!==observation.session)return {diagnostic:'invalid-result'};
-      session=observation.session;
+      try{continuity.observe(observation.session);}catch{return {diagnostic:'invalid-result'};}
+      session=continuity.id;
     }
     if(!response.error&&response.status===0&&observation.success===true) {
       try{return {evidence:decode(response.stdout,request.context)};}catch{return {diagnostic:'invalid-result'};}
     }
     if(observation.capacity!==true||observation.unknownExternalWrite===true||!session||response.error)return {diagnostic:'provider-failure'};
     if(attempt===policy.attempts)return {diagnostic:'capacity-exhausted'};
+    continuity.end(true);
     if(fallbacks.length)model=fallbacks.shift();
     if(deadline-now()<=policy.delayMs)return {diagnostic:'budget-exhausted'};
     wait(policy.delayMs);
@@ -79,6 +84,7 @@ export function executeSession({request,adapter,version,invoke,decode,inspect,ru
  */
 export function codexEvents(output,secrets=[]) {
   if(typeof output!=='string'||Buffer.byteLength(output)>1048576||!output.endsWith('\n'))fail('output');
+  const identified=sessionIdFromEvents(output);
   let session=null,started=false,terminal=null,result=null,reportedError=null;const pendingTools=new Set();
   for(const line of output.trimEnd().split('\n')) {
     const value=JSON.parse(line);rejectSecrets(value,secrets);
@@ -102,7 +108,7 @@ export function codexEvents(output,secrets=[]) {
       }catch(e){if(e.message==='agent-session:duplicate-result')throw e;}
     }
   }
-  if(!session||!terminal||reportedError!==null && (terminal.type!=='turn.failed'||terminal.error?.message!==reportedError))fail('terminal');
+  if(session!==identified||!terminal||reportedError!==null && (terminal.type!=='turn.failed'||terminal.error?.message!==reportedError))fail('terminal');
   return {session,terminal,result,unknownExternalWrite:pendingTools.size>0,success:terminal.type==='turn.completed'&&result!==null};
 }
 export function rejectSecrets(value,secrets) {

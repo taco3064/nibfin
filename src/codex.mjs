@@ -154,7 +154,7 @@ export function createLinuxBackend(config, profile = null) {
       ...Object.entries(network.environment).flatMap(([key,value])=>['--env',`${key}=${value}`]),...brokerMounts(),...mount(auth,profile?.authTarget ?? '/tmp/home/.codex/auth.json'),
       ...mount(selectedEntry,'/entry.mjs'),...mount(fileURLToPath(new URL('./agent-session.mjs',import.meta.url)),'/agent-session.mjs'),
       ...mount(fileURLToPath(new URL('./credential-output.mjs',import.meta.url)),'/credential-output.mjs'),
-      ...['readonly-tools.mjs','verification-runner.mjs','verification-prepare.mjs','node-verification.mjs','canonical.mjs'].flatMap(name=>mount(fileURLToPath(new URL('./'+name,import.meta.url)),'/'+name)),
+      ...['readonly-tools.mjs','verification-runner.mjs','verification-prepare.mjs','node-verification.mjs','canonical.mjs','role-session.mjs'].flatMap(name=>mount(fileURLToPath(new URL('./'+name,import.meta.url)),'/'+name)),
       ...mount(fileURLToPath(new URL('./verification-child.mjs',import.meta.url)),'/verification-child.mjs'),
       ...mount(fileURLToPath(new URL('./verification-supervisor.py',import.meta.url)),'/verification-supervisor.py'),
       '--entrypoint','/usr/local/bin/node'];

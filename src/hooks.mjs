@@ -23,6 +23,21 @@ function git(root,args,input) {
       GIT_NO_REPLACE_OBJECTS:'1',GIT_NO_LAZY_FETCH:'1',GIT_ALLOW_PROTOCOL:'',GIT_TERMINAL_PROMPT:'0'},
     timeout:30000,maxBuffer:48*1024*1024,stdio:['pipe','pipe','pipe']});
 }
+// Reused Kairo runHooks() index/message protocol, adapted to Nibfin's
+// disposable object-only repository and binary-safe message transport. Host-side
+// source/metadata comparisons below additionally reject any worktree mutation.
+function hookScript({tree,base,paths,message}) {
+  if(!/^[a-f0-9]{40}$/.test(tree)||!/^[a-f0-9]{40}$/.test(base))fail('baseline');
+  return 'set -eu\ncommand -v git >/dev/null && command -v sh >/dev/null && command -v base64 >/dev/null && command -v cmp >/dev/null || exit 127\n'
+    +'[ "$(git write-tree)" = "'+tree+'" ] || exit 1\n'
+    +'git diff-index --cached --name-only --no-renames -z '+base+' -- >/tmp/staged-paths\n'
+    +'printf "%s" "'+paths+'" | base64 -d | cmp - /tmp/staged-paths\n'
+    +'sh "$@"\n'
+    +'[ "$(git write-tree)" = "'+tree+'" ] || exit 1\n'
+    +'git diff-index --cached --name-only --no-renames -z '+base+' -- >/tmp/staged-paths\n'
+    +'printf "%s" "'+paths+'" | base64 -d | cmp - /tmp/staged-paths\n'
+    +'printf "%s" "'+message.toString('base64')+'" | base64 -d | cmp - /job/message\n';
+}
 /** External boundary only: bounded output is discarded to avoid credential/log disclosure. */
 export async function hookProcess(command) {
   const result=await containerProcess({...command,limit:1048576});
@@ -170,7 +185,8 @@ export function createHookRunner({image,socket,process:run=hookProcess,timeout=3
         for(const hook of hooks) {
           name='nibfin-hook-'+randomUUID();
           const args=hook.event==='pre-commit'?[]:['/job/message',...(hook.event==='prepare-commit-msg'?['message']:[])];
-          const script='command -v git >/dev/null && command -v sh >/dev/null || exit 127\nexec sh "$@"';
+          const script=hookScript({tree:input.expected.candidate.tree,base:input.workspace.metadata.baseTree,
+            paths:before.paths,message:input.message});
           const launch=['run','--name',name,'--label','nibfin.hook='+name,'--pull=never','--network=none','--read-only',
             '--cap-drop=ALL','--security-opt=no-new-privileges','--pids-limit=128',
             '--user','0:0','--platform','linux/amd64','--no-healthcheck','--log-driver','none',

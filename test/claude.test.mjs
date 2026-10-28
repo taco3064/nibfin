@@ -25,7 +25,11 @@ test('AC1/3: exported inert backend, all roles and both public ownership types, 
     assert.equal((await f.life.start(f.input)).start.status,'started');
     const c=f.calls.find(c=>c.args[2]==='create' && c.args.at(-1)==='execute');
     const mounts=c.args.flatMap((v,i)=>v==='--mount'?[c.args[i+1]]:[]);
-    assert.equal(mounts.length,14);
+    assert.equal(mounts.length,15);
+    const sessions=mounts.filter(m=>m.includes('dst=/role-session.mjs,'));
+    assert.equal(sessions.length,1);
+    assert.match(sessions[0],/src=[^,]+\/src\/role-session\.mjs,dst=\/role-session\.mjs,/);
+    assert.ok(sessions[0].endsWith(',readonly'));
     assert.equal(mounts.find(m=>m.includes('dst=/work,')).endsWith(',readonly'),role!=='deliver');
     assert.ok(mounts.find(m=>m.includes('dst=/login.json,')).endsWith(',readonly'));
     assert.ok(c.args.includes('--read-only'));assert.ok(c.args.includes('no-new-privileges'));

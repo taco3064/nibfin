@@ -6,19 +6,19 @@ import {operationInput,operationsFixture} from './operations-fixture.mjs';
 import {zipFixture} from './custody-fixture.mjs';
 import {createCompletionFlow,observeClosure,observeControlledOperation,createGithubProvider,
   createArtifactCustody,contentIdentity,byteDigest,verifyDeployment,readDeploymentObservation,createDeploymentFinal} from '../src/index.mjs';
-export async function completionFixture(deployment,configure) {
-  const c=chain(true,false,r=>{
+export async function completionFixture(deployment,configure,producer=null) {
+  const c=producer?{receipts:structuredClone(producer.receipts)}:chain(true,false,r=>{
     for(const e of Object.values(r)){e.binding.repositoryId='42';e.binding.issueId='I_101';configure?.({scopeBody:'original scope',shapeBody:'published shape',binding:e.binding});
       if(configure)e.execution.request=e.execution.id+'-request';}
     r.final.inputs.postMerge={mode:'not-applicable',identities:[],reason:'No post-merge checks in synthetic policy'};
   });
   const b=c.receipts.final.binding;
-  const target={repository:'example-org/core',repositoryId:'42',issueId:'I_101',databaseId:'61',number:'101',cycle:'cycle-1'};
+  const target=producer?.target??{repository:'example-org/core',repositoryId:'42',issueId:'I_101',databaseId:'61',number:'101',cycle:'cycle-1'};
   const inputs={};
   for(const kind of ['close','label','merge']) {
     const v=operationInput(kind);v.correlation='completion-'+kind;
     Object.assign(v.binding,{scopeHash:b.scopeHash,shapeHash:b.shapeHash,authorization:b.grant,
-      head:c.receipts.pr.inputs.head,base:c.receipts.pr.inputs.base});
+      head:c.receipts.pr.inputs.head,base:c.receipts.pr.inputs.base,...(producer?{cycle:target.cycle,candidate:producer.candidate}: {})});
     if(kind==='merge')v.payload.sha=v.binding.head;
     inputs[kind]=v;
   }
@@ -26,6 +26,7 @@ export async function completionFixture(deployment,configure) {
   const state={closed:false,ownership:'Organization',event:'200',at:'2026-10-24T12:00:00Z',actor:'7',
     reason:'completed',failed:false,private:false,postMerge:true,auth:true,dependencies:true,mutations:[],
     stageExpectations:{},records:new Map(),history:new Map(),attempted:new Set(),hooks:{},next:1200};
+  if(producer)state.ownership=producer.ownership==='personal'?'User':'Organization';
   const root='/repos/'+target.repository;
   const issue=()=>({id:'61',node_id:'I_101',number:101,repository_url:'https://api.github.com'+root,
     state:state.closed?'closed':'open',state_reason:state.closed?state.reason:null,closed_at:state.closed?state.at:null,...state.issueMetadata});
@@ -51,7 +52,7 @@ export async function completionFixture(deployment,configure) {
     return {status:state.failed||200,body:JSON.stringify(state.override?.[path]??data??{})};
   }});
   const observe=()=>observeClosure({provider,target,mergeIntent:inputs.merge});
-  const mergeOperation={outcome:'confirmed-success',continuation:true,refs:{},
+  const mergeOperation=producer?.mergeOperation??{outcome:'confirmed-success',continuation:true,refs:{},
     observation:await observeControlledOperation(provider,inputs.merge)};
   // Rebuild chain references after updating the actual producer merge readback.
   let qualified, deploymentInputs;
@@ -74,10 +75,14 @@ export async function completionFixture(deployment,configure) {
     r.final.inputs.postMerge=c.receipts.final.inputs.postMerge;
     if(deployment)r.final.inputs.deployment=qualified.proof;
   });
+  if(producer) {
+    for(const [stage,e] of Object.entries(producer.receipts))freshChain.receipts[stage]=structuredClone(e);
+    for(const stage of ['closure','delivered'])freshChain.receipts[stage].binding=structuredClone(b);
+  }
   if(deployment)await createDeploymentFinal(context(freshChain.receipts.final),qualified,deploymentInputs);
   const receipts=structuredClone(freshChain.receipts);delete receipts.closure;delete receipts.delivered;
   const contexts=chainContext({receipts});
-  const pin={binding:b,target,visibility:'public',ownership:'organization',scopeBody:'original scope',shapeBody:'published shape',
+  const pin={binding:b,target,visibility:'public',ownership:producer?.ownership??'organization',scopeBody:producer?.scopeBody??'original scope',shapeBody:producer?.shapeBody??'published shape',
     decision:'decision-1',writerId:'7',deploymentObservation:deploymentInputs?.observation??null,candidate:inputs.close.binding.candidate,intents:{close:inputs.close,label:inputs.label},
     mergeIntent:inputs.merge,mergeOperation,receipts,contexts,postMerge:{mode:'not-applicable',reason:c.receipts.final.inputs.postMerge.reason},
     deployment:deployment?.policy??{mode:'not-applicable',reason:freshChain.receipts.final.inputs.deployment.reason},health:deployment?.health??null,source:{runId:'100',attempt:'1'}};

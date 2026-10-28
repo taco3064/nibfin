@@ -1,3 +1,4 @@
+import {validateCandidateInventory} from './candidate-contract.mjs';
 import {lstatSync} from 'node:fs';
 import {resolve, join, parse} from 'node:path';
 
@@ -17,6 +18,7 @@ export function safeObligationPath(path) {
 
 function inventoryDiagnostics(inventory) {
   const errors = [];
+  try {validateCandidateInventory(inventory);} catch {errors.push(diagnostic('schema', '', 'Invalid candidate obligation contract'));}
   if (!exact(inventory, ['artifacts', 'hooks'])) return [diagnostic('schema', '', 'Expected exactly artifacts and hooks')];
   for (const kind of ['artifacts', 'hooks']) {
     if (!Array.isArray(inventory[kind])) {

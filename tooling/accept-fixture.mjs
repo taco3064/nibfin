@@ -6,7 +6,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {captureWorkspace,createAcceptFlow,createAgentLifecycle,createHookRunner,selectInstructions,
   bodyDigest,contentIdentity,hookConfigurationAreas} from '../src/index.mjs';
-export async function acceptFixture({empty=false,ownership='personal',child=false,rich=false,originalMessage=Buffer.from('candidate message'),repository='owner/public',issueId='I_97',configure=()=>{}}={}) {
+export async function acceptFixture({empty=false,ownership='personal',child=false,rich=false,originalMessage=Buffer.from('candidate message'),repository='owner/public',issueId='I_97',configure=()=>{},deferHooks=false}={}) {
   const root=mkdtempSync(join(tmpdir(),'nibfin-accept-'));
   const h='a'.repeat(64), image='sha256:'+h;
   const git=(...args)=>execFileSync('git',args,{cwd:root,env:{PATH:process.env.PATH,HOME:'/nonexistent',
@@ -35,7 +35,7 @@ export async function acceptFixture({empty=false,ownership='personal',child=fals
     areas:hookConfigurationAreas.map(area=>({area,status:'resolved',evidenceReference:'fixture',detail:'inspected'}))};
   const events=[], records=[], expected=new Map(), lives=[];
   const hookCommands=[];
-  const runner=createHookRunner({image,socket:'/run/user/1000/docker.sock',process:async c=>{
+  const hookConfiguration={image,socket:'/run/user/1000/docker.sock',process:async c=>{
     hookCommands.push(c);
     if(c.args[2]==='image')return {outcome:'success',output:JSON.stringify([{Id:image,Os:'linux',Architecture:'amd64',Config:{Env:['PATH=/usr/bin:/bin']}}])};
     if(c.args[2]==='inspect'){const launched=hookCommands.find(v=>v.args[2]==='run'&&v.args.includes(c.args[3])),observed=dockerObservation(launched.args.slice(2),image);return {outcome:'success',output:JSON.stringify([{...observed,Name:'/'+c.args[3],Image:image,Config:{...observed.Config,Labels:{'nibfin.hook':c.args[3]}}}])};}
@@ -46,21 +46,22 @@ export async function acceptFixture({empty=false,ownership='personal',child=fals
     const args=c.args.slice(c.args.indexOf(image)+1).map(v=>v.replaceAll('/job/',job+'/'));
     const r=spawnSync('/bin/sh',args,{cwd:join(job,'repo'),env:{PATH:'/usr/bin:/bin',HOME:'/nonexistent'}});
     return {outcome:r.status===0?'success':'nonzero'};
-  }});
+  }};
+  const runner=createHookRunner(hookConfiguration);
   let hookInput={workspace:w,expected:w.expected,phase:'pre-accept',executionId:'first',message:Buffer.from(originalMessage),observation,profile:runner.profile};
-  const first=await runner.execute(hookInput);
-  if(!first.ok) throw Error(first.diagnostic);
-  events.push('first-pass');
+  let first=deferHooks?null:await runner.execute(hookInput);
+  if(first&&!first.ok)throw Error(first.diagnostic);
+  if(first)events.push('first-pass');
   const execution=(role,id)=>({role,skill:role,id,request:id+'-request',result:id+'-result',source:null});
   const deliver={version:1,stage:'deliver',binding:{...binding,instructions:h},execution:execution('deliver','writer'),
     inputs:{publication:h,candidate:w.candidate},result:{version:1,outcome:'ready',failureClass:'none',summary:'fixture deliver',conflicts:[]}};
   const stage={version:1,stage:'pre-accept-hooks',binding:{...binding,instructions:h},execution:execution('deliver','hook'),
-    inputs:{candidate:w.candidate,phase:'pre-accept',receipt:first.receipt.identity},result:null};
+    inputs:{candidate:w.candidate,phase:'pre-accept',receipt:first?.receipt.identity??h},result:null};
   const pin={repository,binding,scopeBody,shapeBody,decisions:['No writes from review'],instructions:{},
     visibility:'public',ownership,workspace:w.expected,obligations:{requiredArtifacts:[{path:'ignored',purpose:'fixture output',evidenceReference:'scope'}],
       scopeEvidenceReference:'scope',hookObservation:observation},deliver,deliverCurrent:{expected:structuredClone(deliver),consumed:[]},
-    hooks:{stage,stageCurrent:{expected:structuredClone(stage),consumed:[]},receipt:first.receipt,
-      receiptCurrent:{identity:first.receipt.identity,consumed:[]},profile:runner.profile,message:hookInput.message.toString('base64'),executionId:'first'}};
+    hooks:{stage,stageCurrent:{expected:structuredClone(stage),consumed:[]},receipt:first?.receipt??null,
+      receiptCurrent:{identity:first?.receipt.identity??h,consumed:[]},profile:runner.profile,message:hookInput.message.toString('base64'),executionId:'first'}};
   const state={fault:null,onPrepare:null,onStart:null,onCollect:null,onTermination:null,read:'verified',isolation:'verified',
     start:'started',termination:'terminated',pending:false,exitCode:0,result:null,child};
   let n=0;
@@ -108,7 +109,10 @@ export async function acceptFixture({empty=false,ownership='personal',child=fals
       state.onPrepare?.({input,task});return {lifecycle,input};
     }};
   const flow=createAcceptFlow(capabilities);
-  return {capabilities,captureInput,flow,pin,state,records,events,expected,lives,root,git,runner,hookInput,first,evidenceCurrent,
+  return {capabilities,captureInput,flow,pin,state,records,events,expected,lives,root,git,runner,hookConfiguration,get hookInput(){return hookInput;},get first(){return first;},evidenceCurrent,
+    installFirst(result,evidence){first=result;pin.hooks.receipt=result.receipt;pin.hooks.receiptCurrent={identity:result.receipt.identity,consumed:[]};
+      pin.hooks.stage=evidence;pin.hooks.stageCurrent={expected:structuredClone(evidence),consumed:[]};events.push('first-pass');},
+    refreshHookInput(){hookInput={...hookInput,workspace:w,expected:w.expected};pin.workspace=w.expected;},
     get workspace(){return w;},recapture(){w=captureWorkspace(captureInput);return w;},
     snapshot:()=>['.gitignore','binary','ignored',...hooks.map(h=>h.path)].map(p=>readFileSync(join(root,p)).toString('base64')),
     async second(accept){events.push('second-pass');return runner.execute({...hookInput,phase:'pre-commit',executionId:'second',

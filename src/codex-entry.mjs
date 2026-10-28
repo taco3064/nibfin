@@ -1,3 +1,4 @@
+import {hasSessionData} from './role-session.mjs';
 import {prepareReadonlyVerification} from './agent-session.mjs';
 import {probeVerificationSupervisor} from './verification-child.mjs';
 // Fixed container entrypoint. No repository code is loaded by this module.
@@ -32,8 +33,9 @@ export function codexInvocation(request) {
   return {file:tool,args,options:{env,input:request.prompt,encoding:'utf8',stdio:['pipe','pipe','ignore'],
     cwd:'/work',timeout:request.timeout,killSignal:'SIGKILL',maxBuffer:1048576}};
 }
-export function executeCodex(request,secrets=[],run=spawnSync) {
+export function executeCodex(request,secrets=[],run=spawnSync,{sessionDirectory='/tmp/home/.codex/sessions'}={}) {
   return executeSession({request,adapter:'codex',version:'codex-cli 0.163.0',invoke:codexInvocation,run,
+    persisted:id=>hasSessionData(sessionDirectory,id),
     inspect:r=>{const o=codexEvents(r.stdout??'',secrets);return {...o,capacity:capacityError('codex',o.terminal),
       authentication:['unauthorized','authentication_error'].includes(o.terminal.error?.code)};},
     decode:output=>({...request.context,result:codexEvents(output,secrets).result})});

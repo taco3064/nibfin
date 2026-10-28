@@ -146,7 +146,16 @@
     "src/verification-prepare.mjs",
     "docs/rootless-hardening.md",
     "src/canonical.mjs",
-    "src/readonly-tools.mjs"
+    "src/readonly-tools.mjs",
+    "src/candidate-contract.mjs",
+    "src/candidate-schema.mjs",
+    "src/delivery-planner.mjs",
+    "src/runtime.mjs",
+    "src/github.mjs",
+    "src/workspace-sources.mjs",
+    "src/role-session.mjs",
+    "src/delivery-contract.mjs",
+    "docs/kairo-reuse.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

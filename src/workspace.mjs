@@ -5,6 +5,7 @@ import {resolve, join, parse} from 'node:path';
 import {tmpdir} from 'node:os';
 import {canonicalJSON, bodyDigest} from './grants.mjs';
 import {byteDigest, contentIdentity} from './evidence.mjs';
+import {sourceManifest} from './workspace-sources.mjs';
 import {parseCandidateObligations, safeObligationPath} from './obligations.mjs';
 
 const fail = reason => { throw new TypeError(`workspace:${reason}`); };
@@ -170,9 +171,10 @@ function computeDiff(objects,baseTree,tree,l) {
   } finally {rmSync(root,{recursive:true,force:true});}
 }
 function descriptor(m,objects,diff,sources) {
+  const manifest=sourceManifest(sources);
   const candidate={base:m.base,tree:m.tree,diff:byteDigest(diff),paths:m.changes.map(e=>e.path),
-    artifacts:sources.filter(e=>e.kind==='artifact').map(e=>({path:e.path,digest:byteDigest(e.bytes)})),
-    hooks:sources.filter(e=>e.kind==='hook').map(e=>({path:e.path,event:e.event,digest:byteDigest(e.bytes)})),
+    artifacts:manifest.filter(e=>e.kind==='artifact').map(e=>({path:e.path,digest:e.sha256})),
+    hooks:manifest.filter(e=>e.kind==='hook').map(e=>({path:e.path,event:e.event,digest:e.sha256})),
     emptyHooksReason:m.emptyHooksReason};
   const identity=contentIdentity({kind:'nibfin-workspace-v1',metadata:m,candidate,
     objects:[...objects.values()].map(e=>({oid:e.oid,type:e.type,size:e.bytes.length,digest:byteDigest(e.bytes)})),

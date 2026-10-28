@@ -1,3 +1,4 @@
+import {GithubObservation} from './github.mjs';
 import {spawn} from 'node:child_process';
 import {userInfo, tmpdir} from 'node:os';
 import {setTimeout as sleep} from 'node:timers/promises';
@@ -172,7 +173,9 @@ export function createGithubProvider({transport, identity = 'local-stored-login'
   transport ??= localGhTransport();
   const submissions = new WeakMap();
   const remaining = Symbol();
-  async function request(options) {
+  const observations=new GithubObservation(performRequest);
+  const request=options=>options[remaining]===undefined?observations.request(options):performRequest(options);
+  async function performRequest(options) {
     let path, body, send = transport;
     let budget = options[remaining] ?? elapsedMs;
     const method = options.method ?? 'GET';
@@ -289,14 +292,16 @@ export function createGithubProvider({transport, identity = 'local-stored-login'
   async function reconcile(submission, options, matches) {
     const binding = submissions.get(submission);
     if (!binding || options.target !== binding.target || typeof matches !== 'function') return {outcome: 'unknown'};
-    const read = await request({...options, method: 'GET', body: undefined});
+    const read = await observations.freshReadObservation(()=>request({...options, method: 'GET', body: undefined}));
     try {
       if (read.outcome === 'read' && read.observedAt >= binding.started && read.data?.id === binding.target
           && matches(read.data) === true) return {...read, outcome: 'verified'};
     } catch { /* Caller predicates do not manufacture completion on failure. */ }
     return {outcome: 'unknown', diagnostic: read.diagnostic};
   }
-  return Object.freeze({request, collection, reconcile});
+  return Object.freeze({request, collection, reconcile,
+    readObservation:work=>observations.readObservation(work),
+    freshReadObservation:work=>observations.freshReadObservation(work)});
 }
 function abortable(promise, signal) {
   return new Promise((resolve, reject) => {

@@ -3,9 +3,9 @@ import {candidatePublicationFixture} from './candidate-publication-fixture.mjs';
 import {operationsFixture,operationInput} from './operations-fixture.mjs';
 import {createFinalReview,createProtectedMerge,observeFinalReview,createGithubProvider,createAgentLifecycle,
   contentIdentity,selectInstructions} from '../src/index.mjs';
-export async function finalReviewFixture({ownership='personal',method='rebase',configure}={}) {
-  const published=await candidatePublicationFixture({empty:true,ownership,configure}),a=published.a;
-  const publication=await published.run();if(publication.outcome!=='published')throw Error('fixture publication');
+export async function finalReviewFixture({ownership='personal',method='rebase',configure,published:providedPublished,publication:providedPublication,ciObservation='signed'}={}) {
+  const published=providedPublished??await candidatePublicationFixture({empty:true,ownership,configure}),a=published.a;
+  const publication=providedPublication??await published.run();if(publication.outcome!=='published')throw Error('fixture publication');
   const pin=structuredClone(published.pin),b=pin.binding;
   const selected=selectInstructions({skill:'shape',role:'shaper-review'});b.instructions=selected.identity;
   const execution=(role,id)=>({role,skill:role==='shaper-review'?'shape':'deliver',id,request:id+'-request',result:id+'-result',source:null});
@@ -36,7 +36,7 @@ export async function finalReviewFixture({ownership='personal',method='rebase',c
       p.includes('/check-runs?')?{total_count:native.checks.length,check_runs:native.checks}:p.includes('/statuses?')?[]:null;
     return {status:data===null?500:200,body:JSON.stringify(data)};
   }});
-  const observe=()=>observeFinalReview({provider,target:pin.target,head,base,actions:pin.actions??[]});
+  const observe=()=>observeFinalReview({provider,target:pin.target,head,base,actions:pin.actions??[],ciMode:ciObservation});
   pin.observation=await observe();
   const ci=envelope('ci','ci-observed',{pr:contentIdentity(pr),head,base,policy:b.policy,checks:contentIdentity(pin.observation.ci)});
   pin.evidence.ci=wrap(ci);pin.instructions={};pin.method=method;pin.ciMode='github-repository';pin.mergeCorrelation=input.correlation;
@@ -75,7 +75,7 @@ export async function finalReviewFixture({ownership='personal',method='rebase',c
     operations:async options=>{state.operationsOptions=options;return ops.fresh({runId:'100',attempt:'1'},options.beforeSubmit);},
     mergeCurrent:async result=>({expected:envelope('merge','merge-readback',{review:contentIdentity(pin.review.value),head,base,
       commit:result.observation.mergeCommit,readback:contentIdentity(result)}),consumed:[]})};
-  return {pin,state,native,ops,records,capabilities,mergeCaps,review,lives,observe,a,published,
+  return {pin,state,native,ops,records,provider,capabilities,mergeCaps,review,lives,observe,a,published,
     async approve(){const r=await review.run();if(r.outcome==='approved')pin.review={...wrap(r.evidence),context:r.context};return r;},
     merge:()=>createProtectedMerge(mergeCaps).run(),close:()=>published.close()};
 }

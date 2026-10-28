@@ -1,3 +1,4 @@
+import {observeRepositoryCI} from './github.mjs';
 import {canonicalJSON,bodyDigest} from './grants.mjs';
 import {compareEvidence,compareStageCollection,contentIdentity} from './evidence.mjs';
 import {verifyWorkspace,exportWorkspace} from './workspace.mjs';
@@ -60,7 +61,7 @@ function intake(p,w) {
 /** Read-only official observations, separate from the mutation capability. Native
  * CI may be pending; signed source policies are additionally enforced at merge.
  */
-export async function observeFinalReview({provider,target,head,base,actions=[]}={}) {
+export async function observeFinalReview({provider,target,head,base,actions=[],ciMode='signed'}={}) {
   const root=`/repos/${target.repository}`;
   const read=async path=>{const r=await provider.request({method:'GET',endpoint:root+path,
     operation:'observe-final',correlation:'final',target:target.repositoryId});need(r.outcome==='read','read');return r.data;};
@@ -72,12 +73,13 @@ export async function observeFinalReview({provider,target,head,base,actions=[]}=
     &&pr.head?.ref===target.headRef&&pr.state==='open'&&pr.merged===false&&pr.draft===false,'pr-state');
   const branch=await read(`/branches/${encodeURIComponent(target.baseRef)}`);
   need(branch.name===target.baseRef&&branch.commit?.sha===base&&typeof branch.protected==='boolean','branch');
-  const protection=await read(`/branches/${encodeURIComponent(target.baseRef)}/protection`);
+  need(['signed','github-repository'].includes(ciMode),'ci-mode');
+  const protection=ciMode==='github-repository'?{}:await read(`/branches/${encodeURIComponent(target.baseRef)}/protection`);
   const checks=protection.required_status_checks;
   const directEnforced=protection.enforce_admins?.enabled===true&&checks?.strict===true
     &&Array.isArray(checks.contexts)&&Array.isArray(checks.checks)&&(checks.contexts.length>0||checks.checks.length>0);
   const commit=await read(`/commits/${head}`);need(commit.sha===head&&sha(commit.commit?.tree?.sha),'tree');
-  const ci=await observeGithubCI({provider,expected:{repository:target.repository,repositoryId:target.repositoryId,
+  const ci=await (ciMode==='github-repository'?observeRepositoryCI:observeGithubCI)({provider,expected:{repository:target.repository,repositoryId:target.repositoryId,
     prId:target.prId,pr:Number(target.prNumber),head,baseSha:base,baseRepositoryId:target.repositoryId,baseBranch:target.baseRef},actions});
   need(ci.policy&&['satisfied','pending','failed'].includes(ci.status),'protection-unreadable');
   // Exclude observation timestamps; retain all semantic source/policy/check inputs.
@@ -178,17 +180,21 @@ export function createProtectedMerge({current,workspace,observe,authorization,de
           const o=await observe();need(same(o,p.observation),'native-drift');
           need(o.ownership===p.ownership&&o.permission&&o.methods[p.method]===true,'permission-or-method');
           need(!o.ci.policy.limitations.some(x=>x.type==='merge_queue'),'unsupported-required-merge-queue:REST-direct-only');
-          need(o.directEnforced===true,'direct-protection-bypass-or-unsupported');
-          need(o.protected===true&&o.ci.policy.strict===true&&o.ci.policy.requirements.length>0,'strict-base-required');
+          if(p.ciMode!=='github-repository') {
+            need(o.directEnforced===true,'direct-protection-bypass-or-unsupported');
+            need(o.protected===true&&o.ci.policy.strict===true&&o.ci.policy.requirements.length>0,'strict-base-required');
+          }
+          need(o.protected===true,'protection-unreadable');
           need(o.mergeable===true&&['clean','has_hooks','unstable','blocked'].includes(o.mergeableState),'mergeability');
           need(p.ciMode==='github-repository'||p.ciMode==='signed'&&o.ci.qualifies===true,'signed-ci');
+          need(o.ci.status!=='failed','ci-failed');
           need(o.ci.evaluations.filter(x=>x.requirement.kind==='actions').every(x=>x.status==='satisfied'),'signed-source-ci');
         }
         intake(p,await workspace());need(!signal?.aborted&&same(await current(),p),'drift');
       }
       await checkpoint();
       need(!p.observation.ci.policy.limitations.some(x=>x.type==='merge_queue'),'unsupported-required-merge-queue:REST-direct-only');
-      need(p.observation.directEnforced===true,'direct-protection-bypass-or-unsupported');
+      if(p.ciMode!=='github-repository')need(p.observation.directEnforced===true,'direct-protection-bypass-or-unsupported');
       const b=p.binding,pr=p.evidence.pr.value.inputs;
       const intent=controlledIntent({version:1,kind:'merge',correlation:p.mergeCorrelation,source:p.source,
         binding:{repository:t.repository,repositoryId:t.repositoryId,issueId:t.issueId,number:t.number,cycle:t.cycle,

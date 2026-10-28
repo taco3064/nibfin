@@ -1,3 +1,6 @@
+import {mkdtempSync,writeFileSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {executeSession,recoveryPolicy,capacityError,codexEvents,rejectSecrets} from '@nibfin/core';
@@ -71,7 +74,10 @@ test('exhausted attempts/time, cancellation, invalid capability, changed session
   }
 });
 
-test('selected official CLI entrypoints actually apply explicit model policy and resume the same session after recognized capacity',async()=>{
+test('selected official CLI entrypoints actually apply explicit model policy and resume the same session after recognized capacity',async t=>{
+  const sessionDirectory=mkdtempSync(join(tmpdir(),'nibfin-cli-session-'));
+  t.after(()=>rmSync(sessionDirectory,{recursive:true,force:true}));
+  writeFileSync(join(sessionDirectory,'rollout-'+id+'.jsonl'),'persisted fixture session');
   for(const agent of ['codex','claude','gemini']) {
     const entry=await import(new URL(agent+'-entry.mjs',import.meta.resolve('@nibfin/core')));let attempts=0,session=id;const commands=[];
     const request={access:'write',prompt:'Continue the original task',timeout:1000,context:{execution:{id:'writer'}},recovery:policy(agent)};
@@ -89,7 +95,17 @@ test('selected official CLI entrypoints actually apply explicit model policy and
           (attempts===1?{session_id:session,...capacity(agent)}:{session_id:session,response:JSON.stringify(result)}));
       return {status:attempts===1?1:0,stdout};
     };
-    const outcome=agent==='codex'?entry.executeCodex(request,[],run):agent==='claude'?entry.executeClaude(request,'{}','private-key',run):entry.executeGemini(request,'private-key',run);
+    const outcome=agent==='codex'?entry.executeCodex(request,[],run,{sessionDirectory}):agent==='claude'?entry.executeClaude(request,'{}','private-key',run):entry.executeGemini(request,'private-key',run);
     assert.deepEqual(outcome.evidence,{...request.context,result});assert.equal(attempts,2);assert(commands[1].timeout<=commands[0].timeout);
   }
+});
+
+test('Codex missing persisted data prevents a capacity resume or replacement execution',async t=>{
+  const entry=await import(new URL('codex-entry.mjs',import.meta.resolve('@nibfin/core')));
+  const sessionDirectory=mkdtempSync(join(tmpdir(),'nibfin-missing-session-'));
+  t.after(()=>rmSync(sessionDirectory,{recursive:true,force:true}));let calls=0;
+  const outcome=entry.executeCodex({access:'write',prompt:'task',timeout:1000,recovery:policy('codex'),context:{execution:{id:'writer'}}},[],()=>{
+    calls++;return {status:1,stdout:stream({type:'turn.failed',...capacity('codex')},'no result')};
+  },{sessionDirectory});
+  assert.equal(outcome.evidence,undefined);assert.equal(calls,1);assert.equal(outcome.diagnostic,'invalid-result');
 });

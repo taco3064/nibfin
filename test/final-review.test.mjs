@@ -83,7 +83,7 @@ test('native policy/permission/method/identity rejection never writes',async()=>
     n=>n.protection.enforce_admins.enabled=false,n=>n.protection.required_status_checks.strict=false,n=>n.protection=null,n=>n.pr.mergeable=null,
     n=>n.pr.base.ref='other',n=>n.pr.head.sha='a'.repeat(40),n=>n.pr.base.sha='a'.repeat(40),
     n=>n.tree='a'.repeat(40),n=>n.rules=[{type:'unknown'}]])await fixture(async f=>{
-      change(f.native);
+      f.pin.ciMode='signed';change(f.native);
       try {f.pin.observation=await f.observe();f.pin.evidence.ci.value.inputs.checks=contentIdentity(f.pin.observation.ci);
         f.pin.evidence.ci.current.expected=structuredClone(f.pin.evidence.ci.value);await f.approve();}catch {/* Unreadable observation is itself blocking. */}
       const merged=await f.merge();assert.equal(merged.outcome,'blocked');assert.equal(f.ops.writes().length,0);
@@ -178,3 +178,26 @@ test('drift while collecting independent merge expectations blocks continuation 
   assert.equal((await f.merge()).outcome,'blocked');assert.equal(f.ops.writes().length,1);
   assert.equal(f.ops.state.effect,true);
 }));
+
+test('repository CI mode delegates enforcement to GitHub without requiring strict-base APIs or inventing CI success',()=>fixture(async f=>{
+  f.native.protection=null;f.native.checks=[];
+  f.pin.observation=await f.observe();f.pin.evidence.ci.value.inputs.checks=contentIdentity(f.pin.observation.ci);
+  f.pin.evidence.ci.current.expected=structuredClone(f.pin.evidence.ci.value);
+  assert.equal(f.pin.observation.ci.qualifies,false);assert.equal(f.pin.observation.ci.status,'pending');
+  assert.equal((await f.approve()).outcome,'approved');
+  f.ops.state.onWrite=()=>{f.ops.state.effect=false;};
+  assert.equal((await f.merge()).outcome,'blocked');assert.equal(f.ops.writes().length,1);
+},{ciObservation:'github-repository'}));
+test('repository CI observation rejects stale head/base, failed checks, and unreadable branch protection',async()=>{
+  for(const fault of ['head','base','failed','protection'])await fixture(async f=>{
+    if(fault==='head')f.native.pr.head.sha='f'.repeat(40);
+    if(fault==='base')f.native.pr.base.sha='f'.repeat(40);
+    if(fault==='failed'){f.native.checks[0].conclusion='failure';f.native.pr.mergeable_state='blocked';}
+    if(fault==='protection')f.state.onNative=r=>{if(r.endpoint.endsWith('/branches/main'))throw Error('denied');};
+    if(fault!=='failed'){await assert.rejects(f.observe());assert.equal(f.ops.writes().length,0);return;}
+    f.pin.observation=await f.observe();f.pin.evidence.ci.value.inputs.checks=contentIdentity(f.pin.observation.ci);
+    f.pin.evidence.ci.current.expected=structuredClone(f.pin.evidence.ci.value);
+    assert.equal(f.pin.observation.ci.status,'failed');await f.approve();
+    assert.equal((await f.merge()).outcome,'blocked');assert.equal(f.ops.writes().length,0);
+  },{ciObservation:'github-repository'});
+});

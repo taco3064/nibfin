@@ -6,20 +6,20 @@ import {join} from 'node:path';
 import {acceptFixture} from './accept-fixture.mjs';
 import {operationsFixture,operationInput} from './operations-fixture.mjs';
 import {createPublicationGit,createCandidatePublication,contentIdentity} from '../src/index.mjs';
-export async function candidatePublicationFixture({empty=false,ownership='personal',configure}={}) {
-  const a=await acceptFixture({empty,ownership,configure,rich:true,originalMessage:Buffer.from('candidate\r\n\nexact message bytes'),repository:'example-org/core',issueId:'I_101'});
+export async function candidatePublicationFixture({empty=false,ownership='personal',configure,a:providedAccept,accepted:providedAccepted,second:providedSecond,shape:providedShape}={}) {
+  const a=providedAccept??await acceptFixture({empty,ownership,configure,rich:true,originalMessage:Buffer.from('candidate\r\n\nexact message bytes'),repository:'example-org/core',issueId:'I_101'});
   const h='a'.repeat(64), b=a.pin.binding;
   const execution=(role,id)=>({role,skill:role==='shape-validator'?'shape':role,id,request:id+'-request',result:id+'-result',source:null});
   const evidence=(stage,id,inputs,result=null)=>({version:1,stage,binding:{...b},execution:execution(stage==='publication'?'shape':stage==='pre-commit-hooks'?'deliver':stage,id),inputs,result});
   const result=outcome=>({version:1,outcome,failureClass:'none',summary:'local fixture',conflicts:[]});
-  const author=evidence('shape','shaper',{body:b.shapeHash},result('ready'));
-  const validator=evidence('shape-validator','validator',{body:b.shapeHash,author:'shaper'},result('approved'));
-  const publication=evidence('publication','published',{body:b.shapeHash,author:'shaper',validator:'validator',validation:contentIdentity(validator),readback:h});
+  const author=providedShape?.author??evidence('shape','shaper',{body:b.shapeHash},result('ready'));
+  const validator=providedShape?.validator??evidence('shape-validator','validator',{body:b.shapeHash,author:'shaper'},result('approved'));
+  const publication=providedShape?.publication??evidence('publication','published',{body:b.shapeHash,author:'shaper',validator:'validator',validation:contentIdentity(validator),readback:h});
   a.pin.deliver.inputs.publication=contentIdentity(publication);
   a.pin.deliverCurrent.expected=structuredClone(a.pin.deliver);
-  const accepted=await a.flow.run();if(accepted.outcome!=='accepted')throw Error('fixture acceptance');
-  const second=await a.second(accepted.evidence);if(!second.ok)throw Error('fixture hooks');
-  const secondStage=evidence('pre-commit-hooks','second-stage',{candidate:a.workspace.candidate,phase:'pre-commit',accept:contentIdentity(accepted.evidence),receipt:second.receipt.identity});
+  const accepted=providedAccepted??await a.flow.run();if(accepted.outcome!=='accepted')throw Error('fixture acceptance');
+  const second=providedSecond??await a.second(accepted.evidence);if(!second.ok)throw Error('fixture hooks');
+  const secondStage=providedShape?.secondStage??evidence('pre-commit-hooks','second-stage',{candidate:a.workspace.candidate,phase:'pre-commit',accept:contentIdentity(accepted.evidence),receipt:second.receipt.identity});
   const input=operationInput('pr');Object.assign(input.binding,{scopeHash:b.scopeHash,shapeHash:b.shapeHash,authorization:b.grant,
     cycle:'one',candidate:a.workspace.expected.identity,base:a.workspace.candidate.base});
   const o=operationsFixture(input);o.state.ownership=ownership==='personal'?'User':'Organization';

@@ -1,11 +1,12 @@
+import {assertCapturedCandidate} from './delivery-contract.mjs';
+import {executeDeliveryOperation} from './runtime.mjs';
+import {nextDeliveryStage} from './delivery-planner.mjs';
 import {bodyDigest,canonicalJSON} from './grants.mjs';
 import {contentIdentity,compareEvidence,compareStageCollection,verifyCompletion,skillForRole} from './evidence.mjs';
 import {githubId,repositoryCoordinates} from './index.mjs';
 import {verifyAuthority} from './authority.mjs';
 import {captureWorkspace,exportWorkspace} from './workspace.mjs';
 import {selectInstructions} from './instructions.mjs';
-import {observeGithubCI} from './ci.mjs';
-import {verifyDeployment} from './deployment.mjs';
 import {createShapeFlow} from './shape.mjs';
 import {createHookRunner} from './hooks.mjs';
 import {createAcceptFlow} from './accept.mjs';
@@ -89,10 +90,9 @@ function plan(p) {
     receipts[stage]=e;
   }
   if(p.completion)verifyCompletion(p.completion,p.completionCurrent);
-  let stage=sequence.find(s=>!receipts[s])??'fanout';
+  const stage=nextDeliveryStage(receipts,p.transition);
   // These inputs come from the recovery/repair owners' attributed, authorized handoffs.
   // Their respective run methods independently classify and recheck permission.
-  if(p.transition!==null){need(['recovery','repair'].includes(p.transition),'transition');stage=p.transition;}
   const inputs={...(p.requirementRevision?{requirementRevision:p.requirementRevision}:{}),
     ...(p.referenceInputApproval?{referenceInputApproval:p.referenceInputApproval}:{}),binding:p.binding,scopeHash:p.binding.scopeHash,shapeHash:p.binding.shapeHash,
     candidate:p.candidate,base:p.base,head:p.head,ci:p.ciIdentity,cycle:p.cycle,
@@ -247,9 +247,12 @@ export function createCore({current,provider,authorization,dependencies,selector
     }
     owned[name]=factory(config);
   }
-  const ciProvider=owners.ci?.provider,hookInput=owners.hookInput;
+  const ciProvider=owners.ci?.provider,ciMode=owners.ci?.mode,hookInput=owners.hookInput;
+  need(ciMode===undefined||['github-repository','signed'].includes(ciMode),'ci-mode');
   let busy=false;const invoked=new Set(),runStages=new Map();
-  async function observe(r,signal) {
+  const observe=(r,signal)=>typeof provider.freshReadObservation==='function'
+    ?provider.freshReadObservation(()=>observeFresh(r,signal)):observeFresh(r,signal);
+  async function observeFresh(r,signal) {
     const p=freeze(copy(await read()));
     need(same(p.target,r.target)&&p.cycle===r.cycle&&same(p.invocation,{request:r.request,run:r.run}),'binding');
     const decision=plan(p);
@@ -296,50 +299,10 @@ export function createCore({current,provider,authorization,dependencies,selector
       owner:owner?{outcome:owner.outcome??owner.status??null,identity:contentIdentity(owner),output:owner}:null};
   }
   async function dispatch(p,stage,signal,resume) {
-    const call=(owner,method,...args)=>{
-      need(typeof owned[owner]?.[method]==='function','owner-unavailable');return owned[owner][method](...args);
-    };
     if(['shape-validator','publication'].includes(stage))shapeChain(p.stageInput,p,stage==='publication');
-    if(resume){
-      if(['shape','shape-validator','deliver','accept','shaper-review','repair'].includes(stage))
-        return call({shape:'shape','shape-validator':'shape',deliver:'deliver',accept:'accept','shaper-review':'review',repair:'repair'}[stage],'reconcile');
-      need(['publication','pr','merge','closure','delivered','recovery','fanout'].includes(stage)
-        &&hash(p.operationIdentity)&&p.prior.operationIdentity===p.operationIdentity,'reconciliation');
-      // These owners resolve their retained original intents before any submission.
-      // Re-enter the same owner with unchanged inputs; never construct a replacement.
-    }
-    switch(stage) {
-      case 'shape':return call('shape','author');
-      case 'shape-validator':return call('shape','validate',copy(p.stageInput));
-      case 'publication':return call('shape','publish',copy(p.stageInput));
-      case 'deliver':return call('deliver','run');
-      case 'pre-accept-hooks':case 'pre-commit-hooks':{
-        const input=hookInput(stage,p);
-        need(input.phase===(stage==='pre-accept-hooks'?'pre-accept':'pre-commit')
-          &&same(input.expected.candidate,p.candidate)&&input.expected.binding.repository===p.target.repository
-          &&input.expected.binding.scopeHash===p.binding.scopeHash&&input.expected.binding.shapeHash===p.binding.shapeHash,'hook-binding');
-        if(stage==='pre-commit-hooks')need(same(input.accept,p.receipts.accept)
-          &&same(input.firstStage,p.receipts['pre-accept-hooks']),'hook-evidence');
-        return call('hooks','execute',input);
-      }
-      case 'accept':return call('accept','run');
-      case 'pr':return call('publication','run',{signal});
-      case 'ci':need(p.stageInput.expected.repository===p.target.repository&&p.stageInput.expected.repositoryId===p.target.repositoryId
-        &&p.stageInput.expected.head===p.head&&p.stageInput.expected.baseSha===p.base,'ci-binding');
-        return observeGithubCI({...copy(p.stageInput),provider:ciProvider});
-      case 'shaper-review':return call('review','run');
-      case 'merge':return call('merge','run',{signal});
-      case 'final':need(p.stageInput?.policy?.mode!=='required'||p.stageInput.policy.repositoryId===p.target.repositoryId
-        &&p.stageInput.policy.commit===p.receipts.merge.inputs.commit,'deployment-binding');
-        return verifyDeployment(copy(p.stageInput));
-      case 'closure':return call('completion','close',{signal});
-      case 'delivered':return call('completion','complete',{signal});
-      case 'fanout':need(same(p.stageInput.source,p.target),'fanout-source');return call('fanout','wake',copy(p.stageInput),{signal});
-      case 'recovery':return call('recovery','run',{signal});
-      case 'repair':return call('repair','run',copy(p.stageInput));
-      default:throw Error('core:stage');
-    }
+    return executeDeliveryOperation({p,stage,signal,resume,owned,hookInput,ciProvider,ciMode});
   }
+
   return Object.freeze({
     async inspect(input,{signal}={}) {
       let r;
@@ -380,7 +343,7 @@ export function createCore({current,provider,authorization,dependencies,selector
           ?(['waiting','pending'].includes(value)?'waiting':value==='rejected'?'rejected':value==='unknown'?'unresolved':'blocked')
           :owner?.ok===false?'blocked':
             ['authored','validated','published','ready','accepted','approved','confirmed-success','closed','completed',
-              'delivered','qualified','not-applicable','retained','woken','success','satisfied','merged','handoff','discovered'].includes(value)||owner?.ok===true?'completed':'blocked';
+              'delivered','observed','qualified','not-applicable','retained','woken','success','satisfied','merged','handoff','discovered'].includes(value)||owner?.ok===true?'completed':'blocked';
         return result(r,d,signal?.aborted&&disposition==='completed'?'blocked':disposition,
           signal?.aborted?'cancelled':'owner-result',d.stage,owner);
       }catch(e){return r?result(r,e?.decision??d,launched?'unresolved':'blocked',e?.decision?e.gate:'invalid-or-unavailable',launched?d.stage:null)
@@ -417,6 +380,7 @@ export function createDeliverFlow({current,captureInput,prepareRole,evidenceCurr
     await checkpoint(a.pin);
     if(checked.status!=='valid'){active=null;return {outcome:'rejected',collection:checked.collection};}
     need(same(raw.inputs.candidate,w.candidate)&&raw.inputs.publication===contentIdentity(a.pin.publication),'candidate');
+    assertCapturedCandidate(w,a.pin.shapeBody,checked.evidence);
     await checkpoint(a.pin);
     active=null;return {outcome:'ready',evidence:checked.evidence,workspace:JSON.parse(exportWorkspace(w))};
   }

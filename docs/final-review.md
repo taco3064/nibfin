@@ -134,3 +134,13 @@ Local verification: `node --test test/final-review.test.mjs`, `npm run check`,
 `npm run verify:archive`, on Node 22/npm 10. Archive verification exercises the
 same public API from an isolated installed package using verifier-owned disposable
 Git/process files. `out/nibfin-core.tgz` remains a mandatory Candidate artifact.
+
+
+The trusted `observeFinalReview` capability accepts `ciMode: 'github-repository'`
+for GitHub-enforced policy. It reads the current branch/protection flag and exact
+PR head/Base and checks without requiring separate strict-base protection APIs.
+Pending or absent CI permits fidelity review and remains unqualified; Merge is
+still conditional on GitHub's server enforcement and read-back. A GitHub-blocked PR with a known failed
+check blocks Merge. Omitted mode preserves the existing signed-policy observer;
+explicit signed configurations retain their required-check and provenance gates.
+See [the fixed source/API map](kairo-reuse.md).

@@ -51,7 +51,11 @@ test('AC2: six roles, selected instructions, exact production args/mounts/env; o
     assert.equal(create.args[create.args.indexOf('--pull')+1],'never');
     assert.deepEqual(create.args.slice(-3),[f.config.image,'/entry.mjs','execute']);
     const mounts=create.args.flatMap((v,i)=>v==='--mount'?[create.args[i+1]]:[]);
-    assert.equal(mounts.length,14);
+    assert.equal(mounts.length,15);
+    const sessions=mounts.filter(m=>m.includes('dst=/role-session.mjs,'));
+    assert.equal(sessions.length,1);
+    assert.match(sessions[0],/src=[^,]+\/src\/role-session\.mjs,dst=\/role-session\.mjs,/);
+    assert.ok(sessions[0].endsWith(',readonly'));
     const workspace=mounts.find(m=>m.includes('dst=/work,'));
     assert.equal(workspace.endsWith(',readonly'),role!=='deliver');
     assert.ok(workspace.includes('bind-recursive=disabled'));assert.ok(workspace.includes('bind-propagation=rprivate'));

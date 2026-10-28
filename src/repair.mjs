@@ -104,7 +104,21 @@ export function createRepairFlow({current,workspace,evidenceCurrent,authorize,de
     return w;
   }
   async function intake(pin,raw) {
-    require(['accept','shaper-review','ci'].includes(pin.source.kind),'source');
+    require(['accept','shaper-review','ci','candidate'].includes(pin.source.kind),'source');
+    if(pin.source.kind==='candidate') {
+      // Only the trusted Runtime produces this observation, after an actual
+      // Candidate/Hook comparison. It grants no authority; all normal repair,
+      // effects, policy, custody and fresh-evidence gates below still apply.
+      require(same(raw,pin.source.observation) && raw?.version===1 && raw.kind==='candidate-obligation'
+        && Object.keys(raw).sort().join(' ')==='binding candidate checkpoint evidence failureClass kind version'
+        && ['pre-accept-hooks','pre-commit-hooks'].includes(raw.checkpoint)
+        && same(raw.binding,pin.binding) && same(raw.candidate,pin.attempt.candidate)
+        && /^[a-f0-9]{64}$/.test(raw.evidence??'')
+        && ['implementation_defect','external_failure'].includes(raw.failureClass),'intake');
+      const key=contentIdentity(raw);
+      require(!used.has(key) && !pin.history.some(r=>r.source===key),'replay');
+      return {failureClass:raw.failureClass,key,reporter:null,evidence:raw};
+    }
     if(pin.source.kind==='ci') {
       // A failed check is not a diagnosis. Core supplies the exact trusted CI
       // observation and, optionally, a separately assigned reviewer collection.

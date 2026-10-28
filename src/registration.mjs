@@ -44,7 +44,8 @@ export function openRegistrationResponse(bytes, {privateKey, expected, now = Dat
   try {
     if (bytes.byteLength > 65536) fail();
     const e = JSON.parse(Buffer.from(bytes).toString()), binding = context(expected);
-    if (e.version !== 1 || !equal(e.context, binding) || keyInfo(privateKey).fingerprint !== binding.recipient) fail();
+    if (!e || Object.keys(e).sort().join(' ')!=='ciphertext context iv key tag version'
+        || e.version !== 1 || !equal(e.context, binding) || keyInfo(privateKey).fingerprint !== binding.recipient) fail();
     secret = privateDecrypt({key:privateKey, oaepHash:'sha256', padding:constants.RSA_PKCS1_OAEP_PADDING}, Buffer.from(e.key,'base64'));
     const decipher = createDecipheriv('aes-256-gcm', secret, Buffer.from(e.iv,'base64'));
     decipher.setAAD(Buffer.from(JSON.stringify(binding))); decipher.setAuthTag(Buffer.from(e.tag,'base64'));
@@ -128,7 +129,7 @@ export function registrationArtifactReader({provider, archive, now = Date.now}) 
     if (matches.length !== 1) fail();
     const a = matches[0];
     if (!id(a.id) || ref.artifactId !== null && a.id !== ref.artifactId || a.expired !== false
-        || !future(a.expires_at,now) || a.workflow_run?.id !== ref.runId
+        || !future(a.expires_at,now) || a.workflow_run?.id !== ref.runId || a.workflow_run?.repository_id !== ref.repositoryId
         || !Number.isSafeInteger(a.size_in_bytes) || a.size_in_bytes > 131072) fail();
     const downloaded = await archive({endpoint:`${root}/artifacts/${a.id}/zip`,signal,maxBytes:131072});
     if (downloaded.status !== 200 || downloaded.bytes?.length !== a.size_in_bytes) fail();
@@ -183,6 +184,21 @@ export function createRegistrationHost({authenticate, policy, transport, channel
         : `/orgs/${owner}/actions/runners/registration-token`;
       const provider = createGithubProvider({identity:'hosted-authorized',transport,now,elapsedMs:timeoutMs,
         authorize:async intent => {
+          // Credential acquisition may await. Recheck source and member rights
+          // at the last controllable issuance checkpoint, then Owner policy last.
+          const source = await bounded(authenticate(handle,{signal}),signal);
+          if (!equal(source,s)) return false;
+          const target = await read(`/repos/${s.repository}`);
+          const user = await read(`/users/${s.requester.login}`);
+          const member = await read(`/repos/${s.repository}/collaborators/${s.requester.login}/permission`);
+          if (target.id!==s.repositoryId || target.full_name?.toLowerCase()!==s.repository
+              || target.private!==false || target.visibility!=='public' || target.owner?.id!==r.owner.id
+              || target.owner?.login?.toLowerCase()!==owner || target.owner?.type!==r.owner.type || !same(user) || !same(member.user)
+              || !['write','maintain','admin'].includes(member.permission)) return false;
+          if (level==='organization') {
+            const currentOrg=await read(`/orgs/${owner}`);
+            if(currentOrg.id!==org.id||currentOrg.login?.toLowerCase()!==owner)return false;
+          }
           const current = await bounded(policy(s.repositoryId,{signal}),signal);
           return fresh() && enabled(current) && equal(current,p) && intent.endpoint === endpoint && intent.method === 'POST';
         }});
@@ -199,8 +215,9 @@ export function createRegistrationHost({authenticate, policy, transport, channel
       const m = await read(`/repos/${s.repository}/collaborators/${s.requester.login}/permission`);
       const same = u => u?.id === s.requester.id && u.login?.toLowerCase() === s.requester.login.toLowerCase();
       if (!same(u) || !same(m.user) || !['write','maintain','admin'].includes(m.permission)) fail();
+      let org;
       if (level === 'organization') {
-        const org = await read(`/orgs/${owner}`);
+        org = await read(`/orgs/${owner}`);
         if (r.owner.type !== 'Organization' || org.id !== p.organization.id || org.id !== r.owner.id
             || org.login?.toLowerCase() !== owner) fail();
       }

@@ -2,7 +2,7 @@ import {createActionsVerifier, createSyntheticActionsVerifierForTest, verifyNati
 import {createGithubProvider, localGhTransport, publicDiagnostic, githubEndpointPermission} from './provider.mjs';
 import {createAuthorizationBoundary} from './authorization.mjs';
 import {verifyGrant} from './grants.mjs';
-import {githubId, repositoryCoordinates} from './index.mjs';
+import {githubId, repositoryCoordinates, canonicalJSON} from './index.mjs';
 
 const need = ok => {if (!ok) throw Error('host-identity:configuration');};
 const fail = kind => ({outcome:'failed',diagnostic:{kind}});
@@ -80,10 +80,11 @@ export function hostedGithubTransport({getCredential, repository, repositoryId, 
 }
 
 function compose(configuration, testFacility) {
-  exact(configuration,['options','mode','source','api','authorization','operations'],['now']);
+  exact(configuration,['options','mode','source','api','operations'],['now','authorization']);
+  need(configuration.mode==='registration'||configuration.authorization!==undefined);
   exact(configuration.source,['policy','getToken','continuation'],['getAssociation','timeoutMs']);
   exact(configuration.api,['kind','operator'],['executable','getCredential','organization']);
-  exact(configuration.authorization,['getCheckpoint','maxCheckpointMs']);
+  if(configuration.mode!=='registration')exact(configuration.authorization,['getCheckpoint','maxCheckpointMs']);
   const options=structuredClone(configuration.options),mode=configuration.mode,source={...configuration.source},
     api={...configuration.api,operator:{...configuration.api?.operator}},authorization={...configuration.authorization},now=configuration.now??Date.now;
   need(typeof now==='function' && ['lookup','resolve','execute','compute','wake','registration'].includes(mode));
@@ -115,8 +116,8 @@ function compose(configuration, testFacility) {
     api.kind==='local'?['executable','organization']:['organization']);
   if(api.kind==='hosted')need(typeof api.getCredential==='function');
   if(api.organization!==undefined)need(api.organization===options.repository.split('/')[0]);
-  need(typeof authorization?.getCheckpoint==='function');
-  exact(authorization,['getCheckpoint','maxCheckpointMs']);
+  if(mode!=='registration'){need(typeof authorization?.getCheckpoint==='function');
+    exact(authorization,['getCheckpoint','maxCheckpointMs']);}
   const operations=structuredClone(configuration.operations);
   need(Array.isArray(operations));
   for(const operation of operations) {
@@ -151,7 +152,7 @@ function compose(configuration, testFacility) {
       c.operator=api.kind==='local'?{...api.operator}:{id:api.operator.id,kind:'service',source:identity,trusted:true};
       return c;
     }});
-  const boundary=boundaryFor(options.routing==='authenticated'&&isMember(mode)?api.operator:undefined);
+  const boundary=mode==='registration'?null:boundaryFor(options.routing==='authenticated'&&isMember(mode)?api.operator:undefined);
   async function authenticated(argument) {
     try {
       const signal=AbortSignal.any([AbortSignal.timeout(timeoutMs),...(argument.signal?[argument.signal]:[])]);
@@ -210,12 +211,14 @@ function compose(configuration, testFacility) {
   const boundArgument=()=>({mode,context:{repository:options.repository,repositoryId:options.repositoryId,
     run:{id:policy.run_id,attempt:policy.run_attempt}}});
   async function eligibility(intent={},settings={}) {
+    if(mode==='registration')return {ok:false,diagnostic:{kind:'unsupported'}};
     const auth=await authenticated({...boundArgument(),signal:settings.signal});
     if(!auth.ok)return auth;
     const result=await boundary.eligibility(intent,settings);
     return result.ok && !sourceFresh()?{ok:false,diagnostic:{kind:'source_expired'}}:result;
   }
   async function memberEligibility(member,intent,settings={}) {
+    if(mode==='registration')return {ok:false,diagnostic:{kind:'unsupported'}};
     if(!account(member))return fail('member');
     const auth=await authenticated({...boundArgument(),signal:settings.signal});
     if(!auth.ok)return auth;
@@ -268,7 +271,7 @@ function compose(configuration, testFacility) {
     }
   })});
   async function request(r) {
-    if(!r || !permitted(r))return fail('unsupported');
+    if(mode==='registration'||!r || !permitted(r))return fail('unsupported');
     const auth=await authenticated({...boundArgument(),signal:r.signal});
     if(!auth.ok)return {...publicDiagnostic(auth),outcome:'failed'};
     // Reads of management endpoints also require the current member/Grant checkpoint.
@@ -279,7 +282,35 @@ function compose(configuration, testFacility) {
     if(!sourceFresh())return fail('source_expired');
     return boundary.request(r);
   }
-  return Object.freeze({authenticate:async argument=>{
+  // A registration request is independently captured by the protected dispatch
+  // integration and pinned in deployment configuration. Event JSON cannot set it.
+  async function registrationSource({expected,input,context,signal}) {
+    need(mode==='registration' && policy.repository===options.repository
+      &&policy.repository_id===options.repositoryId&&policy.event_name==='workflow_dispatch');
+    const result=await authenticated({mode,context,signal});need(result.ok);
+    exact(expected,['input','requester']);exact(expected.requester,['id','login']);
+    need(account(expected.requester)&&expected.requester.id===policy.actor_id
+      &&canonicalJSON(input)===canonicalJSON(expected.input));
+    const run=await reader.request({endpoint:`/repos/${options.repository}/actions/runs/${policy.run_id}/attempts/${policy.run_attempt}`,
+      target:options.repositoryId,operation:'registration',correlation:input.nibfin_registration,signal});
+    const r=run.data;
+    need(run.outcome==='read'&&r.id===policy.run_id&&String(r.run_attempt)===policy.run_attempt
+      &&r.repository?.id===options.repositoryId&&r.event==='workflow_dispatch'
+      &&r.actor?.id===expected.requester.id&&r.actor?.login?.toLowerCase()===expected.requester.login.toLowerCase()
+      &&r.head_sha===policy.workflow_sha&&sourceFresh()&&!signal?.aborted);
+    return {authenticated:true,event:'workflow_dispatch',requestId:input.nibfin_registration,
+      publicKey:input.public_key,level:input.level,requester:{...expected.requester},repository:options.repository,
+      repositoryId:options.repositoryId,runId:policy.run_id,attempt:policy.run_attempt};
+  }
+  // Only the maintained issuer receives this mode-bound transport. Credential
+  // preparation precedes its final policy/member checkpoint in createGithubProvider.
+  const registrationTransport=mode==='registration'?Object.freeze(Object.assign(async r=>{
+    need(sourceFresh());return transport(r);
+  },{prepareMutation:async argument=>{
+    need(sourceFresh());const send=transport.prepareMutation?await transport.prepareMutation(argument):transport;
+    return r=>{need(sourceFresh());return send(r);};
+  }})):undefined;
+  return Object.freeze({registrationSource,registrationTransport,authenticate:async argument=>{
     const result=await authenticated(argument);
     if(!result.ok)throw Error('host-identity:rejected');return result.identity;
   },eligibility,memberEligibility,...(options.routing==='authenticated'?{routing}:{}),observeExecution:async ({signal}={})=>{
@@ -288,7 +319,7 @@ function compose(configuration, testFacility) {
     return {runnerId:result.runnerId,operatorId:api.operator.id,repository:options.repository,repositoryId:options.repositoryId,
       sourceRepository:policy.repository.toLowerCase(),sourceRepositoryId:policy.repository_id,run:{id:policy.run_id,attempt:policy.run_attempt}};
   },provider:Object.freeze({request,reconcile:async (submission,r,matches)=>{
-    if(!r || !permitted({...r,method:'GET'}))return {outcome:'unknown'};
+    if(mode==='registration'||!r || !permitted({...r,method:'GET'}))return {outcome:'unknown'};
     if(!(await eligibility(r,{signal:r.signal})).ok)return {outcome:'unknown'};
     return boundary.reconcile(submission,r,matches);
   }}),provenance:testFacility?'synthetic-local-test':'github-actions-oidc'});

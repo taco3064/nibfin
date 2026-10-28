@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nibfin.dev/schemas/registration-v1.json",
+  "title": "Protected registration workflow v1 public contract",
+  "$defs": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nibfin_registration", "public_key", "level"],
+      "properties": {
+        "nibfin_registration": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
+        "public_key": {"type": "string", "maxLength": 8192, "description": "RSA public PEM, modulus at least 2048 bits; private key stays with member. Cryptographic validation is mandatory."},
+        "level": {"enum": ["repository", "organization"]}
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {"enum": ["delivered", "retained", "denied", "expired", "unavailable", "unconfirmed", "unknown", "blocked"]},
+        "response": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$", "description": "Opaque retained record reference, never a registration token or proof of Runner creation."}
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requestId", "requesterId", "repository", "repositoryId", "level", "registrationId", "runId", "attempt", "recipient"],
+      "properties": {
+        "requestId": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
+        "requesterId": {"type": "string", "pattern": "^[1-9][0-9]*$"},
+        "repository": {"type": "string", "pattern": "^[a-z0-9-]+/[a-z0-9_.-]+$"},
+        "repositoryId": {"type": "string", "pattern": "^[1-9][0-9]*$"},
+        "level": {"enum": ["repository", "organization"]},
+        "registrationId": {"type": "string", "pattern": "^[1-9][0-9]*$"},
+        "runId": {"type": "string", "pattern": "^[1-9][0-9]*$"},
+        "attempt": {"type": "string", "pattern": "^[1-9][0-9]*$"},
+        "recipient": {"type": "string", "pattern": "^[a-f0-9]{64}$", "description": "SHA-256 of requesting RSA SPKI DER."}
+      }
+    },
+    "envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "context", "iv", "key", "tag", "ciphertext"],
+      "properties": {
+        "version": {"const": 1},
+        "context": {"$ref": "#/$defs/context"},
+        "iv": {"type": "string", "contentEncoding": "base64"},
+        "key": {"type": "string", "contentEncoding": "base64"},
+        "tag": {"type": "string", "contentEncoding": "base64"},
+        "ciphertext": {"type": "string", "contentEncoding": "base64"}
+      },
+      "description": "Maximum serialized envelope size 65536 bytes. OAEP-SHA256 wraps AES-256-GCM key. Context is authenticated associated data. Validate, decrypt and check GitHub expiry with openRegistrationResponse and independent expected context."
+    }
+  },
+  "$ref": "#/$defs/request"
+}

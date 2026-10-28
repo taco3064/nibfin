@@ -110,3 +110,4 @@ export {createCustodyHost,custodySlotIdentity,createCustodyCurrent,retainedRoleR
 export {loadApprovedInputs} from './host-source.mjs';
 
 export {createHostRouting} from './host-routing.mjs';
+export {createProtectedRegistration,registrationCustodySlots} from './registration-host.mjs';

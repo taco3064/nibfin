@@ -120,7 +120,7 @@ export function githubEndpointPermission(method, endpoint) {
   }
   if(method==='GET' && /^\/repos\/[^/]+\/[^/]+\/issues\/[1-9][0-9]*\/dependencies\/(blocked_by|blocking)$/.test(endpoint))return 'public:read';
   if(method==='GET' && (/^\/repos\/[^/]+\/[^/]+$/.test(endpoint) || /^\/(users|orgs)\/[^/]+$/.test(endpoint)))return 'public:read';
-  if(method==='GET' && /^\/repos\/[^/]+\/[^/]+\/actions\/(?:runs\/[1-9][0-9]*\/(?:artifacts|attempts\/[1-9][0-9]*)|artifacts\/[1-9][0-9]*(?:\/zip)?)$/.test(endpoint))return 'actions:read';
+  if(method==='GET' && /^\/repos\/[^/]+\/[^/]+\/actions\/(?:runs\/[1-9][0-9]*(?:\/(?:artifacts|attempts\/[1-9][0-9]*))?|artifacts\/[1-9][0-9]*(?:\/zip)?)$/.test(endpoint))return 'actions:read';
   if(method==='GET' && /^\/repos\/[^/]+\/[^/]+\/collaborators\/[^/]+\/permission$/.test(endpoint))return 'metadata:read';
   if(method==='GET' && /^\/orgs\/[^/]+\/actions\/runner-groups(?:\/[1-9][0-9]*(?:\/(runners|repositories))?)?$/.test(endpoint))
     return 'organization_self_hosted_runners:read';

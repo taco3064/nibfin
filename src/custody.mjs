@@ -14,6 +14,14 @@ const exact = (v, keys) => v && same(Object.keys(v).sort(), keys.split(' ').sort
 const clone = v => JSON.parse(canonicalJSON(v));
 const manifestPath = 'custody-manifest.json';
 function context(v) {
+  if (v?.purpose === 'registration') {
+    if (!exact(v,'purpose repository repositoryId runId attempt revision request phase')) fail('registration_identity');
+    const parts=v.repository?.split('/');
+    if(parts?.length!==2 || repositoryCoordinates(...parts).key!==v.repository) fail('registration_identity');
+    for(const k of ['repositoryId','runId','attempt']) githubId(v[k]);
+    if(!/^[a-f0-9]{40}$/.test(v.revision) || !hash(v.request) || !['intent','result'].includes(v.phase)) fail('registration_identity');
+    return;
+  }
   if (!exact(v, 'repository repositoryId issueId cycle scopeHash shapeHash authorization runId attempt stage result candidate')) fail('identity');
   const parts = v.repository?.split('/');
   if (parts?.length !== 2 || repositoryCoordinates(...parts).key !== v.repository) fail('identity');

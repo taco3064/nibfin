@@ -3,7 +3,7 @@ import {resolve,join,relative,isAbsolute,sep} from 'node:path';
 import {createHash} from 'node:crypto';
 
 export const protectedHostFiles=Object.freeze(['host/entry.mjs','host/package.json','host/package-lock.json',
-  'host/configuration.schema.json','host/configuration.example.json']);
+  'host/configuration.schema.json','host/configuration.example.json','host/registration.schema.json']);
 const need = ok => {if(!ok)throw Error('protected-host:source');};
 const hash = b => createHash('sha256').update(b).digest('hex');
 const fields=(v,keys)=>need(v && typeof v==='object' && !Array.isArray(v)
@@ -91,13 +91,15 @@ export async function loadProtectedDeployment({source,options,approval,validate,
     const modes=Object.keys(configured);need(modes.length>0 && modes.every(m=>allowed.includes(m)));
     const parsed=Object.fromEntries(modes.map(m=>[m,validate(configured[m],m)]));
     const binding=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
-    need(Object.keys(binding).every(k=>['capabilities','identity','custody'].includes(k)) && binding.capabilities);
+    need(Object.keys(binding).every(k=>['capabilities','identity','custody','registration'].includes(k)) && binding.capabilities);
     if(binding.identity)fields(binding.identity,modes.filter(m=>parsed[m].authentication==='actions-oidc'));
     fields(binding.capabilities,modes);
     need(Object.getPrototypeOf(binding.capabilities)===Object.prototype
       && Object.values(Object.getOwnPropertyDescriptors(binding.capabilities)).every(d=>Object.hasOwn(d,'value')));
     if(binding.custody)fields(binding.custody,modes.filter(m=>['resolve','execute','compute','registration'].includes(m)));
+    if(binding.registration)fields(binding.registration,modes.filter(m=>m==='registration'));
     return {options:parsed[mode],capabilities:binding.capabilities[mode],
+      ...(binding.registration?{registration:binding.registration[mode]}:{}),
       ...(binding.custody?{custody:binding.custody[mode]}:{}),
       ...(parsed[mode].authentication==='actions-oidc'?{identity:binding.identity?.[mode]}:{})};
   } catch {throw Error('protected-host:configuration');}

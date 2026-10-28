@@ -119,7 +119,9 @@
     "src/custody-host.mjs",
     "docs/custody-host.md",
     "host/custody.example.mjs",
-    "src/host-routing.mjs"
+    "src/host-routing.mjs",
+    "src/registration-host.mjs",
+    "host/registration.schema.json"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

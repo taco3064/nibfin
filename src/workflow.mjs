@@ -70,6 +70,7 @@ export function createWorkflowEntry(host) {
         githubId(target.number);return {status:'resolved',issue:target.number};
       }
       if (mode==='registration') {
+        if(typeof host.runRegistration==='function')return host.runRegistration({identity,input,context,signal});
         const spec=await host.registration({identity,input,context});
         if (spec.prior!=='new') return {status:spec.prior==='resolved'?'retained':'unknown'};
         const key='registration:'+input.nibfin_registration;need(!attempted.has(key));attempted.add(key);

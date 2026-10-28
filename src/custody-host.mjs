@@ -9,13 +9,20 @@ const hash=v=>typeof v==='string'&&/^[a-f0-9]{64}$/.test(v);
 const word=v=>typeof v==='string'&&/^[A-Za-z0-9_.:-]{1,256}$/.test(v);
 const fields=(v,keys)=>need(v&&same(Object.keys(v).sort(),keys.split(' ').sort()));
 const copy=v=>JSON.parse(canonicalJSON(v));
-const kinds=['resolution','stage-attempt','stage-result','registration-intent','registration-result','role-output','verification','repair-input'];
+const kinds=['resolution','stage-attempt','stage-result','registration-intent','registration-result','registration-response','registration-publication','role-output','verification','repair-input'];
 const statuses=['diagnostic','capacity-failure','validation-failure','unknown-write','validated'];
 function repository(v){const p=v?.split('/');need(p?.length===2&&repositoryCoordinates(...p).key===v);}
 /** Independent expectations are protected Core configuration, not retained JSON. */
 export function custodySlotIdentity(slot) {
   fields(slot,'kind key binding');need(kinds.includes(slot.kind)&&word(slot.key));
   const b=slot.binding;
+  if(b?.purpose==='registration') {
+    fields(b,'purpose source request');fields(b.source,'repository repositoryId revision runId attempt');
+    repository(b.source.repository);for(const k of ['repositoryId','runId','attempt'])githubId(b.source[k]);
+    need(/^[a-f0-9]{40}$/.test(b.source.revision)&&hash(b.request)
+      &&['registration-intent','registration-result','registration-response','registration-publication'].includes(slot.kind));
+    return contentIdentity(slot);
+  }
   fields(b,'source target requirements authorization cycle role stage request result candidate');
   fields(b.source,'repository repositoryId revision runId attempt');repository(b.source.repository);
   for(const k of ['repositoryId','runId','attempt'])githubId(b.source[k]);
@@ -35,6 +42,7 @@ export function custodySlotIdentity(slot) {
 }
 function binding(slot,phase) {
   const b=slot.binding,s=b.source;
+  if(b.purpose==='registration') return {purpose:'registration',...s,request:b.request,phase};
   return {repository:s.repository,repositoryId:s.repositoryId,issueId:b.target.issueId,cycle:b.cycle,
     scopeHash:b.requirements.scopeHash,shapeHash:b.requirements.shapeHash,authorization:b.authorization,
     runId:s.runId,attempt:s.attempt,stage:b.requirements.shapeHash===null?'authorization':'candidate',result:phase+'-'+custodySlotIdentity(slot),candidate:phase==='result'?b.candidate:null};
@@ -73,8 +81,8 @@ export function createCustodyHost({provider,archive,expect,publication,authorize
     const slot=copy(await expect({kind:argument.kind,key:argument.key}));
     const id=custodySlotIdentity(slot);
     need(slot.kind===argument.kind&&(argument.key===slot.key||argument.key===id));
-    if(argument.identity)need(argument.identity.repository===slot.binding.target.repository
-      &&argument.identity.repositoryId===slot.binding.target.repositoryId);
+    if(argument.identity){const target=slot.binding.purpose==='registration'?slot.binding.source:slot.binding.target;
+      need(argument.identity.repository===target.repository&&argument.identity.repositoryId===target.repositoryId);}
     return slot;
   }
   async function discover(slot,phase,signal) {

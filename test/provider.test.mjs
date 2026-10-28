@@ -287,3 +287,12 @@ test('read authorization guards every page and cannot authorize mutations or exp
     assert.equal(githubEndpointPermission('GET',path+'?per_page=101'),null);
   }
 });
+
+
+test('run source lookup requires Actions read and does not authorize adjacent writes or arbitrary queries',()=>{
+  const path='/repos/example/core/actions/runs/44';
+  assert.equal(githubEndpointPermission('GET',path),'actions:read');
+  for(const method of ['POST','PATCH','DELETE'])assert.equal(githubEndpointPermission(method,path),null);
+  for(const suffix of ['/cancel','/rerun','/attempts/0','?per_page=100','/logs'])
+    assert.equal(githubEndpointPermission('GET',path+suffix),null);
+});

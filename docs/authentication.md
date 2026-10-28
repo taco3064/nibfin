@@ -132,3 +132,18 @@ The provider's optional `authorizeRead(intent)` runs for every normalized GET an
 pagination page, within its bounded/cancellable request path. It cannot authorize
 a mutation; writes still require the separate existing final `authorize` path.
 Routing uses this guard for source/Grant checks and endpoint rights.
+## Registration authorization is separate
+
+Maintained registration mode uses the same official OIDC verifier and hosted
+credential transport, but does not invoke the delivery checkpoint boundary.
+`authorization` may be omitted for this mode; other modes still require it.
+Its provider does not expose delivery operations. `registrationSource` verifies
+Run/Attempt and official attempt actor/event/repository/revision against protected
+source expectations and captured request inputs. Only `createProtectedRegistration`
+receives the mode-bound registration transport. The existing issuer rechecks
+source, public repository, stable User ID and current Write/Maintain/Admin rights,
+then Owner opt-in immediately before one permitted token POST. Credential
+preparation occurs before that final checkpoint. Organization Runner capability
+is separately required; Org-owned public Repository Runners use the Repository
+endpoint. No Issue assignment, delivery Grant or per-request whitelist is needed.
+See [registration.md](registration.md) for protected request capture and custody.

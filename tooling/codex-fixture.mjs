@@ -1,3 +1,5 @@
+import {dockerObservation} from './docker-observation-fixture.mjs';
+import {createHash} from 'node:crypto';
 // SYNTHETIC Docker boundary: real host child processes, no daemon, login or model.
 import {spawn} from 'node:child_process';
 import {mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync} from 'node:fs';
@@ -35,13 +37,14 @@ export function codexFixture(role='shape', custom, agent='codex') {
       if(args[1]==='create'){const name=args.at(-1);networks.set(name,{Name:name,Internal:true,EnableIPv6:false,Options:{'com.docker.network.bridge.gateway_mode_ipv4':'isolated'},Driver:'bridge',Labels:{'nibfin.egress':name}});return respond(name);}
       if(args[1]==='ls')return respond([...networks.keys()].join('\n'));
       if(args[1]==='inspect')return respond([networks.get(args[2])]);
-      if(args[1]==='connect'){const name=args.at(-1),network=args.at(-2);gateways.get(name).NetworkSettings.Networks[network]={};return respond('');}
+      if(args[1]==='connect'){const name=args.at(-1),network=args.at(-2);gateways.get(name).NetworkSettings.Networks[network]={IPAddress:'172.30.1.2',Aliases:['nibfin-egress']};networks.get(network).Containers={[name]:{Name:name,IPv4Address:'172.30.1.2/24'}};return respond('');}
       if(args[1]==='rm'){networks.delete(args[2]);return respond('');}
     }
     if (op === 'create' && args.includes('/gateway.mjs')) {
       const name=args[args.indexOf('--name')+1],network=args[args.indexOf('--label')+1].split('=')[1];
-      gateways.set(name,{Name:'/'+name,Image:image,Config:{Labels:{'nibfin.egress':network}},
-        State:{Running:false},HostConfig:{Privileged:false,ReadonlyRootfs:true},NetworkSettings:{Networks:{bridge:{}}}});
+      const observed=dockerObservation(args,image);
+      gateways.set(name,{...observed,Id:name,Name:'/'+name,Image:image,Config:{...observed.Config,Labels:{'nibfin.egress':network}},
+        State:{Running:false},HostConfig:observed.HostConfig,NetworkSettings:{Networks:{bridge:{}}}});
       return respond(name);
     }
     if(op==='inspect' && gateways.has(args[1]))return respond([gateways.get(args[1])]);
@@ -50,16 +53,17 @@ export function codexFixture(role='shape', custom, agent='codex') {
     if(op==='container' && args.includes('--filter'))return respond([...gateways.keys()].join('\n'));
     if (op === 'version') return respond(JSON.stringify(flags.docker ?? linuxCodexProfile.docker));
     if (op === 'info') return respond({ServerVersion:linuxCodexProfile.docker,OSType:'linux',Architecture:'x86_64',
-      CgroupVersion:'2',MemoryLimit:flags.memory ?? true,PidsLimit:true,CpuCfsQuota:true,CpuCfsPeriod:true,
+      CgroupVersion:'2',CgroupDriver:flags.cgroupDriver??'systemd',MemoryLimit:flags.memory ?? true,PidsLimit:true,CpuCfsQuota:true,CpuCfsPeriod:true,
       SecurityOptions:flags.security ?? ['name=rootless','name=seccomp,profile=builtin']});
     if (op === 'image') return respond([{Id:flags.image ?? image,Os:'linux',Architecture:'amd64',Config:{Env:['PATH=/usr/local/bin:/usr/bin:/bin']}}]);
     if (op === 'create') {
       if (flags.noCreate && args.at(-1)==='execute') return {ok:false,output:''};
       const name=args[args.indexOf('--name')+1], probe=args.at(-1)==='probe';
       const mounts=args.flatMap((v,i)=>v==='--mount'?[args[i+1]]:[]);
-      containers.set(name,{Name:'/'+name,Image:image,Config:{Labels:{'nibfin.execution':name}},
+      const observed=dockerObservation(args,image);
+      containers.set(name,{...observed,Id:name,Name:'/'+name,Image:image,Config:{...observed.Config,Labels:{'nibfin.execution':name}},
         State:{Running:false,Status:'created',ExitCode:0},env:args.flatMap((v,i)=>v==='--env'?[args[i+1]]:[]),
-        HostConfig:{NetworkMode:args[args.indexOf('--network')+1],Dns:['127.0.0.1'],DnsSearch:['.']},NetworkSettings:{Networks:{[args[args.indexOf('--network')+1]]:{}}},probe,mounts});
+        HostConfig:{...observed.HostConfig,NetworkMode:args[args.indexOf('--network')+1],Dns:['127.0.0.1'],DnsSearch:['.']},NetworkSettings:{Networks:{[args[args.indexOf('--network')+1]]:{IPAddress:'172.30.1.3'}}},probe,mounts});
       return flags.lostCreate && !probe ? {ok:false,output:''}:respond(name);
     }
     if (op === 'inspect') {
@@ -79,16 +83,22 @@ export function codexFixture(role='shape', custom, agent='codex') {
       }
       return respond('');
     }
+    if(op==='exec' && gateways.has(args[1]))return respond(createHash('sha256').update(readFileSync(new URL('egress-gateway.mjs',import.meta.resolve('@nibfin/core')))).digest('hex'));
     if(op==='exec') {
       const c=containers.get(args[3]);if(!c?.State.Running)return {ok:false,output:''};
       const mounted=c.mounts.find(m=>m.includes('dst=/verification,'))?.match(/src=([^,]+)/)[1];
       const value=JSON.parse(args.at(-1)),translate=v=>typeof v==='string'&&v.startsWith('/verification')?mounted+v.slice('/verification'.length):v;
       value.cwd=translate(value.cwd);value.args=value.args.map(translate);
       value.env=Object.fromEntries(Object.entries(value.env).map(([k,v])=>[k,translate(v)]));
-      const {runVerificationChild}=await import(new URL('verification-child.mjs',import.meta.resolve('@nibfin/core')));
+      const {runVerification,verificationBudget}=await import(new URL('verification-runner.mjs',import.meta.resolve('@nibfin/core')));
       const controller=new AbortController();
       if(!c.execControllers)Object.defineProperty(c,'execControllers',{value:new Set()});c.execControllers.add(controller);
-      try{return respond(await runVerificationChild(value,{signal:controller.signal}));}finally{c.execControllers.delete(controller);}
+      try{
+        const requestDirectory=c.mounts.find(m=>m.includes('dst=/input,')).match(/src=([^,]+)/)[1];
+        const budget=JSON.parse(readFileSync(join(requestDirectory,'verification-budget.json')));
+        const bounded={...verificationBudget(Math.min(budget.stopVerificationAt,Date.now()+value.timeoutMs)-budget.startedAt,budget.startedAt,0),execution:budget.execution};
+        return respond(await runVerification(value.file,value.args,{directory:join(mounted,'commands'),budget:bounded,cwd:value.cwd,env:value.env,signal:controller.signal,stdout:null,stderr:null,secrets:['LOGIN-SENTINEL']}));
+      }finally{c.execControllers.delete(controller);}
     }
     if (op === 'start') {
       const c=containers.get(args.at(-1)); c.State={Running:true,Status:'running',ExitCode:0};

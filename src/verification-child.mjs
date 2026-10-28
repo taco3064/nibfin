@@ -25,14 +25,14 @@ export function runVerificationChild(command,{signal:callerSignal,maxBytes=10485
         const p=JSON.parse(proof);
         if(code!==0||p.reconciled!==true||!Number.isInteger(p.exitCode)
             ||typeof p.cancelled!=='boolean'||typeof p.timeout!=='boolean')throw Error();
-        result={...result,status:reason??(p.timeout?'timeout':p.cancelled?'cancelled':p.exitCode===0?'passed':'failed'),
+        result={...result,status:reason??(p.spawnFailed?'spawn_failed':p.timeout?'timeout':p.cancelled?'cancelled':p.exitCode===0?'passed':'failed'),
           exitCode:p.exitCode>=0?p.exitCode:null,signal:p.exitCode<0?Object.keys(osConstants.signals).find(k=>osConstants.signals[k]===-p.exitCode)??null:null};
       }catch{}
       resolve(result);
     };
     if(callerSignal?.aborted)return resolve({status:'cancelled',exitCode:null,signal:null,log:''});
     try {
-      child=spawn('/usr/bin/python3',['-I','-S',supervisor,JSON.stringify({file:command.file,args:command.args,timeoutMs:command.timeoutMs})],
+      child=spawn('/usr/bin/python3',['-I','-S',supervisor,JSON.stringify({file:command.file,args:command.args,timeoutMs:command.timeoutMs,deadlineAt:Date.now()+command.timeoutMs})],
         {cwd:command.cwd,env:command.env,shell:false,stdio:['ignore','pipe','pipe','pipe']});
       const data=part=>{bytes+=part.length;if(bytes>maxBytes){reason='output-limit';child.kill('SIGTERM');}else parts.push(part);};
       child.stdout.on('data',data);child.stderr.on('data',data);
@@ -40,7 +40,7 @@ export function runVerificationChild(command,{signal:callerSignal,maxBytes=10485
       child.on('error',()=>{reason='failed';});child.on('close',finish);
       callerSignal?.addEventListener('abort',cancel,{once:true});
       process.on('SIGTERM',cancel);process.on('SIGINT',cancel);
-      timer=setTimeout(()=>{reason='timeout';child.kill('SIGTERM');},command.timeoutMs);
+      timer=setTimeout(()=>{reason='timeout';child.kill('SIGTERM');},command.timeoutMs+1000);
       // A supervisor that cannot reconcile is never a pass. The caller must stop
       // its enclosing container and refuse further lane admission.
       watchdog=setTimeout(()=>child.kill('SIGKILL'),command.timeoutMs+3000);

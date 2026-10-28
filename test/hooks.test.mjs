@@ -1,3 +1,4 @@
+import {dockerObservation} from '../tooling/docker-observation-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {execFileSync,spawnSync} from 'node:child_process';
@@ -31,11 +32,14 @@ function fixture(empty=false, firstHook={path:'pre',script:'#!/bin/sh\nexit 0\n'
   const observation={areas:hookConfigurationAreas.map(area=>({area,status:'resolved',evidenceReference:'fixture',detail:'checked'})),
     hooks:hooks.map(v=>({...v,evidenceReference:'fixture',applicability:'mandatory',prerequisites:[]}))};
   const input={profile:{id:'linux-amd64-rootless-hooks-v1',image,docker:'28.5.1'},workspace,expected:workspace.expected,phase:'pre-accept',executionId:'first',message:Buffer.from('original\r\n\n'),observation};
-  const commands=[], jobs=[], executions=[];let mutate=null, outcome='success', cleanup='success', hookExit=0;
+  const commands=[], jobs=[], executions=[];let daemonChange={},mutate=null, outcome='success', cleanup='success', hookExit=0;
   const boundary=async command=>{
     commands.push(command);
     const a=command.args;
-    if(a[2]==='info') return {outcome:'success',output:JSON.stringify({ServerVersion:'28.5.1',OSType:'linux',Architecture:'x86_64',SecurityOptions:['name=rootless']})};
+    if(a[2]==='image')return {outcome:'success',output:JSON.stringify([{Id:image,Os:'linux',Architecture:'amd64',Config:{Env:['PATH=/usr/bin:/bin']}}])};
+    if(a[2]==='inspect'){const launched=commands.find(c=>c.args[2]==='run'&&c.args.includes(a[3])),observed=dockerObservation(launched.args.slice(2),image);return {outcome:'success',output:JSON.stringify([{...observed,Name:'/'+a[3],Image:image,Config:{...observed.Config,Labels:{'nibfin.hook':a[3]}}}])};}
+    if(a[2]==='container')return {outcome:'success',output:''};
+    if(a[2]==='info') return {outcome:'success',output:JSON.stringify({ServerVersion:'28.5.1',OSType:'linux',Architecture:'x86_64',CgroupVersion:'2',CgroupDriver:'systemd',MemoryLimit:true,PidsLimit:true,CpuCfsPeriod:true,CpuCfsQuota:true,SecurityOptions:['name=rootless','name=seccomp,profile=builtin'],...daemonChange})};
     if(a[2]==='rm') return {outcome:cleanup};
     const mount=a[a.indexOf('--mount')+1], job=mount.slice('type=bind,src='.length).split(',dst=')[0];jobs.push(job);
     const repo=join(job,'repo');
@@ -52,8 +56,8 @@ function fixture(empty=false, firstHook={path:'pre',script:'#!/bin/sh\nexit 0\n'
     return outcome==='malformed'?{}:{outcome};
   };
   const runner=createHookRunner({image,socket,process:boundary});
-  return {root,input,runner,commands,jobs,executions,git,setMutation:f=>mutate=f,setOutcome:v=>outcome=v,setCleanup:v=>cleanup=v,
-    setHookExit:v=>hookExit=v,close:()=>rmSync(root,{recursive:true,force:true})};
+  return {root,input,runner,commands,jobs,executions,git,setDaemon:v=>daemonChange=v,setMutation:f=>mutate=f,setOutcome:v=>outcome=v,setCleanup:v=>cleanup=v,
+    setHookExit:v=>hookExit=v,close:()=>{for(const job of jobs)rmSync(job,{recursive:true,force:true});rmSync(root,{recursive:true,force:true});}};
 }
 function second(f,first) {
   const binding={authority:h,grant:h,policy:h,core:h,runtime:h,instructions:h,repositoryId:'42',issueId:'I_96',
@@ -153,7 +157,9 @@ for(const phase of ['pre-accept','pre-commit']) {
       if(outcome==='cleanup') f.setCleanup('unknown');else f.setOutcome(outcome);
       const r=await f.runner.execute(input);assert.equal(r.ok,false);assert.equal(r.receipt,undefined);
       assert.equal(f.commands.filter(c=>c.args[2]==='run').length,1);
-      assert.equal(r.cleanup,outcome!=='cleanup');assert(f.jobs.every(p=>!existsSync(p)));
+      assert.equal(r.cleanup,outcome!=='cleanup');
+      if(outcome==='cleanup')assert(existsSync(f.jobs.at(-1)),'unresolved container retains scratch');
+      else assert(f.jobs.every(p=>!existsSync(p)));
     } finally {f.close();}
   });
 }
@@ -206,3 +212,9 @@ for(const name of ['-s','-c','--']) for(const phase of ['pre-accept','pre-commit
     } finally {f.close();}
   });
 }
+
+test('actual Hook preflight rejects missing seccomp/cgroup resource enforcement before launching any hook',async()=>{
+ for(const change of [{CgroupDriver:'none'},{CgroupVersion:'1'},{MemoryLimit:false},{PidsLimit:false},{CpuCfsQuota:false},{CpuCfsPeriod:false},{SecurityOptions:['name=rootless']}]) {
+  const f=fixture();try{f.setDaemon(change);const result=await f.runner.execute(f.input);assert.equal(result.ok,false);assert.equal(f.commands.some(c=>c.args[2]==='run'),false);}finally{f.close();}
+ }
+});

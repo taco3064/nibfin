@@ -30,17 +30,21 @@ def main():
 
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
+    error_read, error_write = os.pipe()
     pid = os.fork()
     if pid == 0:
         try:
+            os.close(error_read)
             os.close(3)  # Only the supervisor can issue the reconciliation proof.
             signal.signal(signal.SIGTERM, signal.SIG_DFL)
             signal.signal(signal.SIGINT, signal.SIG_DFL)
             os.setsid()
             os.execve(command['file'], [command['file'], *command['args']], dict(os.environ))
         except BaseException:
+            os.write(error_write, b'1')
             os._exit(127)
-    deadline = time.monotonic() + command['timeoutMs'] / 1000
+    os.close(error_write)
+    deadline = time.monotonic() + max(0, (command['deadlineAt'] - time.time() * 1000) / 1000)
     status = None
     cleanup_deadline = None
     timed_out = False
@@ -57,7 +61,8 @@ def main():
             if status is None:
                 return 125
             proof = {'reconciled': True, 'exitCode': os.waitstatus_to_exitcode(status),
-                     'cancelled': stopped, 'timeout': timed_out}
+                     'cancelled': stopped, 'timeout': timed_out, 'spawnFailed': bool(os.read(error_read, 1))}
+            os.close(error_read)
             os.write(3, (json.dumps(proof) + '\n').encode())
             return 0
         if time.monotonic() >= deadline:

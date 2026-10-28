@@ -136,7 +136,17 @@
     "host/runner.example.json",
     "src/collaboration.mjs",
     "src/runner-lifecycle.mjs",
-    "docs/collaboration.md"
+    "docs/collaboration.md",
+    "src/process.mjs",
+    "src/docker-security.mjs",
+    "src/credential-output.mjs",
+    "src/agent-gh-read.mjs",
+    "src/agent-gh-client.mjs",
+    "src/verification-runner.mjs",
+    "src/verification-prepare.mjs",
+    "docs/rootless-hardening.md",
+    "src/canonical.mjs",
+    "src/readonly-tools.mjs"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

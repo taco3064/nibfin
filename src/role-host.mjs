@@ -66,7 +66,16 @@ export function createProtectedRoleHost({configuration,bind,retain,probe,observe
       // check the complete returned launch context; never repair model-selected
       // inputs, authority, execution, publication or terminal result fields.
       let candidate=null;
-      const collectionBackend={...backend,async collect(query) {
+      const collectionBackend={...backend,async cleanup(query) {
+        try {
+          const records=await backend.verificationEvidence(input.execution.id);
+          const retained=[];
+          for(const {identity,payload} of records){const reference=await retain(payload);if(typeof reference!=='string'||!reference)throw Error('retention');
+            if(profile.os==='linux')backend.assertVerificationInput(input.execution.id,{reference});else await backend.validateVerificationEvidence(input.execution.id,{reference});retained.push(identity);}
+          await backend.acknowledgeVerification(retained);
+        }catch{return {status:'unresolved',residuals:[(profile.os==='linux'?profile.backend:profile.backend.linux).environment.instances.find(i=>i.id===(profile.os==='linux'?profile.backend:profile.backend.linux).instanceId).service]};}
+        return backend.cleanup(query);
+      },async collect(query) {
         const value=await backend.collect(query);
         if(candidate&&value.status==='complete'&&value.evidence) {
           const evidence=value.evidence;
@@ -84,6 +93,7 @@ export function createProtectedRoleHost({configuration,bind,retain,probe,observe
         ...(task.role==='deliver'?{bindCandidate:async value=> {
           const terminal=await lifecycle.termination(input.execution.id);
           if(terminal.termination?.status!=='terminated')fail('candidate-before-termination');
+          await backend.assertCandidate(input.execution.id);
           const next=clone(value);
           if(candidate&&canonicalJSON(candidate)!==canonicalJSON(next))fail('candidate-rebinding');
           candidate=next;

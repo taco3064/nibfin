@@ -1,3 +1,5 @@
+import {readonlyMcpServer} from './readonly-tools.mjs';
+import {prepareReadonlyVerification} from './agent-session.mjs';
 import {probeVerificationSupervisor} from './verification-child.mjs';
 // Trusted container entrypoint; never imports checkout modules or configuration.
 import {probeGateway,executeSession,capacityError,rejectSecrets} from './agent-session.mjs';
@@ -27,11 +29,13 @@ export function claudeEnvironment(key) {
 }
 export function claudeInvocation(request,schema,key) {
   if(!['read','write'].includes(request.access))throw Error('claude:access');
+  const readonly=request.access==='read';
+  const allowed=readonly?'Read,Glob,Grep,mcp__nibfin__verify,mcp__nibfin__github_read':'Read,Glob,Grep,Edit,Write,Bash';
   const tools=request.access==='write'?'Read,Glob,Grep,Edit,Write,Bash':'Read,Glob,Grep';
   return {file:tool,args:['--print','--bare','--output-format','json','--json-schema',schema,
-    '--system-prompt-file','/input/instructions.md','--tools',tools,'--allowedTools',tools,
-    '--disallowedTools','mcp__*','--permission-mode','dontAsk','--setting-sources','',
-    '--settings','{"disableAllHooks":true}','--strict-mcp-config','--mcp-config','{"mcpServers":{}}',
+    '--system-prompt-file','/input/instructions.md','--tools',tools,'--allowedTools',allowed,
+    '--disallowedTools',readonly?'Edit,Write,Bash':'mcp__*','--permission-mode','dontAsk','--setting-sources','',
+    '--settings','{"disableAllHooks":true}','--strict-mcp-config','--mcp-config',JSON.stringify({mcpServers:readonly?{nibfin:readonlyMcpServer}:{}}),
     ...(request.recovery?[]:['--no-session-persistence']),
     ...(request.session?['--resume',request.session]:['--session-id',request.initialSession??randomUUID()]),
     ...(request.model?['--model',request.model]:[])],options:{env:claudeEnvironment(key),
@@ -96,7 +100,7 @@ export async function runClaudeEntry() {
         verificationSupervisor:probeVerificationSupervisor(),network:await probeGateway([...["api.anthropic.com"],...(process.env.NIBFIN_NODE_WORKLOAD==='1'?['registry.npmjs.org']:[])]),
         guest:/^ID=debian$/m.test(os) && /^VERSION_ID="12"$/m.test(os)}));
     } else {
-      const request=JSON.parse(readClaudeFile('/input/request.json'));
+      const request=prepareReadonlyVerification(JSON.parse(readClaudeFile('/input/request.json')));
       const result=executeClaude(request,readClaudeFile('/input/schema.json'),login.api_key);
       process.stdout.write(JSON.stringify(result.evidence ?? result));
       if(!result.evidence)process.exitCode=1;

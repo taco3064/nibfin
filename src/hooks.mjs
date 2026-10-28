@@ -1,4 +1,6 @@
-import {execFileSync, spawn} from 'node:child_process';
+import {containerProcess} from './process.mjs';
+import {dockerArguments,assertDockerInfo,assertContainerConfiguration} from './docker-security.mjs';
+import {execFileSync} from 'node:child_process';
 import {mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, lstatSync, chmodSync, rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
@@ -22,21 +24,10 @@ function git(root,args,input) {
     timeout:30000,maxBuffer:48*1024*1024,stdio:['pipe','pipe','pipe']});
 }
 /** External boundary only: bounded output is discarded to avoid credential/log disclosure. */
-export function hookProcess(command) {
-  return new Promise(resolve => {
-    let child, timer, timedOut=false, output='', overflow=false;
-    const finish = result => {clearTimeout(timer);resolve(result);};
-    try {
-      child=spawn(command.file,command.args,{env:command.env,cwd:'/',shell:false,stdio:['ignore',command.output?'pipe':'ignore','ignore']});
-      child.stdout?.on('data',chunk=>{
-        if(Buffer.byteLength(output)+chunk.length>1048576) {overflow=true;child.kill('SIGKILL');}
-        else output+=chunk.toString('utf8');
-      });
-      child.on('error',()=>finish({outcome:'unknown'}));
-      child.on('close',(code,signal)=>finish({outcome:timedOut?'timeout':signal||overflow?'unknown':code===0?'success':code===127?'missing-tool':'nonzero',...(command.output?{output}:{})}));
-      timer=setTimeout(()=>{timedOut=true;child.kill('SIGKILL');},command.timeout);
-    } catch {finish({outcome:'unknown'});}
-  });
+export async function hookProcess(command) {
+  const result=await containerProcess({...command,limit:1048576});
+  return {outcome:result.ok?'success':result.status==='timeout'?'timeout':result.status==='spawn_failed'?'unknown':result.exitCode===127?'missing-tool':result.status==='failed'?'nonzero':'unknown',
+    ...(command.output?{output:result.output}:{})};
 }
 function files(root,prefix='',budget={entries:0,bytes:0},depth=0) {
   if(depth>64) fail('output-limit');
@@ -132,14 +123,25 @@ export function createHookRunner({image,socket,process:run=hookProcess,timeout=3
       || typeof run!=='function' || !Number.isInteger(timeout) || timeout<50 || timeout>3600000) fail('backend');
   async function command(args,ms=timeout,output=false) {
     try {
-      const result=await run(Object.freeze({file:'/usr/bin/docker',args:Object.freeze(['--host',`unix://${socket}`,...args]),
+      const result=await run(Object.freeze({file:'/usr/bin/docker',args:Object.freeze(dockerArguments(socket,args)),
         env:cleanEnv,timeout:ms,output}));
       if(output) return result?.outcome==='success' && typeof result.output==='string' && Buffer.byteLength(result.output)<=1048576?result.output:null;
       return ['success','nonzero','timeout','unknown','missing-tool'].includes(result?.outcome)?result.outcome:'unknown';
     } catch {return output?null:'unknown';}
   }
   const profile=Object.freeze({id:'linux-amd64-rootless-hooks-v1',image,docker:linuxCodexProfile.docker});
-  let unresolved=false;
+  let unresolved=false;const ownedArguments=new Map();
+  async function removeOwned(name) {
+    try {
+      const observed=JSON.parse(await command(['inspect',name],15000,true));
+      if(observed.length!==1||observed[0].Name!=='/'+name||observed[0].Image!==image||observed[0].Config?.Labels?.['nibfin.hook']!==name)return false;
+      assertContainerConfiguration(observed[0],ownedArguments.get(name));
+      if(observed[0].HostConfig.NetworkMode!=='none')return false;
+      if(await command(['rm','-f',name],15000)!=='success')return false;
+      const listing=await command(['container','ls','--all','--filter','label=nibfin.hook='+name,'--format','{{.Names}}'],15000,true);
+      return listing!==null&&!listing.trim();
+    }catch{return false;}
+  }
   return Object.freeze({profile,async execute(original) {
     if(unresolved) fail('reconciliation-required');
     if(!Buffer.isBuffer(original.message)) fail('message-bytes');
@@ -153,8 +155,12 @@ export function createHookRunner({image,socket,process:run=hookProcess,timeout=3
       if(hooks.length) {
         let info;try {info=JSON.parse(await command(['info','--format','{{json .}}'],15000,true));}
         catch {fail('backend-observation');}
+        try {assertDockerInfo(info);}catch{fail('unsupported-backend');}
         if(info?.ServerVersion!==profile.docker || info.OSType!=='linux' || info.Architecture!=='x86_64'
             || !Array.isArray(info.SecurityOptions) || !info.SecurityOptions.includes('name=rootless')) fail('unsupported-backend');
+        const images=JSON.parse(await command(['image','inspect',image],15000,true));
+        if(images?.length!==1||images[0].Id!==image||images[0].Os!=='linux'||images[0].Architecture!=='amd64'||images[0].Config?.Volumes||
+          !Array.isArray(images[0].Config?.Env)||images[0].Config.Env.some(v=>!/^PATH=/.test(v)))fail('unsupported-image');
         job=mkdtempSync(join(tmpdir(),'nibfin-hooks-'));
         const root=materialize(input.workspace,job), message=join(job,'message');
         writeFileSync(message,input.message);chmodSync(message,0o600);
@@ -165,24 +171,26 @@ export function createHookRunner({image,socket,process:run=hookProcess,timeout=3
           name='nibfin-hook-'+randomUUID();
           const args=hook.event==='pre-commit'?[]:['/job/message',...(hook.event==='prepare-commit-msg'?['message']:[])];
           const script='command -v git >/dev/null && command -v sh >/dev/null || exit 127\nexec sh "$@"';
-          const outcome=await command(['run','--name',name,'--pull=never','--network=none','--read-only',
+          const launch=['run','--name',name,'--label','nibfin.hook='+name,'--pull=never','--network=none','--read-only',
             '--cap-drop=ALL','--security-opt=no-new-privileges','--pids-limit=128',
             '--user','0:0','--platform','linux/amd64','--no-healthcheck','--log-driver','none',
             '--ipc','private','--cgroupns','private','--memory','1g','--cpus','2','--mount',`type=bind,src=${job},dst=/job,bind-propagation=rprivate,bind-recursive=disabled`,
             '--tmpfs','/tmp:rw,noexec,nosuid,size=64m','--workdir','/job/repo',
             '--env','HOME=/nonexistent','--env','PATH=/usr/bin:/bin','--env','GIT_CONFIG_NOSYSTEM=1',
-            '--env','GIT_CONFIG_GLOBAL=/dev/null','--entrypoint','/bin/sh',image,'-c',script,'hook',`./${hook.path}`,...args]);
-          const removed=await command(['rm','-f',name],15000);
+            '--env','GIT_CONFIG_GLOBAL=/dev/null','--entrypoint','/bin/sh',image,'-c',script,'hook',`./${hook.path}`,...args];
+          ownedArguments.set(name,launch);
+          const outcome=await command(launch);
+          const removed=await removeOwned(name);
           const ownedName=name;name=null;
-          if(removed!=='success') {cleanup=false;residual.push(ownedName);fail('container-cleanup');}
+          if(!removed) {cleanup=false;residual.push(ownedName);fail('container-cleanup');}
           if(outcome!=='success') fail(`execution-${outcome}`);
           same(observe(root,message,input.workspace.metadata.baseTree,before.metadata),before);
         }
       }
     } catch(e) {error=e.message.startsWith('hooks:')?e.message:e.code==='ENOENT'?'hooks:missing-tool-or-file':'hooks:observation-or-materialization';}
     finally {
-      if(name && await command(['rm','-f',name],15000)!=='success') {cleanup=false;residual.push(name);}
-      if(job) {try {rmSync(job,{recursive:true,force:true});} catch {cleanup=false;residual.push(job);}}
+      if(name && !await removeOwned(name)) {cleanup=false;residual.push(name);}
+      if(job && cleanup) {try {rmSync(job,{recursive:true,force:true});} catch {cleanup=false;residual.push(job);}}
     }
     if(!cleanup) unresolved=true;
     if(error || !cleanup) return {ok:false,diagnostic:error??'hooks:scratch-cleanup',cleanup,

@@ -198,8 +198,8 @@ test('supported Node path prepares and verifies inside the same role container t
     const command=await prepared.command({file:process.execPath,args:['-e','require("node:fs").writeFileSync("writable-fixture","ok")'],timeoutMs:1000});
     assert.equal(command.status,'passed');assert.equal(existsSync(join(source,'writable-fixture')),false);
     assert.equal(core.nodeSourceIdentity(source).identity,before);assert.equal(existsSync(join(prepared.directory,'FORBIDDEN')),false);
-    const exec=selected.calls.filter(c=>c.args[2]==='exec');assert.equal(exec.length,2);
-    assert(exec.every(c=>c.args.includes('/verification-child.mjs')));
+    const exec=selected.calls.filter(c=>c.args[2]==='exec'&&c.args.includes('/verification-runner.mjs'));assert.equal(exec.length,2);
+    assert(exec.every(c=>c.args.includes('/verification-runner.mjs')&&c.args.includes('--protocol')));
     const names=exec.map(c=>c.args[5]);assert.equal(new Set(names).size,1,'preparation and verification must share the original container');
     const gateway=selected.calls.find(c=>c.args.at(-1)==='/gateway.mjs');assert.match(JSON.stringify(gateway),/registry.npmjs.org/);
     assert.equal(records.length,2);assert(records.every(r=>r.record.execution===p.input.execution.id));
@@ -292,7 +292,7 @@ for(const agent of ['codex','claude','gemini']) {
       const records=[],host=core.createProtectedRoleHost({...f.options,retain:async r=>{records.push(r);return 'custody:filtered-'+records.length;}});
       const p=await host.prepareRole({role:'accept',skill:'accept',instructions:core.selectInstructions({role:'accept',skill:'accept'}),task:{candidate:'current'}});
       await p.lifecycle.start(p.input);const prepared=await p.prepareNode();assert.equal(prepared.status,'prepared');
-      const executions=()=>fixture.calls.filter(c=>c.args[2]==='exec').length, before=executions();
+      const executions=()=>fixture.calls.filter(c=>c.args[2]==='exec'&&c.args.includes('/verification-runner.mjs')).length, before=executions();
       for(const encoded of selectedCredentialForms()) {
         await assert.rejects(prepared.command({file:process.execPath,args:['-e','process.exit(0)',encoded],timeoutMs:1000}),/^Error: verification:credential-input$/);
         await assert.rejects(p.lane.command({file:process.execPath,args:['-e','process.exit(0)'],cwd:prepared.cwd,
@@ -332,3 +332,30 @@ for(const agent of ['codex','claude','gemini']) {
     }
   });
 }
+
+test('Agent CLI and Core verification share the same lane and CLI evidence reaches custody before cleanup',async()=>{
+ const {runVerification,verificationBudget}=await import(new URL('verification-runner.mjs',import.meta.resolve('@nibfin/core')));
+ const {existsSync}=await import('node:fs');const f=roleFixture();
+ try {
+  const selected=f.fixtures.get('accept');nodeManifest(selected.environment.instances[0].workspace);selected.flags.delay=10000;
+  f.configuration.profiles.find(p=>p.id==='accept').backend.egress.node=true;
+  const records=[];let allowRetention=true;
+  const host=core.createProtectedRoleHost({...f.options,retain:async payload=>{
+   if(payload.record.schemaVersion===1&&!allowRetention)throw Error('retention unavailable');records.push(payload);return 'custody:shared-'+records.length;
+  }});
+  const p=await host.prepareRole({role:'accept',skill:'accept',instructions:core.selectInstructions({role:'accept',skill:'accept'}),task:{candidate:'current'}});
+  await p.lifecycle.start(p.input);const prepared=await p.prepareNode();assert.equal(prepared.status,'prepared');
+  const directory=join(selected.environment.instances[0].service,'verification','commands'),marker=join(prepared.cwd,'cli-started');
+  const command=runVerification(process.execPath,['-e',`require('fs').writeFileSync(${JSON.stringify(marker)},'started');setTimeout(()=>console.log('cli-proof'),400)`],
+   {directory,budget:{...verificationBudget(10000),execution:p.input.execution.id},cwd:prepared.cwd,env:{PATH:'/usr/local/bin:/usr/bin:/bin'},stdout:null,stderr:null});
+  for(let n=0;n<200&&!existsSync(marker);n++)await new Promise(r=>setTimeout(r,5));assert(existsSync(marker));
+  const busy=await prepared.command({file:process.execPath,args:['-e','console.log("must not overlap")'],timeoutMs:1000});
+  assert.equal(busy.status,'busy');assert.equal((await command).status,'passed');
+  const after=await prepared.command({file:process.execPath,args:['-e','console.log("sequential-proof")'],timeoutMs:1000});assert.equal(after.status,'passed');
+  await p.lifecycle.stop(p.input.execution.id);await finish(p);
+  allowRetention=false;assert.equal((await p.lifecycle.cleanup()).status,'unresolved');assert(existsSync(directory),'failed retention preserves evidence');
+  allowRetention=true;assert.equal((await p.lifecycle.cleanup()).status,'completed');
+  assert(records.some(r=>r.record.schemaVersion===1&&r.log.includes('cli-proof')));
+  assert(records.filter(r=>r.record.schemaVersion===1).every(r=>r.record.execution===p.input.execution.id&&r.record.logDigest));
+ }finally{await f.close();}
+});

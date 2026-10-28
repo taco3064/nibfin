@@ -14,7 +14,8 @@ returns `issue(opaqueHostHandle, {signal})`. All constructor capabilities belong
 the protected Owner host. Do not expose this constructor as a request-payload API.
 The handle identifies an authenticated official workflow_dispatch request already
 received by that host. No shell, request-controlled checkout or subprocess runs.
-#122 must connect this adapter to its protected entry and verify that integration.
+The maintained protected host composes this issuer through `createProtectedRegistration`
+as described below; older explicit callback consumers remain compatible.
 This module does not install a workflow or claim that deployment has occurred.
 
 `authenticate(handle,{signal})` must freshly obtain and verify the official source
@@ -56,7 +57,8 @@ and actual endpoint permissions remain required; unsupported installations deny.
 holds the management credential solely in the trusted host, supports AbortSignal,
 and must not log raw request/response secrets. The entry reads repository, user and
 current effective collaborator permission through official endpoints per request.
-It re-reads policy immediately before a single POST, with a default 30-second
+It re-reads authenticated source, target and member rights after credential
+preparation, then policy immediately before a single POST, with a default 30-second
 whole-operation deadline. Native races remain possible; no atomic freeze or instant
 revocation is promised. Repository POST is
 `/repos/{owner}/{repo}/actions/runners/registration-token`; organization POST is
@@ -113,8 +115,9 @@ never fall back to plaintext outputs, logs, Issue/PR text or Owner PAT sharing.
 
 Turning policy off or losing permission stops new issuance. Existing tokens expire
 according to GitHub; existing Runner removal is a separate official operation.
-#122 owns live Core/source authentication and actual response-channel integration;
-gh-nibfin #27/#28 own supported-profile local registration/lifecycle proof.
+The maintained source is `src/registration-host.mjs`, `src/host-identity.mjs` and
+`src/custody-host.mjs`. E02 (nibfin #206), E05 (gh-nibfin #48) and E06
+(gh-nibfin #49) own later real provider/host/registration verification.
 The maintained local fixtures prove neither live authorization nor transport.
 
 ## Reproducible local verification
@@ -129,3 +132,118 @@ Routine checks require no artifact SDK download. `npm run test:artifact-sdk` is 
 separate real-SDK transport regression, requiring an existing approved genuine
 runtime via NIBFIN_ARTIFACT_SDK_ROOT; CI still provisions it. Do not claim that
 suite or live integration ran when its required runtime/resources were absent.
+
+## Maintained protected composition and durable recovery
+
+Use `authentication: "actions-oidc"` in the protected registration options. Export
+mode-keyed `identity`, `custody`, `registration` and `capabilities` from the approved
+executable deployment binding. For registration, the callback functions `registration` and `retain` are
+omitted from that mode's capability bag (`capabilities = {registration: {}}`). The dependency-free host
+constructs the maintained identity adapter, registration adapter, issuer and
+provider-backed custody channel without I/O. The loader pins the exact executable
+source and options bytes; JSON event fields cannot select modules or transports.
+
+`registration.registration` in that binding contains:
+
+```js
+{
+  request: {
+    input: {nibfin_registration: requestId, public_key: memberPublicPEM, level: 'repository'},
+    requester: {id: dispatchActorId, login: dispatchActorLogin}
+  },
+  policy: async (repositoryId, {signal}) => readProtectedOwnerPolicy(repositoryId, signal)
+}
+```
+
+This is an executable configuration excerpt, not a complete deployment. The
+protected integration captures `request` from the original approved dispatch
+Run/Attempt before invocation. Bind it to the independently expected source policy;
+do not take this protected object, actor, policy or source expectations from an
+arbitrary request body. Source repository/ID must equal the target repository/ID;
+Run/Attempt, workflow/ref/immutable source and actor are verified by official
+Actions OIDC. The official attempt read must match that actor, event, repository
+and source revision. All three workflow inputs must match the captured request.
+The key and level are thus part of this authenticated source, not identity on their
+own. Source acquisition remains bounded/cancellable. A new request is a new
+explicit dispatch; never generate one automatically to hide an uncertain attempt.
+
+The corresponding `custody.registration` supplies exactly `provider`, `archive`,
+`publication` and `authorizeNew`, optionally storage limits, retention and redaction
+sentinels. Unlike delivery custody it supplies no `expect` callback: maintained
+code derives registration-only slots from original repository/Run/Attempt/revision,
+approved workflow/ref and a digest of captured request and requester. There is no
+Issue, Assignee, Scope, Shape, delivery role or Grant in these bindings.
+`provider` and `archive` are protected Actions read/download capabilities;
+`publication({slot,phase,signal})` supplies the existing official SDK `client` and
+`runtime`. The response phase is named `response`; metadata retention phases are
+`intent` and `result`. Runtime source must match the original repository/Run/Attempt.
+Credentials stay in these closures. `authorizeNew(slot,{signal})` must positively
+check durable original-attempt history under the workflow's native repository-write
+concurrency group. A missing artifact list alone is never a first-attempt grant.
+Missing storage/runtime/permission fails closed; it does not enable a callback or
+plaintext fallback. Do not share the management capabilities with member jobs.
+
+The maintained flow retains `registration-intent` (captured original request), then
+invokes the existing issuer at most once. Before response upload it retains only
+the encrypted `registration-response` bytes, binding and expiry. It retains a
+`registration-publication` record after channel readback/cleanup, and a final safe
+`registration-result`. Each record uses N03's intent/result publication and exact
+provider-backed verification; process memory is not restart evidence.
+
+On restart, fresh adapters authenticate the same source and read retained records.
+A confirmed result is checked against freshly downloaded ciphertext. Missing final
+result with an original intent can recover from retained ciphertext and publication
+records without another token POST or response upload. Readback may reconcile an
+unknown upload only when the retained publication outcome establishes completed
+cleanup; `cleanup_pending` or `cleanup_incomplete` remains unknown. An intent with
+no response, lost token POST response, conflicting records, missing/expired or
+inaccessible required history remains unresolved. Deleting artifacts cannot
+manufacture a first attempt because independent durable `authorizeNew` still applies.
+There is no instant revocation of previously issued tokens or existing Runners.
+
+### Public v1 request and result schema
+
+`host/registration.schema.json` documents the unchanged workflow inputs, fixed
+status outputs, context and encrypted envelope. IDs are canonical decimal strings;
+request IDs are 1–80 ASCII letters/digits/underscore/hyphen. PEM input is at most
+8192 characters, RSA at least 2048 bits. The reusable workflow defaults `level`
+to `repository`; a direct `createWorkflowEntry` invocation supplies it explicitly.
+Encrypted envelopes are at most 65536 bytes; the exact single-file ZIP read is
+bounded to 131072 bytes. GitHub's returned `expires_at` is preserved and checked
+before publication, recovery, decryption and local official configuration.
+
+| Status | Meaning |
+| --- | --- |
+| delivered | This invocation issued and confirmed ciphertext publication and cleanup. No Runner is created by this result. |
+| retained | A fresh read recovered the same confirmed encrypted response without reissuing. |
+| denied | Owner policy or management/member authorization denied this invocation. |
+| unavailable / blocked | Required source, configuration, channel or observations failed; no success is inferred. |
+| expired | The returned short-lived information is no longer usable. |
+| unknown | Issuance/history/result effects cannot be established. Preserve original identity; do not resubmit automatically. |
+| unconfirmed | Response publication or cleanup is uncertain. Upload acknowledgement alone is insufficient. |
+
+Only `status` and optional opaque `response` leave the workflow. For the maintained
+adapter, `delivered`/`retained` references the `registration-response` custody slot;
+other returned references identify `registration-result`. The public-safe slot
+identity is `custodySlotIdentity(slot)`, with the original expected binding, not a
+latest-name lookup. Existing callback consumers retain their original reference
+semantics. Resolve the retained encrypted record through `createCustodyHost.recover`
+with independent original slot expectations (derive them with
+`registrationCustodySlots({source,workflow,ref,request})` from the original approved
+source revision/Run/Attempt, workflow ref, Git ref and captured requester/inputs), then use the exact response artifact
+reference and trusted context to download/decrypt as above. Retained ciphertext
+can also be decrypted locally with the member key and independent expected context;
+it contains no plaintext management credential. Do not trust envelope context as
+its own expectation. Decrypted values must go only to the official local Runner
+configurator, never logs, shell outputs or public records.
+
+When policy is off or protected delivery is unavailable, a legally authorized
+Runner manager may use GitHub's official manual registration path. Ordinary Write
+collaborators do not gain management permission by selecting manual mode. Local
+synthetic tests do not certify live registration, Runner IDs or platform support.
+
+The slot helper is a read-only derivation, not authentication. It returns all four
+kind-keyed slots; use the `registration-response` slot to check a delivered/retained
+`response` via `custodySlotIdentity`. Do not derive expectations from retained bytes.
+GitHub's [official artifact schema](https://docs.github.com/en/rest/actions/artifacts#list-workflow-run-artifacts)
+provides the repository and workflow Run identities checked by the response reader.

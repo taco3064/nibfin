@@ -298,3 +298,16 @@ exact-head CI and protected delivery gates remain required.
 Native dependency list GETs (including pagination) follow the public-resource
 semantics in [GitHub issue dependency REST documentation](https://docs.github.com/en/rest/issues/issue-dependencies).
 Their read permission mapping grants no dependency mutation capability.
+## Maintained registration composition
+
+For registration use maintained `identity`, `custody` and `registration` entries
+in approved deployment source, with `capabilities = {registration: {}}`.
+The loader accepts `registration` only for that mode. The host constructs
+`createProtectedRegistration`; deployment supplies the captured original request,
+Owner policy and storage capabilities, without implementing authentication,
+issuance or restart classification. Registration custody uses its own truthful
+source/request bindings; no delivery Issue/Grant is fabricated. See
+[registration.md](registration.md) and `host/registration.schema.json` for required
+configuration, exact references, status meanings and safe recovery. Legacy explicit
+registration callbacks remain compatible. Source/schema changes require fresh
+bundle, host and executable deployment approvals before installation.

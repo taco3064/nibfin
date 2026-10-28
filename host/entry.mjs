@@ -36,7 +36,7 @@ export function validateHostOptions(options, mode) {
  */
 export function configure({core,mode,context,deployment}={}) {
   try {
-    fields(deployment,['options','capabilities'],['identity','custody']);
+    fields(deployment,['options','capabilities'],['identity','custody','registration']);
     const options=validateHostOptions(deployment.options,mode), capabilities=deployment.capabilities;
     need(typeof core?.createWorkflowEntry==='function' && typeof core?.createCore==='function'
       && typeof core?.createEventRelay==='function' && typeof core?.createRegistrationHost==='function');
@@ -47,11 +47,16 @@ export function configure({core,mode,context,deployment}={}) {
     const maintained=options.authentication==='actions-oidc';
     need(maintained===Object.hasOwn(deployment,'identity'));
     const adapters=maintained?core.createHostIdentityAdapters({...deployment.identity,options,mode}):null;
+    const registration=mode==='registration'&&deployment.registration!==undefined;
+    need(deployment.registration===undefined||registration&&maintained&&deployment.custody!==undefined);
     const durable=deployment.custody!==undefined;
     need(!durable||['resolve','execute','compute','registration'].includes(mode));
-    const storage=durable?core.createCustodyHost(deployment.custody):null;
+    const storage=durable&&!registration?core.createCustodyHost(deployment.custody):null;
+    if(registration)fields(deployment.registration,['request','policy'],['now','timeoutMs']);
+    const registered=registration?core.createProtectedRegistration({...deployment.registration,identity:adapters,
+      options,source:deployment.identity.source,custody:deployment.custody}):null;
     const routed=options.routing==='authenticated';
-    const supplied=required.filter(k=>!(maintained&&k==='authenticate')&&!(durable&&['retain','retrieve'].includes(k))&&!(routed&&['verifyRunner','group'].includes(k)));
+    const supplied=required.filter(k=>!(registration&&['registration','retain'].includes(k))&&!(maintained&&k==='authenticate')&&!(durable&&['retain','retrieve'].includes(k))&&!(routed&&['verifyRunner','group'].includes(k)));
     fields(capabilities,supplied);
     for (const name of supplied) need(typeof capabilities[name]==='function');
     const run=Object.freeze({...context.run});
@@ -65,7 +70,8 @@ export function configure({core,mode,context,deployment}={}) {
       && identity.visibility==='public' && ['personal','organization'].includes(identity.ownership)
       && identity.run?.id===run.id && identity.run?.attempt===run.attempt);
     const host={};let routing;
-    for (const name of required) host[name]=async argument=>{
+    if(registered)host.runRegistration=registered.invoke;
+    for (const name of required.filter(k=>!(registration&&['registration','retain'].includes(k)))) host[name]=async argument=>{
       // Invocation is mode-bound. Reusing a configured host for another mode fails closed.
       if (name==='authenticate') need(argument.mode===mode);
       if (argument.identity) matches(argument.identity);

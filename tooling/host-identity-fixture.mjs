@@ -13,6 +13,8 @@ export async function hostIdentityFixture(mode='lookup') {
     repository_visibility:'public',audience:'nibfin-test',maxAge:300,tolerance:0,
     reusable:'required',job_workflow_ref:'shared/core/.github/workflows/reuse.yml@v1',job_workflow_sha:'c'.repeat(40),
     job:'required',check_run_id:'94',jobId:'95',runner:'required',runnerId:'96',runner_environment:'self-hosted'};
+  if(mode==='registration')Object.assign(policy,{repository:'example-org/core',repository_id:'9007199254740993',
+    actor_id:'42',workflow_ref:'example-org/core/.github/workflows/register.yml@refs/heads/main',workflow_sha:'b'.repeat(40)});
   const claims=Object.fromEntries(['repository','repository_id','repository_owner_id','actor_id','run_id','run_attempt',
     'workflow_ref','workflow_sha','ref','event_name','repository_visibility','job_workflow_ref','job_workflow_sha',
     'check_run_id','runner_environment'].map(k=>[k,policy[k]]));
@@ -30,6 +32,8 @@ export async function hostIdentityFixture(mode='lookup') {
     '/repos/example-org/core':{id:'9007199254740993',full_name:'example-org/core',private:false,visibility:'public',
       owner:{id:17,login:'example-org',type:'Organization'},permissions:{admin:true}},
     [endpoint]:{id:123,node_id:'I_101',number:101,repository_url:'https://api.github.com/repos/example-org/core',assignees:[{id:42,login:'member'}]},
+    '/repos/example-org/core/actions/runs/44/attempts/1':{id:'44',run_attempt:1,repository:{id:'9007199254740993'},
+      event:'workflow_dispatch',actor:{id:'42',login:'member'},head_sha:'b'.repeat(40)},
     '/users/member':{id:42,login:'member'},
     '/repos/example-org/core/collaborators/member/permission':{permission:'write',user:{id:42,login:'member'}},
     '/user/memberships/orgs/example-org':{state:'active',role:'admin'},

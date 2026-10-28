@@ -35,7 +35,7 @@ function fixture() {
     else if (r.endpoint === '/repos/example/core/actions/runs/91') d = {id:'91',run_attempt:1,repository:{id:'42'}};
     else if (r.endpoint === '/repos/example/core/actions/runs/91/artifacts?per_page=100') d = {total_count:1,artifacts:[{
       id:'92',name:'registration-request-1-1',expired:false,expires_at:'2030-01-01T00:00:00Z',
-      workflow_run:{id:'91'},size_in_bytes:zip.length}]};
+      workflow_run:{id:'91',repository_id:'42'},size_in_bytes:zip.length}]};
     else throw Error('Unexpected endpoint');
     return {status:200,headers:{},body:JSON.stringify(state.change(d,r))};
   };

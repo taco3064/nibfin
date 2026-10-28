@@ -151,7 +151,12 @@ export function createWindowsWslBackend(config) {
         }return v;
       };
       if(signal?.aborted)return {status:'cancelled'};
-      return project(envelope.result);
+      const result=project(envelope.result);
+      // Host custody replaces guest-local references. Validate those final
+      // public bytes inside the selected credential boundary as well.
+      const safe=await rpc('validateVerificationEvidence',{execution:value.execution,evidence:result});
+      if(!same(safe,{status:'verified'}))fail('verification-response');
+      return result;
     }catch{uncertain=true;fail('verification-unresolved');}
     finally{verificationBusy=false;signal?.removeEventListener('abort',abort);}
   }

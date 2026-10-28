@@ -271,6 +271,19 @@ function nodeManifest(source) {
   writeFileSync(join(source,'package-lock.json'),JSON.stringify({name,version,lockfileVersion:3,packages:{'':{name,version}}}));
 }
 for(const agent of ['codex','claude','gemini']) {
+  test(`WSL ${agent} rejects a credential-bearing host custody reference before returning evidence`,async()=>{
+    const f=wslFixture('accept',agent,{deadlineAt:Date.now()+360000,reserveMs:30000,egress:{image:'sha256:'+'1'.repeat(64),node:true}});
+    try {
+      nodeManifest(f.environment.instances[0].workspace);f.flags.delay=10000;
+      assert.equal((await f.life.start(f.input)).start.status,'started');
+      let retained=0;
+      await assert.rejects(f.backend.prepareNode(f.input.execution.id,{},async()=>{
+        retained++;return 'custody:LOGIN-SENTINEL';
+      }),/verification-unresolved/);
+      assert.equal(retained,1);
+      assert.equal((await f.life.cleanup()).status,'unresolved');
+    }finally{await f.dispose();}
+  });
   test(`protected ${agent} verification rejects selected credentials in arguments and environment before Docker execution or custody`,async()=>{
     const f=roleFixture(agent);
     try {

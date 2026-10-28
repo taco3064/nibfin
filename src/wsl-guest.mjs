@@ -68,8 +68,12 @@ export function createWslGuest({observe=observeWslGuest,process:run}={}) {
       backend=factory({...config.linux,...(run?{process:run}:{}),task:()=>task});
       return {status:'initialized'};
     }
-    if(!backend || !['readiness','start','collect','stop','termination','cleanup','verificationProcess','verificationRoot','prepareNode','nodeCommand','verificationCommand'].includes(op)) fail();
+    if(!backend || !['readiness','start','collect','stop','termination','cleanup','verificationProcess','verificationRoot','prepareNode','nodeCommand','verificationCommand','validateVerificationEvidence'].includes(op)) fail();
     await context();
+    if(op==='validateVerificationEvidence') {
+      backend.assertVerificationInput(value.execution,value.evidence);
+      return {status:'verified'};
+    }
     if(op==='start') {
       task=value.task;
       try {return await backend.start(value.input);}

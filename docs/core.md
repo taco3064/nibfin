@@ -115,6 +115,11 @@ first-pass/Accept evidence). This trusted function cannot be request content.
 current includes Scope/Shape/binding, publication/current, instructions and
 `capture:{root,base,permittedPaths,binding}` descriptor; prepareRole binds the entire task to the actual lifecycle;
 captureInput supplies the maintained captureWorkspace input after termination.
+The owner confirms termination before capture and collection. When prepareRole
+returns `bindCandidate(candidate)`, it passes that captured candidate through this
+trusted capability before collecting the complete evidence. The maintained role
+host checks the original launch context before replacing only its candidate field;
+full expected-envelope comparison and capture equality remain mandatory.
 Final Candidate bytes are derived after Writer termination, never required as
 foreknowledge before launch. A Deliver lifecycle can use the maintained
 `startCurrent` contract for launch identity; its full `current` envelope is

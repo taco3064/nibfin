@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import {readFileSync,writeFileSync,existsSync,mkdirSync,rmSync,symlinkSync,linkSync} from 'node:fs';
 import {join} from 'node:path';
-import {createLinuxGeminiBackend,linuxGeminiProfile} from '@nibfin/core';
+import {createLinuxGeminiBackend,linuxGeminiProfile,compareEvidence} from '@nibfin/core';
 import {codexFixture} from '../tooling/codex-fixture.mjs';
 const entry=await import(new URL('gemini-entry.mjs',import.meta.resolve('@nibfin/core')));
 const roles=['shape','shape-validator','shape-diagnosis','shaper-review','deliver','accept'];
@@ -25,7 +25,7 @@ test('AC1/3: exported inert backend, all roles and both public ownership types, 
     assert.equal((await f.life.start(f.input)).start.status,'started');
     const c=f.calls.find(c=>c.args[2]==='create' && c.args.at(-1)==='execute');
     const mounts=c.args.flatMap((v,i)=>v==='--mount'?[c.args[i+1]]:[]);
-    assert.equal(mounts.length,4);
+    assert.equal(mounts.length,8);
     assert.equal(mounts.find(m=>m.includes('dst=/work,')).endsWith(',readonly'),role!=='deliver');
     assert.ok(mounts.find(m=>m.includes('dst=/login.json,')).endsWith(',readonly'));
     assert.ok(c.args.includes('--read-only'));assert.ok(c.args.includes('no-new-privileges'));
@@ -122,7 +122,7 @@ test('AC2/3: production invocation has explicit stdin, settings, immutable instr
     assert.ok(instructions.startsWith(f.input.instructions.content));assert.match(instructions,/StageResult schema/);
     const request=JSON.parse(readFileSync(join(path,'request.json')));
     const capture=join(f.root,'capture.json'),fake=join(f.root,'fake.mjs');
-    writeFileSync(fake,`import {writeFileSync} from 'node:fs';let input='';process.stdin.on('data',b=>input+=b);process.stdin.on('end',()=>{writeFileSync(${JSON.stringify(capture)},JSON.stringify({args:process.argv.slice(2),env:process.env,input,cwd:process.cwd()}));process.stdout.write(${JSON.stringify(JSON.stringify({response:JSON.stringify(f.expected.result)}))});});`);
+    writeFileSync(fake,`import {writeFileSync} from 'node:fs';let input='';process.stdin.on('data',b=>input+=b);process.stdin.on('end',()=>{writeFileSync(${JSON.stringify(capture)},JSON.stringify({args:process.argv.slice(2),env:process.env,input,cwd:process.cwd()}));process.stdout.write(${JSON.stringify(JSON.stringify({session_id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",response:JSON.stringify(f.expected.result)}))});});`);
     const literal='$(touch /escape); `false`\nTASK';
     const run=(file,args,options)=>{assert.equal(file,'/usr/local/bin/gemini');assert.equal(options.cwd,'/work');
       return spawnSync(process.execPath,[fake,...args],{...options,cwd:f.root});};
@@ -264,4 +264,38 @@ test('AC6: unknown inspection blocks collection, cleanup and reuse without dupli
     assert.equal(f.calls.filter(c=>c.args[2]==='create'&&c.args.at(-1)==='execute').length,1);
     delete f.flags.malformed;assert.equal((await f.collect()).result.status,'valid');await clean(f);
   });
+});
+
+
+test('AC3: Gemini terminal sessions are mandatory and resumed results retain exact session correlation before Accept evidence',async()=>{
+  await fixture(async f=>{
+    const session='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',foreign='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    const invalid=[undefined,null,'','malformed',42,{}];
+    for(const recovery of [false,true])for(const terminal of [session,...invalid,...(recovery?[foreign]:[])]) {
+      let calls=0;
+      const request={access:'read',prompt:'task',timeout:1000,context:f.expected,...(recovery?{recovery:{
+        attempts:2,delayMs:0,model:'primary',models:[{id:'primary',adapter:'gemini',provider:'gemini',version:linuxGeminiProfile.gemini,resume:true}],fallbacks:[]}}:{})};
+      const outcome=entry.executeGemini(request,'SECRET',(file,args)=>{
+        calls++;
+        if(recovery&&calls===1)return {status:1,stdout:JSON.stringify({session_id:session,error:{status:'RESOURCE_EXHAUSTED',code:429}})};
+        if(recovery)assert.equal(args[args.indexOf('--resume')+1],session);
+        const envelope={response:JSON.stringify(f.expected.result)};
+        if(terminal!==undefined)envelope.session_id=terminal;
+        return {status:0,stdout:JSON.stringify(envelope)};
+      });
+      assert.equal(calls,recovery?2:1);
+      if(terminal===session)assert.deepEqual(compareEvidence(outcome.evidence,f.current),f.expected);
+      else {
+        assert.deepEqual(outcome,{diagnostic:'invalid-result'});
+        assert.throws(()=>compareEvidence(outcome.evidence,f.current));
+      }
+    }
+    for(const terminal of invalid) {
+      let calls=0;
+      const outcome=entry.executeGemini({access:'read',prompt:'task',timeout:1000,context:f.expected},'SECRET',()=>{
+        calls++;return {status:1,stdout:JSON.stringify({session_id:terminal,error:{status:'RESOURCE_EXHAUSTED',code:429}})};
+      });
+      assert.equal(calls,1);assert.equal(outcome.evidence,undefined);
+    }
+  },'accept');
 });

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import {readFileSync,writeFileSync,existsSync,mkdirSync,rmSync,symlinkSync,linkSync} from 'node:fs';
 import {join} from 'node:path';
-import {createLinuxClaudeBackend,linuxClaudeProfile} from '@nibfin/core';
+import {createLinuxClaudeBackend,linuxClaudeProfile,compareEvidence} from '@nibfin/core';
 import {codexFixture} from '../tooling/codex-fixture.mjs';
 const entry=await import(new URL('claude-entry.mjs',import.meta.resolve('@nibfin/core')));
 const roles=['shape','shape-validator','shape-diagnosis','shaper-review','deliver','accept'];
@@ -25,7 +25,7 @@ test('AC1/3: exported inert backend, all roles and both public ownership types, 
     assert.equal((await f.life.start(f.input)).start.status,'started');
     const c=f.calls.find(c=>c.args[2]==='create' && c.args.at(-1)==='execute');
     const mounts=c.args.flatMap((v,i)=>v==='--mount'?[c.args[i+1]]:[]);
-    assert.equal(mounts.length,4);
+    assert.equal(mounts.length,8);
     assert.equal(mounts.find(m=>m.includes('dst=/work,')).endsWith(',readonly'),role!=='deliver');
     assert.ok(mounts.find(m=>m.includes('dst=/login.json,')).endsWith(',readonly'));
     assert.ok(c.args.includes('--read-only'));assert.ok(c.args.includes('no-new-privileges'));
@@ -42,7 +42,7 @@ test('AC2/3: real CLI child boundary captures args, clean env, stdin, schema and
   await fixture(async f=>{
     const capture=join(f.root,'capture.json'),fake=join(f.root,'fake.mjs');
     const envelope={type:'result',subtype:'success',is_error:false,structured_output:f.expected.result};
-    writeFileSync(fake,`import {writeFileSync} from 'node:fs';let input='';process.stdin.on('data',b=>input+=b);process.stdin.on('end',()=>{writeFileSync(${JSON.stringify(capture)},JSON.stringify({args:process.argv.slice(2),env:process.env,input}));process.stdout.write(${JSON.stringify(JSON.stringify(envelope))});});`);
+    writeFileSync(fake,`import {writeFileSync} from 'node:fs';let input='';process.stdin.on('data',b=>input+=b);process.stdin.on('end',()=>{writeFileSync(${JSON.stringify(capture)},JSON.stringify({args:process.argv.slice(2),env:process.env,input}));const args=process.argv.slice(2);const envelope=${JSON.stringify(envelope)};envelope.session_id=args[args.indexOf('--session-id')+1];process.stdout.write(JSON.stringify(envelope));});`);
     const sessions=new Set();
     for(const role of roles) {
       const request={access:role==='deliver'?'write':'read',prompt:'$(touch /escape); `false`\nTASK',timeout:1000,context:f.expected};
@@ -68,6 +68,33 @@ test('AC2/3: real CLI child boundary captures args, clean env, stdin, schema and
     }
     assert.equal(sessions.size,roles.length);
   });
+});
+
+test('AC3: default execution requires its requested session before producing Accept evidence',async()=>{
+  await fixture(async f=>{
+    const request={access:'read',prompt:'task',timeout:1000,context:f.expected};
+    const sessions=new Set();
+    for(const mode of ['matching','foreign','absent']) {
+      let calls=0;
+      const run=(file,args)=>{
+        calls++;
+        const session=args[args.indexOf('--session-id')+1];
+        assert.match(session,/^[a-f0-9-]{36}$/);assert.ok(!sessions.has(session));sessions.add(session);
+        assert.ok(args.includes('--no-session-persistence'));assert.ok(!args.includes('--resume'));
+        const envelope={type:'result',subtype:'success',is_error:false,structured_output:f.expected.result};
+        if(mode==='matching')envelope.session_id=session;
+        if(mode==='foreign')envelope.session_id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+        return {status:0,stdout:JSON.stringify(envelope)};
+      };
+      const outcome=entry.executeClaude(request,'{}','SECRET',run);
+      assert.equal(calls,1);
+      if(mode==='matching')assert.deepEqual(compareEvidence(outcome.evidence,f.current),f.expected);
+      else {
+        assert.deepEqual(outcome,{diagnostic:'invalid-result'});
+        assert.throws(()=>compareEvidence(outcome.evidence,f.current));
+      }
+    }
+  },'accept');
 });
 
 test('AC2/5: version, feature and selected authentication detection use bounded shell-free commands',()=>{

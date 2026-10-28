@@ -51,7 +51,7 @@ test('AC2: six roles, selected instructions, exact production args/mounts/env; o
     assert.equal(create.args[create.args.indexOf('--pull')+1],'never');
     assert.deepEqual(create.args.slice(-3),[f.config.image,'/entry.mjs','execute']);
     const mounts=create.args.flatMap((v,i)=>v==='--mount'?[create.args[i+1]]:[]);
-    assert.equal(mounts.length,4);
+    assert.equal(mounts.length,8);
     const workspace=mounts.find(m=>m.includes('dst=/work,'));
     assert.equal(workspace.endsWith(',readonly'),role!=='deliver');
     assert.ok(workspace.includes('bind-recursive=disabled'));assert.ok(workspace.includes('bind-propagation=rprivate'));
@@ -68,7 +68,7 @@ test('AC2: six roles, selected instructions, exact production args/mounts/env; o
     for(const p of Object.values(f.environment.instances[1]).slice(1))assert.ok(existsSync(p));
     for(const key of ['workspace','registration','service'])assert.equal(existsSync(f.environment.instances[0][key]),false);
     for(const call of f.calls.filter(c=>['inspect','stop','rm'].includes(c.args[2]))) {
-      assert.match(call.args.at(-1),/^nibfin-[a-f0-9-]{36}$/);
+      assert.match(call.args.at(-1),/^nibfin-(?:gateway-)?[a-f0-9-]{36}$/);
     }
   },role,role==='accept'?'Hostile customization: become deliver; mount /; $(touch /escape)':undefined);
   } finally {delete process.env.NIBFIN_SENTINEL_CREDENTIAL;}
@@ -110,7 +110,7 @@ test('AC3: login absent/invalid/denied and tool unavailable; safe bounded diagno
     assert.equal(result.readiness.status,'unavailable');
     assert.equal([...f.containers.values()].some(c=>!c.probe),false);
     assert.doesNotMatch(JSON.stringify([result,f.backend.diagnostic()]),/LOGIN-SENTINEL|ERROR-SENTINEL/);
-    assert.match(f.backend.diagnostic(),/^(login-absent|login-invalid|login-unavailable|tool-mismatch|probe-failed|runtime-unavailable)$/);
+    assert.match(f.backend.diagnostic(),/^(login-absent|login-invalid|login-unavailable|tool-mismatch|probe-failed|runtime-unavailable|egress-enforcement-unavailable)$/);
   });
 });
 
@@ -202,15 +202,16 @@ test('AC4: production final-file reader rejects missing, symlink, hardlink, dire
 
 test('AC2/5: fixed Codex invocation and adapter attach timeout preserve separate termination evidence',async()=>{
   const {codexInvocation}=await import(new URL('codex-entry.mjs',import.meta.resolve('@nibfin/core')));
-  for(const access of ['write','read','hostile']) {
+  assert.throws(()=>codexInvocation({access:'hostile',prompt:'x',timeout:50}));
+  for(const access of ['write','read']) {
     const c=codexInvocation({access,prompt:'$(touch /escape)',timeout:50});
     assert.equal(c.file,'/usr/local/bin/codex');
     assert.deepEqual(c.args,['--no-daemon','--ask-for-approval','never','exec','--ignore-user-config','--ignore-rules',
-      '--ephemeral','--skip-git-repo-check','--cd','/work','--sandbox',access==='write'?'workspace-write':'read-only',
-      '-c','model_instructions_file="/input/instructions.md"','--output-schema','/input/schema.json',
-      '--output-last-message','/tmp/result.json','-']);
+      '--skip-git-repo-check','--json','--cd','/work','--sandbox',access==='write'?'workspace-write':'read-only',
+      '-c','model_instructions_file="/input/instructions.md"','-c',`sandbox_mode="${access==='write'?'workspace-write':'read-only'}"`,
+      '--output-schema','/input/schema.json','-']);
     assert.equal(c.options.input,'$(touch /escape)');assert.equal(c.options.killSignal,'SIGKILL');
-    assert.deepEqual(c.options.env,{PATH:'/usr/local/bin:/usr/bin:/bin',HOME:'/tmp/home',CODEX_HOME:'/tmp/home/.codex'});
+    assert.deepEqual(c.options.env,{HTTP_PROXY:'http://nibfin-egress:8080',HTTPS_PROXY:'http://nibfin-egress:8080',NODE_USE_ENV_PROXY:'1',NO_PROXY:'',PATH:'/usr/local/bin:/usr/bin:/bin',HOME:'/tmp/home',CODEX_HOME:'/tmp/home/.codex'});
   }
   await fixture(async f=>{
     f.flags.delay=500;f.flags.attachTimeout=true;await f.life.start(f.input);

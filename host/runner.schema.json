@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nibfin.dev/schemas/runner-v1.json",
+  "title": "Protected supported runner input v1",
+  "type": "object", "additionalProperties": false,
+  "required": ["version", "platform", "arch", "account", "path", "interpreter", "work", "scratch", "cache"],
+  "properties": {
+    "version": {"const": 1},
+    "platform": {"enum": ["linux", "wsl"]},
+    "arch": {"const": "x64"},
+    "account": {
+      "type": "object", "additionalProperties": false,
+      "required": ["user", "uid", "githubUserId"],
+      "properties": {
+        "user": {"type": "string", "pattern": "^[a-z_][a-z0-9_-]*$", "not": {"const": "root"}},
+        "uid": {"type": "integer", "minimum": 1},
+        "githubUserId": {"type": "string", "pattern": "^[1-9][0-9]*$"}
+      }
+    },
+    "path": {"const": "/usr/local/bin:/usr/bin:/bin"},
+    "interpreter": {"const": "/usr/local/bin/node"},
+    "work": {"type": "string", "pattern": "^/[^\\s,:]+$"},
+    "scratch": {"type": "string", "pattern": "^/[^\\s,:]+$"},
+    "cache": {"type": "string", "pattern": "^/[^\\s,:]+$"}
+  }
+}

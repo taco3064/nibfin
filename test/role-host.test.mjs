@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync,writeFileSync} from 'node:fs';
+import {readFileSync,writeFileSync,mkdtempSync,rmSync,chmodSync} from 'node:fs';
+import {execFileSync} from 'node:child_process';
+import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import * as core from '@nibfin/core';
 import {configure} from '../host/entry.mjs';
@@ -42,6 +44,41 @@ async function finish(prepared) {
     await new Promise(r=>setTimeout(r,5));
   }throw Error('role did not terminate');
 }
+
+test('native reviewers receive independently materialized files and retained custody before Agent launch',async()=>{
+  const source=mkdtempSync(join(tmpdir(),'nibfin-role-source-'));
+  const git=(...args)=>execFileSync('git',args,{cwd:source,env:{PATH:process.env.PATH,HOME:source,GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null'},stdio:['pipe','pipe','pipe']});
+  try{
+    git('init','--object-format=sha1');git('config','user.name','Fixture');git('config','user.email','fixture@example.invalid');
+    writeFileSync(join(source,'code'),'base');git('add','.');git('-c','core.hooksPath=/dev/null','commit','-qm','base');
+    const base=git('rev-parse','HEAD').toString().trim();writeFileSync(join(source,'code'),'actual candidate');
+    const scopeBody='Original scope',shapeBody='Candidate artifacts applicability: No additional artifacts.\nCandidate hooks applicability: No hooks apply.\n```kairo-candidate\n{"artifacts":[],"hooks":[]}\n```';
+    const capture=core.captureWorkspace({root:source,base,scopeBody,shapeBody,permittedPaths:['code'],
+      binding:{repository:'example/public',cycle:'cycle-1',policy:'a'.repeat(64),scopeHash:core.bodyDigest(scopeBody),shapeHash:core.bodyDigest(shapeBody)}});
+    for(const role of ['accept','shaper-review']){
+      const f=roleFixture(),records=[];
+      try{
+        const selected=f.fixtures.get(role),root=selected.environment.instances[0].workspace;chmodSync(root,0o700);
+        selected.input.binding={...selected.input.binding,...capture.expected.binding};
+        delete selected.input.binding.repository;delete selected.input.binding.cycle;
+        selected.expected.binding=structuredClone(selected.input.binding);selected.expected.inputs.candidate=capture.candidate;
+        selected.current.expected=structuredClone(selected.expected);
+        const host=core.createProtectedRoleHost({...f.options,retain:async r=>{records.push(r);return 'custody:workspace';}});
+        const task={role,skill:core.skillForRole(role),instructions:core.selectInstructions({role,skill:core.skillForRole(role)}),
+          task:{version:1,repository:'example/public',workspace:JSON.parse(core.exportWorkspace(capture)),expected:capture.expected}};
+        const prepared=await host.prepareRole(task);
+        assert.equal(readFileSync(join(root,'code'),'utf8'),'actual candidate');
+        assert.equal(prepared.workspace.status,'materialized');assert.equal(prepared.workspace.reference,'custody:workspace');
+        assert.equal(records.length,1);assert.equal(records[0].kind,'role-workspace');
+        assert.deepEqual(records[0].workspace,capture.expected);
+        assert.equal(f.fixtures.get(role).calls.some(c=>c.args.includes('start')),false,'no Agent started during transfer');
+        assert.equal(readFileSync(join(source,'code'),'utf8'),'actual candidate');
+        await assert.rejects(host.prepareRole(task),/materialize-existing-work/);
+        assert.equal(records.length,1,'an existing checkout is never silently replaced');
+      }finally{await f.close();}
+    }
+  }finally{rmSync(source,{recursive:true,force:true});}
+});
 
 test('Shape returns a late document through each maintained decoder, pins its exact Scope, and retains it before validation',async()=>{
   for(const agent of ['codex','claude','gemini'])for(const changed of [false,true]) {

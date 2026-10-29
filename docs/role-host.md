@@ -20,6 +20,15 @@ one profile ID. Distinct instances/workspaces are required across roles; selecte
 instances can share only their authenticated environment's login directory.
 Only Deliver receives a writable Candidate mount.
 
+Linux Accept and final-review tasks containing Core's complete workspace transfer
+are materialized into their configured private role directory before Agent launch.
+The host verifies the separately retained expectation against the bound Candidate,
+repository, Scope, Shape and policy, restores exact files/modes/ignored sources,
+and retains a `role-workspace` receipt. Transfer content never selects a destination.
+Nonempty destinations are preserved and require reconciliation; a successful
+transfer is not an Acceptance result. WSL transfers require a guest-side owner
+and are rejected by this Linux materialization path.
+
 The trusted `bind(task)` supplies current execution/binding expectations, selected
 instructions, prompt/inputs and the original absolute deadline. It cannot supply a
 backend or permission override. Core independently checks authority, native

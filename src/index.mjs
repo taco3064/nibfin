@@ -139,3 +139,5 @@ export {createRescueAgentAdapter} from './rescue-agent.mjs';
 export {createRescueHost} from './rescue-host.mjs';
 export {createRoleSessionRecovery} from './role-session.mjs';
 export {captureRescueSession,restoreRescueSession} from './rescue-session.mjs';
+
+export {runnerJobPolicy,runnerJobPolicies,verifyRunnerJobAdmission} from './runner-job-gate.mjs';

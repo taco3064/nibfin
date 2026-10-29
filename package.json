@@ -172,7 +172,11 @@
     "skills/rescue/SKILL.md",
     "workflow/templates/nibfin-rescue.yml",
     "host/templates/nibfin-rescue-wakeups.service",
-    "docs/rescue.md"
+    "docs/rescue.md",
+    "src/runner-job-gate.mjs",
+    "host/runner-job-hook.mjs",
+    "host/runner-job-hook.sh",
+    "docs/runner-job-admission.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

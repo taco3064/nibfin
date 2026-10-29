@@ -336,7 +336,7 @@
     },
     {
       "path": "docs/runner-job-admission.md",
-      "sha256": "cc1ee73f1ef6b025cae3b4570a9940b4f5d3373c37f545dba627c4cab8aadc29"
+      "sha256": "bb0a9ec4645fbdb415dea14f6378f41e7c7d72dd468bb25ab36246de8681c055"
     },
     {
       "path": "docs/scope.md",
@@ -396,7 +396,7 @@
     },
     {
       "path": "host/runner-job-hook.mjs",
-      "sha256": "a4fd071d875b5ebdcffd7402bde6c0e459d941b9ebbfb923b4e4f2510b68ca04"
+      "sha256": "b83a88d4851440eb266cca26beb3f3e764a21b91b30df898dbab5d434030c5a5"
     },
     {
       "path": "host/runner-job-hook.sh",
@@ -772,7 +772,7 @@
     },
     {
       "path": "src/runner-job-gate.mjs",
-      "sha256": "6a65f424b8444805b2e9268829b800e7fb263efc9be4ea57fe2cabc35d4d0c11"
+      "sha256": "bc87b18dcb6e7ce5714b7cb73a3308abded6d091fc23d4bcb4600bcaa7107bee"
     },
     {
       "path": "src/runner-lifecycle.mjs",

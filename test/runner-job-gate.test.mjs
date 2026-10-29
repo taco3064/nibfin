@@ -54,3 +54,35 @@ test('missing or unavailable authenticated read observations deny rather than de
  }
  assert.equal(verifyRunnerJobAdmission(policy,null).allowed,false);
 });
+
+
+test('explicit Organization registration binds the real org URL and finite repository policies',()=>{
+  const org={...policy,registrationLevel:'organization'},second={...org,repository:'owner/second',repositoryId:'102'};
+  const o=fixture();o.localRunner.repository='owner';o.localRunner.registrationLevel='organization';o.run.repository.owner.type='Organization';
+  assert.equal(verifyRunnerJobAdmission(org,o).allowed,true);
+  assert.equal(verifyRunnerJobAdmission(policy,o).allowed,false);
+  assert.equal(runnerJobPolicies({schemaVersion:1,policies:[org,second]}).length,2);
+  const next=structuredClone(o);next.context.repository='owner/second';next.run.repository.id='102';next.run.repository.full_name='owner/second';next.run.head_repository.id='102';
+  assert.equal(verifyRunnerJobAdmission(second,next).allowed,true);
+  assert.equal(verifyRunnerJobAdmission(org,next).allowed,false);
+  for(const change of [v=>v.localRunner.repository='other',v=>delete v.localRunner.registrationLevel,
+    v=>v.localRunner.registrationLevel='repository',v=>v.run.repository.owner.type='User',v=>delete v.run.repository.owner.type,
+    v=>v.run.repository.owner.id='13',v=>v.run.repository.id='999',v=>v.run.head_repository.id='999']){
+    const x=structuredClone(o);change(x);assert.equal(verifyRunnerJobAdmission(org,x).allowed,false);
+  }
+  for(const second of [{...org,registrationLevel:'repository'},{...org,repository:'other/project'},
+    {...org,ownerId:'13'},{...org,runnerId:'24'}])
+    assert.throws(()=>runnerJobPolicies({schemaVersion:1,policies:[org,second]}),/conflicting/);
+  assert.throws(()=>runnerJobPolicies({schemaVersion:1,policies:[org,{...org,repositoryId:'999'}]}),/conflicting-target/);
+  assert.throws(()=>runnerJobPolicy({...policy,registrationLevel:'enterprise'}),/invalid-policy/);
+});
+
+test('official repository and Org configuration URLs are parsed without accepting aliases or credentials',async()=>{
+  const {localRunnerRegistration}=await import('../host/runner-job-hook.mjs');
+  assert.deepEqual(localRunnerRegistration('https://github.com/Owner/Project/'),{repository:'owner/project',registrationLevel:'repository'});
+  assert.deepEqual(localRunnerRegistration('https://github.com/Owner'),{repository:'owner',registrationLevel:'organization'});
+  for(const url of ['http://github.com/owner','https://github.com.evil.example/owner','https://user:token@github.com/owner',
+    'https://github.com/owner?token=SECRET','https://github.com/owner#fragment','https://github.com/owner/../owner',
+    'https://github.com/owner/%2e%2e/owner','https://github.com/owner/repo/extra','https://github.com/'])
+    assert.throws(()=>localRunnerRegistration(url),/local-registration/);
+});

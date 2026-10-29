@@ -11,6 +11,17 @@ const ids=new Set(['id','agentId','runner_id','run_id','repository_id','workflow
 function json(text){return JSON.parse(text.replace(/^\uFEFF/,''),(k,v,c)=>ids.has(k)&&typeof v==='number'?c.source:v);}
 function bounded(path,limit=100000){const s=lstatSync(path);if(!s.isFile()||s.isSymbolicLink()||s.nlink!==1||s.size>limit||realpathSync(path)!==path)fail('unsafe-file');return readFileSync(path);}
 
+// Official .runner GitHubUrl identifies its registration scope, not always a repo.
+export function localRunnerRegistration(value){
+  try{
+    if(typeof value!=='string'||value.length>512)fail('local-registration');
+    const url=new URL(value),parts=url.pathname.replace(/\/$/,'').slice(1).split('/');
+    if(url.origin!=='https://github.com'||url.username||url.password||url.search||url.hash||![1,2].includes(parts.length)
+      ||parts.some(p=>!p||!/[a-z0-9]/i.test(p))||value.toLowerCase().replace(/\/$/,'')!=='https://github.com/'+parts.join('/').toLowerCase())fail('local-registration');
+    return Object.freeze({repository:parts.join('/').toLowerCase(),registrationLevel:parts.length===1?'organization':'repository'});
+  }catch{fail('local-registration');}
+}
+
 // The hook is a Worker child. Never select a process from event data, a stale PID
 // file or a name search. Retain /proc start time to prevent a replaced PID kill.
 export function currentRunnerWorker(){
@@ -49,18 +60,20 @@ export function runJobHook(policyPath){
       return json(out);
     };
     const context={repository:process.env.GITHUB_REPOSITORY,runId:process.env.GITHUB_RUN_ID,attempt:Number(process.env.GITHUB_RUN_ATTEMPT)};
-    if(context.repository!==policy.repository||!/^[1-9][0-9]*$/.test(context.runId??'')||!Number.isSafeInteger(context.attempt)||context.attempt<1)fail('invocation');
+    const candidates=policies.filter(p=>p.repository===context.repository);
+    if(!candidates.length||!/^[1-9][0-9]*$/.test(context.runId??'')||!Number.isSafeInteger(context.attempt)||context.attempt<1)fail('invocation');
+    policy=candidates[0];
     const prefix=`/repos/${policy.repository}`,run=api(`${prefix}/actions/runs/${context.runId}`);
     if(!/^[a-f0-9]{40}$/.test(run.head_sha??''))fail('run');
     const jobs=api(`${prefix}/actions/runs/${context.runId}/attempts/${context.attempt}/jobs?per_page=100`);
     if(!Number.isSafeInteger(jobs.total_count)||jobs.total_count>100||!Array.isArray(jobs.jobs)||jobs.jobs.length!==jobs.total_count)fail('job-inventory');
     const matches=jobs.jobs.filter(j=>j.runner_id===policy.runnerId&&j.runner_name===policy.runnerName&&j.status==='in_progress');
     if(matches.length!==1)fail('job-identity');
-    const selected=policies.filter(p=>p.workflowPath===run.path&&p.jobName===matches[0].name&&p.ref==='refs/heads/'+run.head_branch&&p.events.includes(run.event));
+    const selected=candidates.filter(p=>p.workflowPath===run.path&&p.jobName===matches[0].name&&p.ref==='refs/heads/'+run.head_branch&&p.events.includes(run.event));
     if(selected.length!==1)fail('unapproved-workflow');policy=selected[0];
     const workflow=api(`${prefix}/contents/${policy.workflowPath}?ref=${run.head_sha}`);
     result=verifyRunnerJobAdmission(policy,{context,run,job:matches[0],workflow,localRunner:{id:local.agentId,name:local.agentName,
-      repository:local.gitHubUrl?.replace(/^https:\/\/github.com\//,'').replace(/\/$/,'').toLowerCase(),workerSha256}});
+      ...localRunnerRegistration(local.gitHubUrl),workerSha256}});
   }catch(error){result={allowed:false,code:/^[a-z-]+$/.test(error.message)?error.message:'observation-unavailable'};}
   // Private diagnostic only, never raw provider output, process arguments or tokens.
   try{

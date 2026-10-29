@@ -24,7 +24,7 @@ async function verifyActionRunFresh(github, policy, identity, { completed = fals
   }
   const root = repoPath(policy.repository);
   const repository = await github.repository(policy.repository);
-  if (String(repository.id) !== String(policy.repositoryId) || (policy.visibility==='public' ? repository.private!==false || String(repository.owner?.id)!==policy.ownerId || policy.repository!=='taco3064/nibfin' || String(repository.id)!=='1427838662' : repository.private !== true)) deny('Stage execution must use the enrolled private repository');
+  if (String(repository.id) !== String(policy.repositoryId) || (repository.private !== true || policy.visibility==='private'&&String(repository.owner?.id)!==policy.ownerId)) deny('Stage execution must use the enrolled private repository');
   const run = await github.api(`${root}/actions/runs/${identity.runId}/attempts/${identity.attempt}`);
   const actors = policy.actorIds.map(String);
   if (String(run.id) !== String(identity.runId) || run.run_attempt !== Number(identity.attempt) ||

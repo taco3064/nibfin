@@ -24,7 +24,7 @@ export async function relayDependencyEvent({ github, entry, execution, stateDire
   // The receiving Core independently validates membership, grant and live graph.
   // This owner-authenticated wakeup cannot satisfy a native label/close boundary.
   const operator = await github.api('/user');
-  if (String(operator.id) !== b.ownerId || operator.type !== 'User' || !['taco3064/kairo','taco3064/nibfin'].includes(execution.repository) || execution.workflowPath !== (execution.repository==='taco3064/nibfin'?'.github/workflows/nibfin-controller.yml':'.github/workflows/action-stage.yml') || execution.ref !== 'main') reject();
+  if (String(operator.id) !== b.ownerId || operator.type !== 'User' || !['taco3064/kairo','taco3064/nibfin-control'].includes(execution.repository) || execution.workflowPath !== (execution.repository==='taco3064/nibfin-control'?'.github/workflows/nibfin-controller.yml':'.github/workflows/action-stage.yml') || execution.ref !== 'main') reject();
   const id = digest({ repositoryId: b.repositoryId, delivery: headers['x-github-delivery'] });
   const store = new Store(stateDirectory, 'dependency-event:' + id);
   return store.lease(async () => {

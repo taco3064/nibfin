@@ -68,7 +68,7 @@ export async function verifyRescueInvocation(runtime,grant,event){
  }else if((String(run.actor.id)===bot||String(run.triggering_actor.id)===bot)&&(!positive(event?.inputs?.source_run_id)||event?.inputs?.request_id))throw rescueStop('RESCUE_ORIGIN_INVALID','Automated fallback must identify an independently verified failed source Run');
  const [atRun,current,repository]=await Promise.all([runtime.github.api(root+'/contents/'+rescueWorkflowFor(runtime)+'?ref='+run.head_sha),runtime.github.api(root+'/contents/'+rescueWorkflowFor(runtime)+'?ref=main'),runtime.github.repository(policy.repository)]);
  const pins=runtime.transport?[runtime.transport.rescueWorkflowBlob]:[approval.workflowBlob,runtime.coreUpgrade?.rescuePreviousWorkflowBlob].filter(Boolean);
- if((policy.visibility==='public'?repository.private!==false||String(repository.id)!==policy.repositoryId||String(repository.owner?.id)!==policy.ownerId:repository.private!==true)||!pins.includes(atRun.sha)||current.sha!==pins[0])throw rescueStop('RESCUE_PIN_CHANGED','Rescue workflow is not the exact signed private workflow');
+ if((repository.private!==true||runtime.transport&&(String(repository.id)!==policy.repositoryId||String(repository.owner?.id)!==policy.ownerId))||!pins.includes(atRun.sha)||current.sha!==pins[0])throw rescueStop('RESCUE_PIN_CHANGED','Rescue workflow is not the exact signed private workflow');
  const job=await waitForActionIdentity(async()=>{
   const jobs=await runtime.github.list(root+'/actions/runs/'+run.id+'/attempts/'+run.run_attempt+'/jobs','jobs');
   const matches=jobs.filter(j=>j.name===env.GITHUB_JOB&&j.status==='in_progress'&&j.runner_name===env.RUNNER_NAME&&policy.runnerIds.map(String).includes(String(j.runner_id)));

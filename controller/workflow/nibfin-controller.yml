@@ -23,7 +23,7 @@ permissions:
   contents: read
 jobs:
   resolve:
-    if: vars.NIBFIN_CONTROLLER_ACTIVE == 'true'
+    if: vars.NIBFIN_CONTROLLER_ACTIVE == 'true' && github.repository == 'taco3064/nibfin-control' && github.ref == 'refs/heads/main'
     runs-on: [self-hosted, linux, nibfin-controller]
     timeout-minutes: 5
     steps:
@@ -34,7 +34,7 @@ jobs:
           const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
           const i = event.inputs || {};
           if (i.issue_ref && (!/^[\w.-]+(?:#[1-9]\d*(?:\+[1-9]\d*)*)?$/.test(i.issue_ref) || i.issue_ref.length > 128)) throw Error('Invalid Issue display reference');
-          if (process.env.GITHUB_REPOSITORY !== 'taco3064/nibfin' || process.env.GITHUB_EVENT_NAME !== 'workflow_dispatch') throw Error('Wrong execution origin');
+          if (process.env.GITHUB_REPOSITORY !== 'taco3064/nibfin-control' || process.env.GITHUB_EVENT_NAME !== 'workflow_dispatch') throw Error('Wrong execution origin');
           if (i.request_id && !/^[a-f0-9]{64}$/.test(i.request_id)) throw Error('Invalid durable request identity');
           if (i.issue_id && !/^[\w-]+$/.test(i.issue_id)) throw Error('Invalid Issue identity');
           if (Buffer.byteLength(i.event_envelope || '') > 8192) throw Error('Event envelope too large');
@@ -70,8 +70,8 @@ jobs:
             const hints = JSON.parse(process.env.HANDOFFS);
             if (!Array.isArray(hints) || hints.length > 100) throw Error('Invalid handoff list');
             for (const h of hints) {
-              const privateStage = h.repository === 'taco3064/nibfin' && h.workflow === 'nibfin-controller.yml';
-              const participant = /^taco3064\/[\w.-]+$/.test(h.repository) && h.workflow === 'nibfin-events.yml' && /^[\w-]+$/.test(h.issueId || '');
+              const privateStage = h.repository === 'taco3064/nibfin-control' && h.workflow === 'nibfin-controller.yml';
+              const participant = ['taco3064/nibfin','taco3064/gh-nibfin','taco3064/nibfin-action'].includes(h.repository) && h.workflow === 'nibfin-events.yml' && /^[\w-]+$/.test(h.issueId || '');
               if ((!privateStage && !participant) || !/^[a-f0-9]{64}$/.test(h.requestId) || h.ref !== 'main') throw Error('Foreign dispatch target');
               if (h.issueRef && (!/^[\w.-]+#[1-9]\d*$/.test(h.issueRef) || h.issueRef.length > 128)) throw Error('Invalid display-only Issue reference');
               execFileSync('gh', ['api', '--method', 'POST', '/repos/' + h.repository + '/actions/workflows/' + h.workflow + '/dispatches', '--input', '-'], {

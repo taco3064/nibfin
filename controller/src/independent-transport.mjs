@@ -5,7 +5,7 @@ import {coreDigest,verifyGrant,verifyCoreUpgrade,outside} from './authority.mjs'
 import {runtimeConfigurationHash} from './runtime-configuration.mjs';
 import {validatePublicPolicy} from './runner-binding.mjs';
 
-const repository='taco3064/nibfin',repositoryId='1427838662';
+const repository='taco3064/nibfin',repositoryId='1427838662',executionRepository='taco3064/nibfin-control',executionRepositoryId='1437863048';
 const fail=()=>{throw Error('Independent transport is not approved for this exact installation and authority');};
 export function verifyIndependentTransport(record,grant,config,installed,publicKey){
  const p=record?.payload,key=createPublicKey(publicKey),settings=config.independentTransport;
@@ -13,7 +13,7 @@ export function verifyIndependentTransport(record,grant,config,installed,publicK
   p.schemaVersion!==1||p.kind!=='nibfin-independent-transport'||p.grantRecordId!==grant.recordId||p.manifestHash!==digest(grant.manifest)||p.policyHash!==digest(grant.policy)||
   p.coreDigest!==installed||p.runtimeHash!==runtimeConfigurationHash(config)||!settings||p.settingsHash!==digest(settings)||!p.reason?.trim())fail();
  const e=p.execution;
- if(e?.repository!==repository||e.repositoryId!==repositoryId||e.visibility!=='public'||e.workflowPath!=='.github/workflows/nibfin-controller.yml'||e.ref!=='main'||
+ if(e?.repository!==executionRepository||e.repositoryId!==executionRepositoryId||e.visibility!=='private'||e.workflowPath!=='.github/workflows/nibfin-controller.yml'||e.ref!=='main'||
   !/^[a-f0-9]{40}$/.test(e.workflowBlob??'')||e.ownerId!==grant.actorGitHubUserId||e.identityMode!=='local-gh'||
   !Array.isArray(e.actorIds)||!e.actorIds.length||e.actorIds.some(id=>![grant.actorGitHubUserId,'41898282'].includes(String(id)))||
   !Array.isArray(e.workers)||e.workers.length!==2||new Set(e.workers.map(w=>w.id)).size!==2||e.workers.some(w=>!Number.isSafeInteger(w.id)||w.id<1||!/^nibfin-worker-[12]$/.test(w.name))||

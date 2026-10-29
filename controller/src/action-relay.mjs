@@ -60,7 +60,7 @@ export async function relayActionEvent({ github, entry, policy, execution, state
   const receivedAt = Date.now();
   const verify = () => verifyActionEvent(github, entry, envelope, policy, receivedAt);
   const p = await (github.freshReadObservation ? github.freshReadObservation(verify) : verify());
-  if (!(['taco3064/kairo','taco3064/nibfin'].includes(execution.repository)) || execution.workflowPath !== (execution.repository==='taco3064/nibfin'?'.github/workflows/nibfin-controller.yml':'.github/workflows/action-stage.yml') || execution.ref !== 'main')
+  if (!(['taco3064/kairo','taco3064/nibfin-control'].includes(execution.repository)) || execution.workflowPath !== (execution.repository==='taco3064/nibfin-control'?'.github/workflows/nibfin-controller.yml':'.github/workflows/action-stage.yml') || execution.ref !== 'main')
     throw new Error('Relay target must be the fixed private Actions entrypoint');
   const issueRef=await eventIssueReference(github,p,resolveIssueReferences);
   const id = digest({ repositoryId: p.repositoryId, runId: p.runId, attempt: p.runAttempt });

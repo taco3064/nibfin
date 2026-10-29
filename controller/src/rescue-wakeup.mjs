@@ -17,11 +17,11 @@ export async function loadRescueWakeupGrant(runtime){
  const bundle=await runtime.github.grant(runtime.config.grantSource),key=await readFile(runtime.config.publicKeyPath,'utf8'),grant=verifyGrant(bundle,key),installed=await coreDigest(runtime.root);
  const amendment=[bundle.coreUpgrade,...(bundle.coreUpgrades??[])].find(a=>a?.payload?.toCoreDigest===installed);
  const approval=verifyCoreUpgrade(amendment,grant,installed,key);
- if(!approval.rescue||grant.policy.executionMode!=='actions-v1'||!['taco3064/kairo','taco3064/nibfin'].includes(executionPolicy(runtime,grant)?.repository)||digest(grant.policy.actionExecution)!==digest(runtime.config.actionExecution))throw Error('Rescue notification transport is not enrolled');
+ if(!approval.rescue||grant.policy.executionMode!=='actions-v1'||!['taco3064/kairo','taco3064/nibfin-control'].includes(executionPolicy(runtime,grant)?.repository)||digest(grant.policy.actionExecution)!==digest(runtime.config.actionExecution))throw Error('Rescue notification transport is not enrolled');
  runtime.coreUpgrade=approval;
  const execution=executionPolicy(runtime,grant),workflow=rescueWorkflowFor(runtime);
  const [repository,file]=await Promise.all([runtime.github.repository(execution.repository),runtime.github.api('/repos/'+execution.repository+'/contents/'+workflow+'?ref=main')]);
- if((execution.visibility==='public'?repository.private!==false||String(repository.id)!==execution.repositoryId||String(repository.owner?.id)!==execution.ownerId:repository.private!==true)||file.sha!==(runtime.transport?.rescueWorkflowBlob??approval.rescue.workflowBlob))throw Error('Rescue notification workflow pin changed');
+ if((repository.private!==true||runtime.transport&&(String(repository.id)!==execution.repositoryId||String(repository.owner?.id)!==execution.ownerId))||file.sha!==(runtime.transport?.rescueWorkflowBlob??approval.rescue.workflowBlob))throw Error('Rescue notification workflow pin changed');
  return grant;
 }
 export async function pendingRescueWakeups(runtime,grant){

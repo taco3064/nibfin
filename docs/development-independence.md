@@ -7,9 +7,9 @@ notifications through `nibfin-events.yml`; their checks execute on hosted runner
 No participant checkout runs on the protected Controller workers.
 
 An explicit Owner-signed transport migration binds the unchanged original
-portfolio and policy to the installed Controller digest, exact public workflow
+portfolio and policy to the installed Controller digest, exact private execution workflow
 blobs, repository ID, coordination host, two worker identities and notification
-bindings. Making a repository public alone never authorizes execution. The
+bindings. Protected workers belong only to the private `taco3064/nibfin-control` execution repository; public repositories never receive protected-host self-hosted workers. This execution repository contains fixed workflows only, not product source. Public product users do not need access to it. The
 controller still verifies the original Owner login and provider identities;
 untrusted Issue text and dispatch hints cannot choose commands or credentials.
 

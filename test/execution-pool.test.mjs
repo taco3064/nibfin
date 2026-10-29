@@ -80,6 +80,13 @@ test('source transport requires an installed dispatch policy, exact workflow/ref
   }
   assert.equal(calls.length,count);covered=false;assert.equal((await transport(write)).failure,'authentication');
   assert.equal(calls.length,count);
+  covered=true;
+  // Use the real provider HTTP projection too: it omits target/operation after
+  // completing its own authorization checkpoint, rather than passing fixtures.
+  const provider=createGithubProvider({identity:'hosted-authorized',transport,authorize:()=>true,attempts:1,now:()=>1100});
+  const submitted=await provider.request({...write,body:JSON.parse(write.body)});
+  assert.equal(submitted.outcome,'submitted',JSON.stringify(submitted));
+  assert.equal(calls.at(-1).request.body,write.body);
   for(const endpoint of ['/repos/example/core/actions/workflows/50/runs?event=workflow_dispatch&per_page=100',
     '/repos/example/core/actions/runs/70'])assert.equal(poolDispatchAccess(pool,dispatchPolicy,{...write,method:'GET',endpoint}),true);
   for(const endpoint of ['/repos/example/core/actions/workflows/51/runs?event=workflow_dispatch',
@@ -243,4 +250,24 @@ test('pooled lookup reaches only its protected logical target after source authe
   const before=calls;f.state.token=await f.sign({repository:'untrusted/other'});
   assert.equal((await entry.invoke('lookup',input,context)).status,'blocked');assert.equal(calls,before);
   assert.ok(f.calls.every(r=>r.method==='GET'));assert.deepEqual(f.handoffs,[]);
+});
+
+test('pooled Issue wakeup authenticates at its logical repo before dispatching toward a separate source',async()=>{
+  const f=await hostIdentityFixture('wake'),source={...identity('example-org/automation','91'),ownerId:'17'},
+    target={...identity('example-org/core','9007199254740993'),ownerId:'17'},executionPool={version:1,source,targets:[source,target]};
+  f.config.options.executionPool=executionPool;
+  Object.assign(f.policy,{repository:target.repository,repository_id:target.repositoryId,repository_owner_id:'17',
+    workflow_ref:target.repository+'/.github/workflows/nibfin-wakeup.yml@refs/heads/main',event_name:'issues'});
+  f.association.repository_id=target.repositoryId;f.context.eventName='issues';
+  const claims=Object.fromEntries(['repository','repository_id','repository_owner_id','workflow_ref','event_name'].map(k=>[k,f.policy[k]]));
+  f.state.token=await f.sign(claims);f.replies['/repos/example-org/core'].owner.type='User';
+  f.replies['/repos/example-org/automation']={...actual(source),owner:{id:'17',login:'example-org',type:'User'}};
+  const options=validateHostOptions(f.config.options,'wake',validateExecutionPool);
+  const context=projectExecutionContext({options,mode:'wake',context:f.context});
+  assert.equal(context.repository,target.repository);
+  assert.equal((await f.make().authenticate({mode:'wake',context})).repositoryId,target.repositoryId);
+  assert.throws(()=>projectExecutionContext({options,mode:'wake',context:{...context,repository:source.repository,repositoryId:source.repositoryId}}));
+  assert.throws(()=>projectExecutionContext({options,mode:'wake',context:{...context,eventName:'workflow_dispatch'}}));
+  f.state.token=await f.sign({...claims,repository:source.repository,repository_id:source.repositoryId});
+  await assert.rejects(f.make().authenticate({mode:'wake',context}));
 });

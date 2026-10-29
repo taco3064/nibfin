@@ -104,7 +104,8 @@ function compose(configuration, testFacility) {
   githubId(options.repositoryId);
   need(repositoryCoordinates(...options.repository.split('/')).key===options.repository);
   const pool=options.executionPool===undefined?null:poolLogicalTarget(options.executionPool,options);
-  if(pool)need(options.routing==='authenticated'&&['lookup','resolve','execute','compute'].includes(mode)&&options.groupId===undefined);
+  if(pool)need(options.groupId===undefined&&(mode==='wake'&&options.routing===undefined
+    ||options.routing==='authenticated'&&['lookup','resolve','execute','compute'].includes(mode)));
   exact(source,['policy','getToken','continuation'],['getAssociation','timeoutMs']);
   need(typeof source.getToken==='function' && (source.getAssociation===undefined || typeof source.getAssociation==='function'));
   const timeoutMs=source.timeoutMs??30000;
@@ -114,8 +115,11 @@ function compose(configuration, testFacility) {
   need(policy && policy.repository_visibility==='public' && typeof policy.repository==='string'
     && policy.workflow_ref?.startsWith(policy.repository+'/.github/workflows/'));
   githubId(policy.repository_id);githubId(policy.run_id);githubId(policy.run_attempt);
-  if(pool)need(policy.repository===pool.source.repository&&policy.repository_id===pool.source.repositoryId
-    &&policy.repository_owner_id===pool.source.ownerId);
+  if(pool){
+    const origin=mode==='wake'?pool.targets.find(t=>t.repositoryId===options.repositoryId):pool.source;
+    need(policy.repository===origin.repository&&policy.repository_id===origin.repositoryId
+      &&policy.repository_owner_id===origin.ownerId&&(mode!=='wake'||policy.event_name==='issues'));
+  }
   need(!Object.hasOwn(policy,'now'));
   need(['none','native-needs','cross-run'].includes(continuation.kind));
   exact(continuation,['kind'],continuation.kind==='none'?[]:continuation.kind==='native-needs'?['expected','getEvidence']

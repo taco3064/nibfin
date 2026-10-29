@@ -380,7 +380,7 @@
     },
     {
       "path": "host/entry.mjs",
-      "sha256": "ddcebe2f9ea1d146bdf799a7cbbf3dd9b20826846acea2e8cd99ce113c787515"
+      "sha256": "0118e58b1330c15e4a0ca81ea60a9c405991b70506037224d585e69346ed33d6"
     },
     {
       "path": "host/package-lock.json",
@@ -628,7 +628,7 @@
     },
     {
       "path": "src/host-source.mjs",
-      "sha256": "2beb0bd5122e427c8b9ec0bfddd0a5a8f508a30ae2d6c402a69c357b5c9b6b03"
+      "sha256": "30aa523782a1c0609b93b732ef6ca17b5cc844781eef3020dad8677e1c58a3a8"
     },
     {
       "path": "src/identity.mjs",
@@ -796,7 +796,7 @@
     },
     {
       "path": "src/selection.mjs",
-      "sha256": "3494e1a62bcce109ff84ef7f8aec1908cf0b561e90daf4028e23e19593215f71"
+      "sha256": "56b89285174bbfad31a5e43c68d86754289046926828e933b5063a08434a5d20"
     },
     {
       "path": "src/shape.mjs",

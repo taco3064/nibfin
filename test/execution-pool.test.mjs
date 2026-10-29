@@ -19,10 +19,11 @@ const runners=['21','22'].map(id=>({id,name:'runner-'+id,os:'linux',status:'onli
 function fixture(t=targets[1]){
   const calls=[],routes=Object.fromEntries(targets.map(t=>['/repos/'+t.repository,actual(t)]));
   routes['/repos/example/core/actions/runners?per_page=100']={total_count:2,runners};
-  const provider=createGithubProvider({attempts:1,now:()=>1100,transport:async r=>{
-    calls.push(r);assert.equal(r.method,'GET');const data=routes[r.endpoint];
+  const underlying=createGithubProvider({attempts:1,now:()=>1100,transport:async r=>{
+    assert.equal(r.method,'GET');const data=routes[r.endpoint];
     return {status:data?200:404,body:JSON.stringify(data??{})};
   }});
+  const provider={request:r=>{calls.push(r);return underlying.request(r);}};
   return {calls,routes,provider,input:{target:target(t),registration,executionPool:pool,records:records(t.repositoryId),
     conditions:{platform:'linux',labels:['self-hosted','linux','x64']},correlation:'pool-test'}};
 }
@@ -80,9 +81,10 @@ test('cross-repository transport exposes only exact read-only source inventory w
 });
 test('pool configuration stays protected and cannot enter unrelated host modes or group routing',()=>{
   const options={version:1,repository:'example/cli',repositoryId:'42',environment:'nibfin-member',authentication:'actions-oidc',routing:'authenticated',executionPool:pool};
-  assert.deepEqual(validateHostOptions(options,'execute').executionPool,pool);
+  assert.deepEqual(validateHostOptions(options,'execute',validateExecutionPool).executionPool,pool);
+  assert.throws(()=>validateHostOptions(options,'execute'));
   for(const edit of [o=>o.repositoryId='43',o=>o.groupId='3',o=>delete o.routing]){
-    const o=structuredClone(options);edit(o);assert.throws(()=>validateHostOptions(o,'execute'));
+    const o=structuredClone(options);edit(o);assert.throws(()=>validateHostOptions(o,'execute',validateExecutionPool));
   }
   assert.throws(()=>validateHostOptions({...options,environment:'nibfin-hosted'},'lookup'));
 });
@@ -94,7 +96,7 @@ test('actual Runner verification binds logical target, real source, operator and
   const request={id:'retained'},route={labels:['self-hosted','linux','x64','nibfin-user-8']};
   let observation={runnerId:'21',operatorId:'8',repository:'example/cli',repositoryId:'42',sourceRepository:'example/core',sourceRepositoryId:'41',run};
   const routing=createHostRouting({executionPool:pool,mode:'execute',now:()=>1100,maxCheckpointMs:50,
-    adapters:{routing:{provider:f.provider},memberEligibility:async()=>({ok:true}),observeExecution:async()=>observation},
+    adapters:{routing:{provider:f.provider},memberEligibility:async m=>({ok:true,observation:{repositoryId:'42',issueId:'I_1',memberId:m.id,operation:'deliver',observedAt:1100}}),observeExecution:async()=>observation},
     current:()=>({target:{repository:'example/cli',repositoryId:'42'},invocation:{run},selectionInput:input})});
   routing.bindResolution({memberId:'8',request,route});assert.equal((await routing.selector.select(input)).outcome,'selected');
   assert.equal(await routing.verifyRunner({memberId:'8',request,route}),true);
@@ -114,7 +116,7 @@ test('signed Actions source policy must match the protected pool before authorit
   f.replies['/repos/example-org/core'].owner.type='User';
   f.replies['/repos/example-org/automation']={...actual(source),owner:{id:'17',login:'example-org',type:'User'}};
   const adapter=createHostIdentityAdaptersForTest(f.config,f.facility);
-  assert.equal((await adapter.authenticate(f.argument)).ok,true);
+  assert.equal((await adapter.authenticate(f.argument)).repositoryId,target.repositoryId);
   const count=f.calls.length;f.config.source.policy.repository_id='other';
   assert.throws(()=>createHostIdentityAdaptersForTest(f.config,f.facility));assert.equal(f.calls.length,count);
 });

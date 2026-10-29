@@ -1,5 +1,4 @@
-// First-party protected composition. No environment reads or effects at construction.
-import {poolLogicalTarget} from '../src/execution-pool.mjs';
+// First-party protected composition. No imports, environment reads or effects at construction.
 export const hostModes = Object.freeze({
   lookup: Object.freeze(['authenticate','lookup']),
   resolve: Object.freeze(['authenticate','delivery','retain']),
@@ -22,7 +21,7 @@ const id = v => typeof v==='string' && /^[1-9][0-9]*$/.test(v);
 const repository = v => typeof v==='string' && /^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?\/[a-z0-9_.-]{1,100}$/.test(v)
   && !v.split('/')[0].includes('--') && !['.','..'].includes(v.split('/')[1]);
 /** Serializable options only; no module names, paths, credentials or callback JSON. */
-export function validateHostOptions(options, mode) {
+export function validateHostOptions(options, mode,validatePool) {
   need(Object.hasOwn(hostModes,mode));
   fields(options,['version','repository','repositoryId','environment'],['groupId','authentication','routing','executionPool']);
   need(options.version===1 && repository(options.repository) && id(options.repositoryId));
@@ -31,8 +30,14 @@ export function validateHostOptions(options, mode) {
   if (Object.hasOwn(options,'routing')) need(options.routing==='authenticated' && options.authentication==='actions-oidc'
     && ['resolve','execute','compute'].includes(mode));
   if (Object.hasOwn(options,'groupId')) need(['resolve','execute','compute'].includes(mode) && id(options.groupId));
-  const pool=options.executionPool===undefined?null:poolLogicalTarget(options.executionPool,options);
-  if(pool)need(options.routing==='authenticated'&&['resolve','execute','compute'].includes(mode)&&options.groupId===undefined);
+  // The approved Core supplies this pure validator. Keep this bootstrap entry
+  // dependency-free so its verified bytes can still be loaded as one data URL.
+  let pool=null;
+  if(options.executionPool!==undefined){
+    need(typeof validatePool==='function');pool=validatePool(options.executionPool);
+    need(pool.targets.some(t=>t.repository===options.repository&&t.repositoryId===options.repositoryId)
+      &&options.routing==='authenticated'&&['resolve','execute','compute'].includes(mode)&&options.groupId===undefined);
+  }
   return Object.freeze({...options,...(pool?{executionPool:pool}:{})});
 }
 /** A trusted embedding host supplies executable capabilities separately from event/context.
@@ -42,7 +47,7 @@ export function configure({core,mode,context,deployment}={}) {
   try {
     fields(deployment,['options','capabilities'],['identity','custody','registration','roles','recovery']);
     const roleHost=deployment.roles ? (need(['execute','compute'].includes(mode) && typeof core?.createProtectedRoleHost==='function'),core.createProtectedRoleHost(deployment.roles)) : null;
-    const options=validateHostOptions(deployment.options,mode), capabilities=deployment.capabilities;
+    const options=validateHostOptions(deployment.options,mode,core.validateExecutionPool), capabilities=deployment.capabilities;
     need(typeof core?.createWorkflowEntry==='function' && typeof core?.createCore==='function'
       && typeof core?.createEventRelay==='function' && typeof core?.createRegistrationHost==='function');
     // Project only public context. Never forward an embedding context's secrets/env.

@@ -1,6 +1,7 @@
 import {lstat,readFile,realpath} from 'node:fs/promises';
 import {resolve,join,relative,isAbsolute,sep} from 'node:path';
 import {createHash} from 'node:crypto';
+import {validateExecutionPool} from './execution-pool.mjs';
 
 export const protectedHostFiles=Object.freeze(['host/entry.mjs','host/package.json','host/package-lock.json',
   'host/configuration.schema.json','host/configuration.example.json','host/registration.schema.json']);
@@ -89,7 +90,7 @@ export async function loadProtectedDeployment({source,options,approval,validate,
     const allowed=member?['execute','compute']:['lookup','resolve','wake','registration','rescue'];
     need(configured && Object.getPrototypeOf(configured)===Object.prototype && Object.hasOwn(configured,mode));
     const modes=Object.keys(configured);need(modes.length>0 && modes.every(m=>allowed.includes(m)));
-    const parsed=Object.fromEntries(modes.map(m=>[m,validate(configured[m],m)]));
+    const parsed=Object.fromEntries(modes.map(m=>[m,validate(configured[m],m,validateExecutionPool)]));
     const binding=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
     need(Object.keys(binding).every(k=>['capabilities','identity','custody','registration','roles','recovery'].includes(k)) && binding.capabilities);
     if(binding.recovery)fields(binding.recovery,modes.filter(m=>['execute','compute'].includes(m)));

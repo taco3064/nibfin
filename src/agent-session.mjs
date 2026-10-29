@@ -133,7 +133,10 @@ export async function probeGateway(hosts,timeoutMs=10000,{connect=netConnect}={}
   for(const hostname of hosts) {
     const result=await new Promise(resolve=>{
       let socket=null,tls=null,buffer=Buffer.alloc(0),finished=false;
-      const finish=kind=>{if(finished)return;finished=true;clearTimeout(timer);socket?.destroy();tls?.destroy();resolve({hostname,kind});};
+      const finish=kind=>{if(finished)return;finished=true;clearTimeout(timer);
+        // Once wrapped, TLS owns the underlying socket. Destroying the raw
+        // transport first can invalidate its native TLS handle during a callback.
+        if(tls)tls.destroy();else socket?.destroy();resolve({hostname,kind});};
       const timer=setTimeout(()=>finish('timeout'),timeoutMs);
       try {
         socket=connect({host:'nibfin-egress',port:8080});

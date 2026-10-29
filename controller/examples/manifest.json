@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "cohort-test",
+  "freezeRevision": "freeze-1",
+  "proposalRevision": "0.8.1",
+  "issues": [
+    {
+      "id": "I_A",
+      "repository": "example/one",
+      "number": 3,
+      "scopeHash": "scope-a",
+      "dependencies": []
+    },
+    {
+      "id": "I_B",
+      "repository": "example/two",
+      "number": 1,
+      "scopeHash": "scope-b",
+      "dependencies": [
+        "I_A"
+      ]
+    },
+    {
+      "id": "I_C",
+      "repository": "example/one",
+      "number": 2,
+      "scopeHash": "scope-c",
+      "dependencies": [
+        "I_B"
+      ]
+    }
+  ]
+}

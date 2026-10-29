@@ -1,0 +1,20 @@
+[Unit]
+Description=Kairo pending Rescue notifications (no lifecycle execution)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=kairo
+Group=kairo
+WorkingDirectory=/opt/kairo/core
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+UMask=0077
+ExecStart=/usr/local/bin/node /opt/kairo/core/bin/kairo.mjs serve-rescue-wakeups /etc/kairo/actions-runtime.json
+Restart=on-failure
+RestartSec=30
+KillMode=control-group
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

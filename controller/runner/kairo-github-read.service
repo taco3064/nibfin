@@ -1,0 +1,24 @@
+[Unit]
+Description=Kairo participant read-only GitHub CLI bridge
+After=network-online.target
+
+[Service]
+User=kairo
+Group=kairo
+UMask=0077
+RuntimeDirectory=kairo-github-read
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+ExecStart=/usr/local/bin/node /opt/kairo/core/src/agent-gh-read.mjs
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+MemoryMax=256M
+CPUQuota=100%
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

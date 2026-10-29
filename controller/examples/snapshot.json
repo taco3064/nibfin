@@ -1,0 +1,66 @@
+{
+  "manifestHash": "9647b452833bd0419513caf393ac24bd2fbf8df9ce9155c979cea99b35049499",
+  "policyHash": "ff76d90dfaa3484b5c5293cd0bd75bc8ba930c91f5a67195f37b66c6cb15ebba",
+  "runtime": {
+    "trusted": true,
+    "isolated": true,
+    "coreDigest": "installed-core-digest",
+    "runnerId": "trusted-runner",
+    "agent": "codex-chatgpt",
+    "authenticated": true
+  },
+  "issues": {
+    "I_A": {
+      "id": "I_A",
+      "repository": "example/one",
+      "number": 3,
+      "scopeHash": "scope-a",
+      "dependencies": [],
+      "visibility": "private",
+      "bodyHash": "scope-a",
+      "labels": [
+        "scope"
+      ],
+      "state": "open",
+      "defaultHead": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "repairs": 0,
+      "sameRootCauseFailures": 0
+    },
+    "I_B": {
+      "id": "I_B",
+      "repository": "example/two",
+      "number": 1,
+      "scopeHash": "scope-b",
+      "dependencies": [
+        "I_A"
+      ],
+      "visibility": "private",
+      "bodyHash": "scope-b",
+      "labels": [
+        "scope"
+      ],
+      "state": "open",
+      "defaultHead": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "repairs": 0,
+      "sameRootCauseFailures": 0
+    },
+    "I_C": {
+      "id": "I_C",
+      "repository": "example/one",
+      "number": 2,
+      "scopeHash": "scope-c",
+      "dependencies": [
+        "I_B"
+      ],
+      "visibility": "private",
+      "bodyHash": "scope-c",
+      "labels": [
+        "scope"
+      ],
+      "state": "open",
+      "defaultHead": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "repairs": 0,
+      "sameRootCauseFailures": 0
+    }
+  }
+}

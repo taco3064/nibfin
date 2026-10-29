@@ -292,7 +292,7 @@
     },
     {
       "path": "docs/protected-host.md",
-      "sha256": "47a83a46e2e1929ffbba8a0378a194298c82612f552d0e24c6d4a29088b09257"
+      "sha256": "204787bbc6da168bca552f4fc2aee4f0f2d6e33cc56df9335b04e2b5e5f5c4e3"
     },
     {
       "path": "docs/publication.md",
@@ -640,7 +640,7 @@
     },
     {
       "path": "src/installation.mjs",
-      "sha256": "503a9d9fb040cf06707af37f76c72c0b787635c3faa214ac008ee369575ca0a3"
+      "sha256": "9c013e657fae78623a72a1f79b9952ffbd8aea4445f517fde62e01d1e6ecec87"
     },
     {
       "path": "src/instructions.mjs",

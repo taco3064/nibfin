@@ -141,3 +141,15 @@ test('repository initialization plans require no existing Runner ID; member plan
   assert.equal((await createInstallation(fixture().configuration).plan({...input,commit:'main'})).status,'blocked');
   assert.equal((await createInstallation(fixture().configuration).plan({...input,extra:true})).status,'blocked');
 });
+
+test('source installation carries a protected pool into its actual workflow plan without registering extra Runners',async()=>{
+  const source={version:1,repository:'example/core',repositoryId:'41',ownerId:'7',ownerType:'User'},
+    executionPool={version:1,source,targets:[source,{...source,repository:'example/cli',repositoryId:'42'}]},
+    input={commit:git,hostCommit:git,hostRepository:'taco3064/nibfin',executionPool};
+  const before=structuredClone(executionPool),result=await createInstallation(fixture().configuration).plan(input);
+  assert.equal(result.status,'planned');assert.deepEqual(executionPool,before);
+  assert.deepEqual(result.workflow.deployments.map(t=>t.repositoryId),['41','42']);
+  assert.equal(result.admission.policies,null);
+  assert.ok(result.workflow.files.has('.github/workflows/nibfin-stage-42.yml'));
+  assert.equal((await createInstallation(fixture().configuration).plan({...input,executionPool:{...executionPool,targets:[]}})).status,'blocked');
+});

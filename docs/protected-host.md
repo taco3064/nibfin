@@ -346,3 +346,10 @@ Source approval and OIDC policy must pin the actual generated workflow bytes.
 The hosted lookup uses the management identity with both repository scopes;
 member execute/compute jobs never receive that credential. Generating files is
 a pure plan and does not install services, register Runners or enable autonomy.
+
+A pooled `wake` authenticates an actual `issues` event at its logical repository,
+without member routing. It can compose the protected dispatch policy toward the
+physical source; it cannot authenticate as a source Runner Job. Pooled lookup,
+Resolve and member Jobs authenticate at the actual source instead. Registration
+and Rescue do not accept this pool option. The reusable delivery caller forwards
+only the declared hosted management secret; execute/compute action inputs omit it.

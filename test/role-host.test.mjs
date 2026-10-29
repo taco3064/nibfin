@@ -73,7 +73,7 @@ test('native reviewers receive independently materialized files and retained cus
         assert.deepEqual(records[0].workspace,capture.expected);
         assert.equal(f.fixtures.get(role).calls.some(c=>c.args.includes('start')),false,'no Agent started during transfer');
         assert.equal(readFileSync(join(source,'code'),'utf8'),'actual candidate');
-        await assert.rejects(host.prepareRole(task),/materialize-existing-work/);
+        await assert.rejects(core.createProtectedRoleHost(f.options).prepareRole(task),/materialize-existing-work/);
         assert.equal(records.length,1,'an existing checkout is never silently replaced');
       }finally{await f.close();}
     }

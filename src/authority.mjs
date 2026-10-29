@@ -1,6 +1,6 @@
 import {canonicalJSON, bodyDigest, verifyGrant} from './grants.mjs';
 import {contentIdentity} from './evidence.mjs';
-import {repositoryCoordinates,githubId} from './identity.mjs';
+import {acceptsRequirementSource} from './requirement-sources/index.mjs';
 
 const fail = category => { throw new TypeError(`authority:${category}`); };
 const copy = value => JSON.parse(canonicalJSON(value));
@@ -13,10 +13,7 @@ function token(value) {
   if (typeof value !== 'string' || !value.length || /[\x00-\x1f*]/.test(value)) fail('schema');
 }
 function source(value) {
-  if(typeof value!=='string')fail('source');
-  const issue=/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/issues\/([1-9][0-9]*)$/.exec(value);
-  try{if(!issue||repositoryCoordinates(issue[1],issue[2]).key!==issue[1]+'/'+issue[2])fail('source');githubId(issue[3]);}
-  catch{fail('source');}
+  if(!acceptsRequirementSource(value))fail('source');
 }
 function components(values) {
   if (!Array.isArray(values) || !values.length) fail('completeness');

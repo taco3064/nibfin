@@ -204,7 +204,7 @@
     },
     {
       "path": "docs/authority.md",
-      "sha256": "38a63c4ea5335e4004b67928dadbdd2a3726a967ff17848ed531f86c1e118670"
+      "sha256": "947b35dd387e783e17f3ebbbe36fbd5dbd7e0d947e9ceb574f962e875f779c3c"
     },
     {
       "path": "docs/authorization.md",
@@ -323,6 +323,10 @@
       "sha256": "105df52b942e2d18ca0a30f5bf164017de3a500eec46c6b7d92a69615a4b7d1d"
     },
     {
+      "path": "docs/requirement-sources.md",
+      "sha256": "d34679090db2f36caa1e526da2ab5fcc2cb9d96853648b8901a7d86a744ea3f3"
+    },
+    {
       "path": "docs/rescue.md",
       "sha256": "3fc5dcb5308d9da6b5c6edafedf0b7500b8220b8e4d475f20376de3e9cf64a35"
     },
@@ -424,7 +428,7 @@
     },
     {
       "path": "package.json",
-      "sha256": "ec01b7d2f38993e8b77b27c1eadf6d31c3f232d5f326e1c979015aa5021bf58a"
+      "sha256": "206baea5c058cd8c591d175d2b51c3fdafa3c45a143e1a43843aa707c9d7b457"
     },
     {
       "path": "skills/accept/SKILL.md",
@@ -468,7 +472,7 @@
     },
     {
       "path": "src/authority.mjs",
-      "sha256": "c1e764f4b67d714c4540b3ca96273531d3ba24cbd41461f1eacdb83bd9aac046"
+      "sha256": "f61a0405f3bc1242cef69a85bba5d1fa0169feeeeb8c781a79fb9bcb6d753ce5"
     },
     {
       "path": "src/authorization.mjs",
@@ -636,7 +640,7 @@
     },
     {
       "path": "src/index.mjs",
-      "sha256": "32f1d1507dabe47dde6241b996e08390c0c392021b1407913a577ca34a08ec63"
+      "sha256": "b301496ee3e1bc5a6c1e3238e6f35abb30a90260b1682feb72e502184fcc39be"
     },
     {
       "path": "src/installation.mjs",
@@ -648,7 +652,7 @@
     },
     {
       "path": "src/issue-authority.mjs",
-      "sha256": "109ade6e8aa0101a2a2b2b3ac3e09dec27c9fc4502ff67b24252261b234c68bf"
+      "sha256": "614704e40876ba3f3e2c78ce0db9bc6d8491d7eb026f4bec68faadc129b3c316"
     },
     {
       "path": "src/lifecycle.mjs",
@@ -717,6 +721,18 @@
     {
       "path": "src/repair.mjs",
       "sha256": "118fc7500c5f918022021deebfaa82667e10e9877f1f5b250362abe60aa22c54"
+    },
+    {
+      "path": "src/requirement-source.mjs",
+      "sha256": "c02d310ebdf968337f456fcc21a312532ceb92398fcb949e4df3c737876d8ba1"
+    },
+    {
+      "path": "src/requirement-sources/github-issue.mjs",
+      "sha256": "43c7802ed145e25c7c917cbc813e1846289d840c846ba493278edb60e468d657"
+    },
+    {
+      "path": "src/requirement-sources/index.mjs",
+      "sha256": "33fae15e2b99050d23986d67f4465bc503ff2f2f62fce016e09e1a48627ebf74"
     },
     {
       "path": "src/rescue-agent.mjs",

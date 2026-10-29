@@ -6,7 +6,10 @@ serializable, pure interfaces. They perform no provider reads or mutations,
 automatic approval, refresh, signing, persistence or restart. Local tests establish
 these bounded contracts, not live provider or complete product delivery support.
 
-`observeIssueAuthority` is a separate read-only provider adapter for an installed
+[Replaceable requirement sources](requirement-sources.md) use the common
+`observeRequirementAuthority` entry and a maintained adapter catalog. GitHub Issue
+is currently the only implemented adapter; Jira and Linear remain unsupported.
+`observeIssueAuthority` is a compatibility wrapper for an installed
 GitHub Issue target. Native canonical `https://github.com/owner/repo/issues/number`
 sources are the only accepted requirement sources. Proposal documents are not
 requirement authority. The protected caller

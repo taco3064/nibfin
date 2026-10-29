@@ -117,4 +117,3 @@ This describes the Core contract. CLI onboarding, the Action consumer and actual
 Runner/service installation must install a matching producer set and supply this
 protected configuration before a pool is operational. Source fixtures alone do
 not certify that installation or a maintainer cutover.
-

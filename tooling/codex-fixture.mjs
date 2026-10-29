@@ -102,7 +102,7 @@ export function codexFixture(role='shape', custom, agent='codex') {
     }
     if (op === 'start') {
       const c=containers.get(args.at(-1)); c.State={Running:true,Status:'running',ExitCode:0};
-      const probe={verificationSupervisor:flags.verificationSupervisor??true,network:[...(agent==='codex'?['chatgpt.com','auth.openai.com']:agent==='claude'?['api.anthropic.com']:['generativelanguage.googleapis.com']),...(c.env.includes('NIBFIN_NODE_WORKLOAD=1')?['registry.npmjs.org']:[])].map(hostname=>({hostname,kind:'verified'})),diagnostic:flags.diagnostic ?? 'ready',node:linuxCodexProfile.node,platform:'linux',arch:'x64',guest:true,version:flags.tool ?? (agent==='gemini'?linuxGeminiProfile.gemini:agent==='claude'?linuxClaudeProfile.claude:linuxCodexProfile.codex),login:flags.login ?? true};
+      const probe={verificationSupervisor:flags.verificationSupervisor??true,network:[...(agent==='codex'?['chatgpt.com','auth.openai.com']:agent==='claude'?['api.anthropic.com']:['generativelanguage.googleapis.com']),...(c.env.includes('NIBFIN_NODE_WORKLOAD=1')?['registry.npmjs.org','cdn.playwright.dev','playwright.download.prss.microsoft.com']:[])].map(hostname=>({hostname,kind:'verified'})),diagnostic:flags.diagnostic ?? 'ready',node:linuxCodexProfile.node,platform:'linux',arch:'x64',guest:true,version:flags.tool ?? (agent==='gemini'?linuxGeminiProfile.gemini:agent==='claude'?linuxClaudeProfile.claude:linuxCodexProfile.codex),login:flags.login ?? true};
       let output=probe;
       if (!c.probe) {
         const mount=c.mounts.find(m=>m.includes('dst=/input,'));

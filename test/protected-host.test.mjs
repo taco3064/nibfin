@@ -144,6 +144,7 @@ test('maintained registration retains intent/result; unknown issuance never reis
 
 // Interpret the published JSON Schema vocabulary independently of runtime fields.
 function conforms(schema,value,root=schema) {
+  if(schema.if){const branch=conforms(schema.if,value,root)?schema.then:schema.else;if(branch&&!conforms(branch,value,root))return false;}
   if(schema.$ref) return conforms(schema.$ref==='#'?root:schema.$ref.slice(2).split('/').reduce((v,k)=>v[k],root),value,root);
   if(schema.allOf && !schema.allOf.every(s=>conforms(s,value,root)))return false;
   if(schema.anyOf && !schema.anyOf.some(s=>conforms(s,value,root)))return false;

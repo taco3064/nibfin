@@ -79,3 +79,17 @@ Org registration never becomes blanket admission or Issue authority.
 This implements source-level scope compatibility. It does not certify a live
 Organization registration or replace the Core's independent eligibility checks.
 Official source: https://github.com/actions/runner/blob/v2.331.0/src/Runner.Listener/Configuration/ConfigurationManager.cs#L140
+
+## Reusable workflow source binding
+
+An optional protected `workflowDependencies` list pins one to eight distinct local
+workflow paths and SHA-256 digests. The caller cannot also be a dependency. The
+Hook reads each dependency from the same repository at the actual Run commit,
+never from a moving branch or event-selected URL. Admission requires the complete
+ordered set, exact Git blob identity and original bytes; a missing, replaced or
+unreadable callee denies the Worker before any workflow steps. Older policies
+without this field retain their existing single-workflow contract.
+
+Shared-pool source installations bind each generated stage caller to its own
+fixed delivery callee. These policy entries still describe one physical source
+registration; they do not create per-logical-repository Runner registrations.

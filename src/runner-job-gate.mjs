@@ -7,6 +7,16 @@ const path=v=>typeof v==='string'&&/^\/[a-zA-Z0-9._/-]+$/.test(v)&&!v.split('/')
 const keys=['version','repository','repositoryId','ownerId','runnerId','runnerName','runnerDirectory','workerSha256','workflowPath','workflowSha256','jobName','allowedActorIds','ref'];
 const deny=code=>Object.freeze({allowed:false,code});
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
+const workflowPath=v=>typeof v==='string'&&/^\.github\/workflows\/[a-zA-Z0-9_.-]+\.ya?ml$/.test(v);
+function workflowMatches(workflow,path,digest){
+  if(!workflow||workflow.type!=='file'||workflow.path!==path||workflow.encoding!=='base64'
+    ||!Number.isSafeInteger(workflow.size)||workflow.size<1||workflow.size>65536
+    ||typeof workflow.content!=='string'||workflow.content.length>100000
+    ||!/^[a-zA-Z0-9+/=\r\n]+$/.test(workflow.content))return false;
+  const encoded=workflow.content.replace(/[\r\n]/g,''),bytes=Buffer.from(encoded,'base64');
+  return bytes.length===workflow.size&&bytes.toString('base64')===encoded&&sha(bytes)===digest
+    &&createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex')===workflow.sha;
+}
 
 /** Admission narrows a locally installed Runner to reviewed workflow bytes.
  * It grants no Issue, Agent, registration or write authority. The trusted host
@@ -14,19 +24,30 @@ const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
  */
 export function runnerJobPolicy(input) {
   if(!input||Object.getPrototypeOf(input)!==Object.prototype||
-    Object.keys(input).sort().join(' ')!==[...keys,...('events' in input?['events']:[]),...('registrationLevel' in input?['registrationLevel']:[])].sort().join(' ')||input.version!==1||
+    Object.keys(input).sort().join(' ')!==[...keys,...('events' in input?['events']:[]),...('registrationLevel' in input?['registrationLevel']:[]),...('workflowDependencies' in input?['workflowDependencies']:[])].sort().join(' ')||input.version!==1||
     input.registrationLevel!==undefined&&!['repository','organization'].includes(input.registrationLevel)||
     !repository(input.repository)||!['repositoryId','ownerId','runnerId'].every(k=>id(input[k]))||
     !['workerSha256','workflowSha256'].every(k=>hash(input[k]))||!path(input.runnerDirectory)||
     typeof input.runnerName!=='string'||!/^[a-zA-Z0-9_.-]{1,80}$/.test(input.runnerName)||
-    typeof input.workflowPath!=='string'||!/^\.github\/workflows\/[a-zA-Z0-9_.-]+\.ya?ml$/.test(input.workflowPath)||
+    !workflowPath(input.workflowPath)||
     typeof input.jobName!=='string'||!input.jobName.trim()||input.jobName.length>128||/[\x00-\x1f\x7f]/.test(input.jobName)||
     typeof input.ref!=='string'||!/^refs\/heads\/[a-zA-Z0-9._/-]+$/.test(input.ref)||/\.\.|\/\/|\/$/.test(input.ref)||
     !Array.isArray(input.allowedActorIds)||!input.allowedActorIds.length||input.allowedActorIds.length>32||
     input.allowedActorIds.some(x=>!id(x))||new Set(input.allowedActorIds).size!==input.allowedActorIds.length||
     input.events!==undefined&&(!Array.isArray(input.events)||!input.events.length||input.events.length>2||new Set(input.events).size!==input.events.length||input.events.some(e=>!['workflow_dispatch','workflow_run'].includes(e))))
     throw Error('runner-job-gate:invalid-policy');
-  return Object.freeze({...input,allowedActorIds:Object.freeze([...input.allowedActorIds]),events:Object.freeze([...(input.events??['workflow_dispatch'])])});
+  let dependencies;
+  if(Object.hasOwn(input,'workflowDependencies')){
+    const values=input.workflowDependencies,seen=new Set([input.workflowPath]);
+    if(!Array.isArray(values)||values.length<1||values.length>8)throw Error('runner-job-gate:invalid-dependencies');
+    dependencies=values.map(v=>{
+      if(!v||Object.getPrototypeOf(v)!==Object.prototype||Object.keys(v).sort().join(' ')!=='path sha256'
+        ||!workflowPath(v.path)||!hash(v.sha256)||seen.has(v.path))throw Error('runner-job-gate:invalid-dependencies');
+      seen.add(v.path);return Object.freeze({...v});
+    });
+  }
+  return Object.freeze({...input,allowedActorIds:Object.freeze([...input.allowedActorIds]),events:Object.freeze([...(input.events??['workflow_dispatch'])]),
+    ...(dependencies?{workflowDependencies:Object.freeze(dependencies)}:{})});
 }
 
 /** One instance may serve separately pinned Controller and Rescue workflows. */
@@ -70,13 +91,10 @@ export function verifyRunnerJobAdmission(input,observation) {
   if(!job||job.run_id!==c.runId||job.status!=='in_progress'||job.name!==p.jobName||
     job.runner_id!==p.runnerId||job.runner_name!==p.runnerName||job.head_sha!==run.head_sha||
     job.run_attempt!==undefined&&job.run_attempt!==c.attempt)return deny('job');
-  if(!workflow||workflow.type!=='file'||workflow.path!==p.workflowPath||workflow.encoding!=='base64'||
-    !Number.isSafeInteger(workflow.size)||workflow.size<1||workflow.size>65536||
-    typeof workflow.content!=='string'||workflow.content.length>100000||
-    !/^[a-zA-Z0-9+/=\r\n]+$/.test(workflow.content))return deny('workflow');
-  const bytes=Buffer.from(workflow.content.replace(/[\r\n]/g,''),'base64');
-  if(bytes.length!==workflow.size||bytes.toString('base64')!==workflow.content.replace(/[\r\n]/g,'')||
-    sha(bytes)!==p.workflowSha256||createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex')!==workflow.sha)
-    return deny('workflow-source');
+  if(!workflowMatches(workflow,p.workflowPath,p.workflowSha256))return deny('workflow-source');
+  if(p.workflowDependencies){
+    if(!Array.isArray(o.workflowDependencies)||o.workflowDependencies.length!==p.workflowDependencies.length
+      ||!p.workflowDependencies.every((d,i)=>workflowMatches(o.workflowDependencies[i],d.path,d.sha256)))return deny('workflow-dependency');
+  }
   return Object.freeze({allowed:true,code:'verified',runId:c.runId,attempt:c.attempt,runnerId:p.runnerId,workflowSha256:p.workflowSha256});
 }

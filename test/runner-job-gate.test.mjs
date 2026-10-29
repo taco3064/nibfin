@@ -18,6 +18,28 @@ test('one exact installed Runner, authenticated Run/Attempt/job and reviewed sou
   const result=verifyRunnerJobAdmission(policy,fixture());assert.equal(result.allowed,true);assert.equal(result.runnerId,'23');
   assert.ok(Object.isFrozen(runnerJobPolicy(policy).allowedActorIds));
 });
+
+test('reusable workflow dependencies must match the installed complete content set before any job steps',()=>{
+  const dependency={path:'.github/workflows/nibfin-delivery-42.yml',sha256:sha},
+    configured={...policy,workflowDependencies:[dependency]},observation=fixture();
+  observation.workflowDependencies=[{...observation.workflow,path:dependency.path}];
+  const checked=runnerJobPolicy(configured);assert.ok(Object.isFrozen(checked.workflowDependencies[0]));
+  dependency.sha256='f'.repeat(64);assert.equal(checked.workflowDependencies[0].sha256,sha);
+  assert.equal(verifyRunnerJobAdmission(checked,observation).allowed,true);
+  for(const mutate of [o=>delete o.workflowDependencies,o=>o.workflowDependencies=[],
+    o=>o.workflowDependencies.push({...o.workflowDependencies[0]}),o=>o.workflowDependencies[0].path=policy.workflowPath,
+    o=>o.workflowDependencies[0].sha='e'.repeat(40),o=>o.workflowDependencies[0].type='symlink',
+    o=>o.workflowDependencies[0].content=Buffer.from('replaced callee').toString('base64')]){
+    const next=structuredClone(observation);mutate(next);
+    assert.deepEqual(verifyRunnerJobAdmission(checked,next),{allowed:false,code:'workflow-dependency'});
+  }
+  for(const workflowDependencies of [[],Array(9).fill({path:'.github/workflows/other.yml',sha256:sha}),
+    [{path:policy.workflowPath,sha256:sha}],[{path:'../../run.sh',sha256:sha}],
+    [{path:'.github/workflows/reuse.yml',sha256:sha,ref:'main'}],
+    [{path:'.github/workflows/reuse.yml',sha256:'main'}],
+    [{path:'.github/workflows/reuse.yml',sha256:sha},{path:'.github/workflows/reuse.yml',sha256:sha}]])
+    assert.throws(()=>runnerJobPolicy({...policy,workflowDependencies}),/invalid-dependencies/);
+});
 test('foreign/fork runs, changed actors, source, attempts or assigned Runner never pass',()=>{
   const cases=[o=>o.run.event='pull_request',o=>o.run.event='pull_request_target',o=>o.run.head_branch='attacker',
     o=>o.run.path='.github/workflows/other.yml',o=>o.run.repository.id='102',o=>o.run.repository.owner.id='13',

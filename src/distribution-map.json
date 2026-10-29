@@ -460,7 +460,7 @@
     },
     {
       "path": "src/agent-session.mjs",
-      "sha256": "6aa536faec6d46a9f6dad73123e9fb5bf457cd1966cd0ac9301d3e50e4777939"
+      "sha256": "ef66c323035e264c716257f336caf72c6a4c703d3ed48d69df70b9276f66c50d"
     },
     {
       "path": "src/archive.mjs",

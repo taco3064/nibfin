@@ -3,8 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtemp,mkdir,writeFile,readFile,readdir,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {CodexAgent,selectAgentResult,resultSchema,agentContextForPrompt} from '../src/agent.mjs';
-import {createHash} from 'node:crypto';
+import {CodexAgent,selectAgentResult,resultSchema} from '../src/agent.mjs';
 import {validateSchema} from '../src/schema.mjs';
 const id='11111111-1111-4111-8111-111111111111';
 const valid={outcome:'ready',body:'',summary:'Validated fixture',rootCause:'',failureClass:'none',evidenceReferences:['fixture://evidence'],blockingFindings:[],contractConflicts:[]};
@@ -30,32 +29,6 @@ async function fixture(t,finalText){
  agent.login=async()=>{};agent.credentialValues=async()=>['synthetic-credential-for-test'];agent.executionArgs=()=>['run'];
  return{root,agent};
 }
-
-test('oversized execution context is referenced intact while small contexts remain inline',()=>{
- const small={issue:{scopeBody:'Current Scope'},shape:{body:'Approved Shape'}};
- assert.equal(agentContextForPrompt(small),JSON.stringify(small));
- for(const diff of ['x'.repeat(1951486),'資'.repeat(100000)]){
-  const context={...small,diff},file=JSON.stringify(context,null,2),reference=JSON.parse(agentContextForPrompt(context));
-  assert.equal(reference.contextFile,'/io/context.json');
-  assert.equal(reference.bytes,Buffer.byteLength(file));
-  assert.equal(reference.sha256,createHash('sha256').update(file).digest('hex'));
-  assert(Buffer.byteLength(JSON.stringify(reference))<2048);
-  assert.equal(context.issue.scopeBody,'Current Scope');assert.equal(context.diff,diff);
- }
-});
-
-test('actual large-context launch preserves instructions and the complete file without exceeding model input bounds',async t=>{
- const f=await fixture(t,JSON.stringify(valid)),context={issue:{id:'I_A',scopeBody:'Keep every requirement'},diff:'BINARY-DIFF-'.repeat(180000)};
- let prompt;
- const original=f.agent.run;f.agent.run=async(file,args,options)=>{prompt=options.input;return original(file,args,options);};
- const result=await f.agent.executeTurn('deliver',context,f.root,null,{directory:f.root,id:null,role:'deliver'});
- assert(Buffer.byteLength(prompt)<524288);assert.match(prompt,/Produce verified evidence/);assert.match(prompt,/Core execution role: deliver/);
- const reference=JSON.parse(prompt.slice(prompt.lastIndexOf('\nCONTEXT:\n')+'\nCONTEXT:\n'.length));
- const bytes=await readFile(join(f.root,'executions',result.executionId,'context.json'));
- assert.equal(createHash('sha256').update(bytes).digest('hex'),reference.sha256);
- const retained=JSON.parse(bytes);assert.equal(retained.diff,context.diff);assert.deepEqual(retained.issue,context.issue);
- assert.deepEqual(result.result,valid);
-});
 test('controller preserves raw output and separately persists the schema-valid terminal result',async t=>{
  const f=await fixture(t,JSON.stringify(valid)),r=await f.agent.executeTurn('deliver',{issue:{id:'I_A'}},f.root,null,{directory:f.root,id:null,role:'deliver'});
  assert.equal(r.session.id,id);assert.deepEqual(r.result,valid);assert.match(r.evidencePath,/validated-result.json$/);

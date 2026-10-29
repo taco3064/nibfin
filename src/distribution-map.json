@@ -588,7 +588,7 @@
     },
     {
       "path": "src/execution-pool.mjs",
-      "sha256": "c403a395b1c64bcf6c961285f3644077bd76f8f8f8836d59d760ce5060823206"
+      "sha256": "4fd19e67c35d453614c765ec435693e4b48e4296151c0019d6379e7bcca57e4c"
     },
     {
       "path": "src/fanout.mjs",
@@ -636,7 +636,7 @@
     },
     {
       "path": "src/index.mjs",
-      "sha256": "f104d00c561a044217343bc79b66b300577f61d0bff0f49b9636669e802b598e"
+      "sha256": "74772c6ef691ff940d90098a54aea86f963743cc159671de6a6724e8953e8a41"
     },
     {
       "path": "src/installation.mjs",
@@ -824,7 +824,7 @@
     },
     {
       "path": "src/workflow-entry.mjs",
-      "sha256": "dcd0f99f76c11af709948544aa85536e27c5b47d37297de0d418dbdafc124af5"
+      "sha256": "088bf515451d568c1801f83b7393174552aefd25c3109dff1c744fccb928ce60"
     },
     {
       "path": "src/workflow-install.mjs",

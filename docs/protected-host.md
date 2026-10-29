@@ -334,3 +334,15 @@ state. Those belong to later delivery modes and retain their Grant, assignee,
 actual Runner and dependency checks. Wake, registration and Rescue cannot acquire
 pool routing through this extension. The signed local/provider tests establish
 this composition contract, not live shared-Runner installation or delivery proof.
+
+Shared-pool workflow installation accepts the protected `executionPool` descriptor.
+It emits separate `nibfin-stage-<repositoryId>.yml` and reusable delivery files
+for every fixed logical target. Repository and Issue concurrency use that literal
+logical ID. Their action `deployment_key` is a literal `TARGET_<repositoryId>`,
+never forwarded from dispatch inputs. The installed environment must provision
+the returned options, capability-source and source-approval variable names for
+each key. A missing namespaced variable does not fall back to the default host.
+Source approval and OIDC policy must pin the actual generated workflow bytes.
+The hosted lookup uses the management identity with both repository scopes;
+member execute/compute jobs never receive that credential. Generating files is
+a pure plan and does not install services, register Runners or enable autonomy.

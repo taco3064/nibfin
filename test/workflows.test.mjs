@@ -5,9 +5,44 @@ import {workflowFiles,workflowInstallation,workflowInput,workflowRoute,projectIs
   nativeConcurrency,createWorkflowEntry,createRegistrationArtifactChannel,openRegistrationResponse,canonicalJSON} from '../src/index.mjs';
 import {workflowYAML,resolveYAML,callInputs,workflowFixture} from '../tooling/workflow-fixture.mjs';
 import {relayFixture} from '../tooling/relay-fixture.mjs';
+import {parse} from 'yaml';
 const delivery='.github/workflows/nibfin-delivery.yml', registration='.github/workflows/nibfin-registration.yml';
 const ctx={github:{repository_id:'42',event:{issue:{number:101}}},inputs:{issue:'101'}};
 const guard=scope=>nativeConcurrency({repository:'example/core',repositoryId:'42',scope,...(scope==='issue'?{issue:'101'}:{})});
+
+test('shared pool installation fixes each target namespace, dispatch entry and logical concurrency in actual YAML',()=>{
+  const source={version:1,repository:'example/core',repositoryId:'41',ownerId:'7',ownerType:'User'},
+    targets=[source,{...source,repository:'example/cli',repositoryId:'42'},{...source,repository:'example/action',repositoryId:'43'}];
+  const result=workflowInstallation({commit:'a'.repeat(40),hostRepository:'example/core',hostCommit:'b'.repeat(40),
+    executionPool:{version:1,source,targets}});
+  assert.equal(result.deployments.length,3);assert.equal(result.files.size,10);
+  assert.equal(result.files.has('.github/workflows/nibfin-stage.yml'),false);
+  const issueGuards=new Set(),writerGuards=new Set();
+  for(const deployment of result.deployments){
+    const stage=parse(result.files.get(deployment.stagePath)),delivery=parse(result.files.get(deployment.deliveryPath));
+    assert.deepEqual(Object.keys(stage.on.workflow_dispatch.inputs),['nibfin_request','nibfin_correlation']);
+    assert.equal(stage.jobs.stage.uses,'./'+deployment.deliveryPath);
+    const lookup=stage.jobs.lookup.steps.at(-1);
+    assert.equal(lookup.with.deployment_key,'TARGET_'+deployment.repositoryId);
+    assert.equal(lookup.with.host_token,'${{ secrets.NIBFIN_HOST_TOKEN }}');
+    issueGuards.add(delivery.concurrency.group);writerGuards.add(stage.jobs.lookup.concurrency.group);
+    assert.equal(delivery.concurrency.group,`nibfin-v1-${deployment.repositoryId}-issue-`+'${{ inputs.issue }}');
+    for(const job of Object.values(delivery.jobs)){
+      assert.equal(job.steps.at(-1).with.deployment_key,deployment.key);
+      if(job.concurrency)assert.equal(job.concurrency.group,stage.jobs.lookup.concurrency.group);
+      if(['execute','compute'].includes(job.steps.at(-1).with.mode))assert.equal(job.steps.at(-1).with.host_token,undefined);
+    }
+    assert.equal(deployment.variables.options,`NIBFIN_TARGET_${deployment.repositoryId}_HOST_OPTIONS`);
+    assert.equal(deployment.source.repositoryId,'41');
+  }
+  assert.equal(issueGuards.size,3);assert.equal(writerGuards.size,3);
+  const action=workflowYAML().get('workflow/action/action.yml'),env=action.runs.steps.at(-1).env;
+  for(const key of ['HOST_OPTIONS','HOST_CAPABILITY_SOURCE','SOURCE_APPROVALS']){
+    assert.ok(env['NIBFIN_'+key].includes(`NIBFIN_{0}_${key}`));
+    assert.ok(env['NIBFIN_'+key].includes("inputs.deployment_key == '' &&"));
+    assert.ok(!env['NIBFIN_'+key].includes(`)] || vars.NIBFIN_${key}`));
+  }
+});
 
 test('real YAML schemas, expressions, outputs, immutable acquisition and native guards',()=>{
   const docs=workflowYAML();assert.equal(docs.size,7);

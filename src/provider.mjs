@@ -20,6 +20,11 @@ function recoveryReadPermission(value) {
   const matches=tail=>new RegExp('^'+root+tail+'$').test(path);
   const params=new URLSearchParams(query),keys=[...params.keys()];
   if(new Set(keys).size!==keys.length)return null;
+  if(matches('/actions/workflows/[1-9][0-9]*/runs')){
+    return keys.length>0&&params.get('event')==='workflow_dispatch'
+      &&keys.every(k=>k==='event'||['page','per_page'].includes(k)&&/^[1-9][0-9]{0,5}$/.test(params.get(k)))
+      &&(!params.has('per_page')||Number(params.get('per_page'))<=100)?'actions:read':null;
+  }
   const pagination=()=>keys.every(k=>['page','per_page'].includes(k)&&/^[1-9][0-9]{0,5}$/.test(params.get(k)))
     &&(!params.has('per_page')||Number(params.get('per_page'))<=100)&&query!=='';
   if(matches('/contents/\\.github/workflows/[A-Za-z0-9_-]+\\.ya?ml'))
@@ -160,6 +165,7 @@ export function githubEndpointPermission(method, endpoint) {
   if(method==='GET' && /^\/repos\/[^/]+\/[^/]+\/issues\/[1-9][0-9]*\/dependencies\/(blocked_by|blocking)$/.test(endpoint))return 'public:read';
   if(method==='GET' && (/^\/repos\/[^/]+\/[^/]+$/.test(endpoint) || /^\/(users|orgs)\/[^/]+$/.test(endpoint)))return 'public:read';
   if(method==='GET' && /^\/repos\/[^/]+\/[^/]+\/actions\/(?:runs\/[1-9][0-9]*(?:\/(?:artifacts|attempts\/[1-9][0-9]*))?|artifacts\/[1-9][0-9]*(?:\/zip)?)$/.test(endpoint))return 'actions:read';
+  if(method==='POST'&&/^\/repos\/[^/]+\/[^/]+\/actions\/workflows\/[1-9][0-9]*\/dispatches$/.test(endpoint))return 'actions:write';
   if(method==='GET' && /^\/repos\/[^/]+\/[^/]+\/collaborators\/[^/]+\/permission$/.test(endpoint))return 'metadata:read';
   if(method==='GET' && /^\/orgs\/[^/]+\/actions\/runner-groups(?:\/[1-9][0-9]*(?:\/(runners|repositories))?)?$/.test(endpoint))
     return 'organization_self_hosted_runners:read';

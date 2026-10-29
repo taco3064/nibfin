@@ -5,6 +5,16 @@ import {execFileSync} from 'node:child_process';
 import {join} from 'node:path';
 import {createGithubProvider, localGhTransport, parseGithubJson, publicDiagnostic, githubEndpointPermission} from '../src/index.mjs';
 
+test('numeric workflow dispatch and readback have exact official Actions permission classes',()=>{
+  const root='/repos/example/core/actions/workflows/50';
+  assert.equal(githubEndpointPermission('POST',root+'/dispatches'),'actions:write');
+  assert.equal(githubEndpointPermission('GET',root+'/runs?event=workflow_dispatch&per_page=100&page=2'),'actions:read');
+  for(const endpoint of [root+'/runs?event=issues',root+'/runs?event=workflow_dispatch&event=issues',
+    root+'/runs?event=workflow_dispatch&per_page=101',root+'/runs?event=workflow_dispatch&branch=main',
+    root+'/runs?event=workflow_dispatch&page=0'])assert.equal(githubEndpointPermission('GET',endpoint),null);
+  for(const method of ['GET','PATCH','DELETE'])assert.equal(githubEndpointPermission(method,root+'/dispatches'),null);
+});
+
 const base = {endpoint:'/repos/Example-Org/core/issues/1', target:'42', operation:'issue', correlation:'attempt-1'};
 const response = (status = 200, body = '{"id":42}', headers = {}) => ({status, body, headers});
 function fixture(replies, config = {}) {

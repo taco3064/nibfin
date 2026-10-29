@@ -4,6 +4,7 @@ inputs:
   bundle_commit: {required: true, description: Approved immutable Core bundle commit}
   host_commit: {required: true, description: Approved immutable host commit}
   mode: {required: true, description: Fixed workflow entry mode}
+  deployment_key: {required: false, description: Fixed installed deployment namespace; never an event input}
   input: {required: true, description: Bounded scalar input JSON}
   resolution: {required: false, description: Retained Resolve reference}
   read_token: {required: false, description: Hosted read-only Workflow identity}
@@ -61,9 +62,9 @@ runs:
         NIBFIN_HOST_TOKEN: ${{ inputs.host_token }}
         NIBFIN_BUNDLE_COMMIT: ${{ inputs.bundle_commit }}
         NIBFIN_HOST_COMMIT: ${{ inputs.host_commit }}
-        NIBFIN_HOST_OPTIONS: ${{ vars.NIBFIN_HOST_OPTIONS }}
-        NIBFIN_HOST_CAPABILITY_SOURCE: ${{ vars.NIBFIN_HOST_CAPABILITY_SOURCE }}
-        NIBFIN_SOURCE_APPROVALS: ${{ vars.NIBFIN_SOURCE_APPROVALS }}
+        NIBFIN_HOST_OPTIONS: ${{ inputs.deployment_key == '' && vars.NIBFIN_HOST_OPTIONS || vars[format('NIBFIN_{0}_HOST_OPTIONS', inputs.deployment_key)] }}
+        NIBFIN_HOST_CAPABILITY_SOURCE: ${{ inputs.deployment_key == '' && vars.NIBFIN_HOST_CAPABILITY_SOURCE || vars[format('NIBFIN_{0}_HOST_CAPABILITY_SOURCE', inputs.deployment_key)] }}
+        NIBFIN_SOURCE_APPROVALS: ${{ inputs.deployment_key == '' && vars.NIBFIN_SOURCE_APPROVALS || vars[format('NIBFIN_{0}_SOURCE_APPROVALS', inputs.deployment_key)] }}
         NIBFIN_HOST_REPOSITORY: ${{ vars.NIBFIN_HOST_REPOSITORY }}
         NIBFIN_HOST_ROOT: ${{ github.workspace }}/nibfin-host
         NIBFIN_ENTRY: ${{ github.action_path }}/../../src/workflow-entry.mjs

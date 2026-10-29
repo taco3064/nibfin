@@ -1,3 +1,4 @@
+import {rescueWorkflowFor,rescueNamespace} from './independent-transport.mjs';
 import {appendFile} from 'node:fs/promises';
 import {digest} from './core.mjs';
 import {waitForActionIdentity} from './action-identity.mjs';
@@ -60,14 +61,14 @@ export async function verifyRescueInvocation(runtime,grant,event){
  if(env.GITHUB_REPOSITORY!==policy.repository||!['workflow_dispatch','workflow_run'].includes(env.GITHUB_EVENT_NAME)||!positive(env.GITHUB_RUN_ID)||!positive(env.GITHUB_RUN_ATTEMPT)||!['rescue','verify-result'].includes(env.GITHUB_JOB))throw rescueStop('RESCUE_ORIGIN_INVALID','Rescue requires its dedicated pinned Actions job');
  const run=await runtime.github.api(root+'/actions/runs/'+env.GITHUB_RUN_ID);
  const owner=policy.actorIds.map(String),bot='41898282';
- if(run.repository?.full_name!==policy.repository||String(run.repository?.id)!==String(policy.repositoryId)||run.path!==rescueWorkflow||run.event!==env.GITHUB_EVENT_NAME||run.head_branch!=='main'||run.run_attempt!==Number(env.GITHUB_RUN_ATTEMPT)||run.head_sha!==env.GITHUB_SHA||![...owner,bot].includes(String(run.actor?.id))||![...owner,bot].includes(String(run.triggering_actor?.id)))throw rescueStop('RESCUE_ORIGIN_INVALID','Rescue identity differs from the approved private origin');
+ if(run.repository?.full_name!==policy.repository||String(run.repository?.id)!==String(policy.repositoryId)||run.path!==rescueWorkflowFor(runtime)||run.event!==env.GITHUB_EVENT_NAME||run.head_branch!=='main'||run.run_attempt!==Number(env.GITHUB_RUN_ATTEMPT)||run.head_sha!==env.GITHUB_SHA||![...owner,bot].includes(String(run.actor?.id))||![...owner,bot].includes(String(run.triggering_actor?.id)))throw rescueStop('RESCUE_ORIGIN_INVALID','Rescue identity differs from the approved private origin');
  if(env.GITHUB_EVENT_NAME==='workflow_run'){
   const hint=event?.workflow_run;
-  if(event?.repository?.private!==true||!positive(hint?.id)||hint.repository?.full_name!==policy.repository||hint.path!==policy.workflowPath||hint.event!=='workflow_dispatch'||hint.status!=='completed')throw rescueStop('RESCUE_ORIGIN_INVALID','Completion recovery requires an approved private Core hint');
+  if(event?.repository?.private!==(policy.visibility!=='public')||!positive(hint?.id)||hint.repository?.full_name!==policy.repository||hint.path!==policy.workflowPath||hint.event!=='workflow_dispatch'||hint.status!=='completed')throw rescueStop('RESCUE_ORIGIN_INVALID','Completion recovery requires an approved Core hint');
  }else if((String(run.actor.id)===bot||String(run.triggering_actor.id)===bot)&&(!positive(event?.inputs?.source_run_id)||event?.inputs?.request_id))throw rescueStop('RESCUE_ORIGIN_INVALID','Automated fallback must identify an independently verified failed source Run');
- const [atRun,current,repository]=await Promise.all([runtime.github.api(root+'/contents/'+rescueWorkflow+'?ref='+run.head_sha),runtime.github.api(root+'/contents/'+rescueWorkflow+'?ref=main'),runtime.github.repository(policy.repository)]);
- const pins=[approval.workflowBlob,runtime.coreUpgrade?.rescuePreviousWorkflowBlob].filter(Boolean);
- if(repository.private!==true||!pins.includes(atRun.sha)||current.sha!==approval.workflowBlob)throw rescueStop('RESCUE_PIN_CHANGED','Rescue workflow is not the exact signed private workflow');
+ const [atRun,current,repository]=await Promise.all([runtime.github.api(root+'/contents/'+rescueWorkflowFor(runtime)+'?ref='+run.head_sha),runtime.github.api(root+'/contents/'+rescueWorkflowFor(runtime)+'?ref=main'),runtime.github.repository(policy.repository)]);
+ const pins=runtime.transport?[runtime.transport.rescueWorkflowBlob]:[approval.workflowBlob,runtime.coreUpgrade?.rescuePreviousWorkflowBlob].filter(Boolean);
+ if((policy.visibility==='public'?repository.private!==false||String(repository.id)!==policy.repositoryId||String(repository.owner?.id)!==policy.ownerId:repository.private!==true)||!pins.includes(atRun.sha)||current.sha!==pins[0])throw rescueStop('RESCUE_PIN_CHANGED','Rescue workflow is not the exact signed private workflow');
  const job=await waitForActionIdentity(async()=>{
   const jobs=await runtime.github.list(root+'/actions/runs/'+run.id+'/attempts/'+run.run_attempt+'/jobs','jobs');
   const matches=jobs.filter(j=>j.name===env.GITHUB_JOB&&j.status==='in_progress'&&j.runner_name===env.RUNNER_NAME&&policy.runnerIds.map(String).includes(String(j.runner_id)));

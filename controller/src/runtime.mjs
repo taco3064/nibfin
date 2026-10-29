@@ -1,3 +1,4 @@
+import {installIndependentTransport} from './independent-transport.mjs';
 import { verifyWebsiteRevision, attachWebsiteRevision } from './website-revision.mjs';
 import { attachAssigneeCoreRepair } from './assignee-revision.mjs';
 import { readFile, mkdir } from 'node:fs/promises';
@@ -46,12 +47,14 @@ export class Runtime {
     if (config.publicRunner) for (const path of [config.publicRunner.rootKeyPath, config.publicRunner.registryPath]) {
       if (typeof path !== 'string' || !outside(root, path) || !outside(config.stateDirectory, path) || !outside(config.agent.authDirectory, path)) throw new Error('Runner identity and registry must remain outside workspaces and Agent mounts');
     }
-    return new Runtime(config, root, await GitHub.connect(config.credentialFile));
+    const runtime = new Runtime(config, root, await GitHub.connect(config.credentialFile));
+    await installIndependentTransport(runtime); return runtime;
   }
   async grant() {
     return this.github.measure ? this.github.measure('authority', () => this.grantFresh()) : this.grantFresh();
   }
   actionExecutionPolicy(grant) {
+    if(this.transport)return {...this.transport.execution,outboxRepositoryId:grant.policy.actionExecution.repositoryId};
     const limits = this.coreUpgrade?.executionLimits;
     const policy=limits ? {...grant.policy.actionExecution, workflowBlob:limits.workflowBlob,
       previousWorkflowBlob:limits.previousWorkflowBlob} : grant.policy.actionExecution;
@@ -70,6 +73,7 @@ export class Runtime {
     { context: { runId: this.environment.GITHUB_RUN_ID, runAttempt: this.environment.GITHUB_RUN_ATTEMPT } });
   }
   async readGrant() {
+    await installIndependentTransport(this);
     const bundle=await this.github.grant(this.config.grantSource), publicKey=await readFile(this.config.publicKeyPath,'utf8');
     const grant = verifyGrant(bundle,publicKey);
     this.deliveryInputs = verifyDeliveryInputs(bundle.deliveryInputs, grant, publicKey);
@@ -152,7 +156,7 @@ export class Runtime {
     }
     if (grant.policy.publicRunner) {
       await verifyKairoOwner(this.github, this.config, grant.policy, grant.actor);
-      const entries = await readBindings(this.config, grant.policy);
+      const entries = await readBindings(this.config, this.transport?{...grant.policy,...this.transport.notifications}:grant.policy);
       this.publicBindings = entries;
       for (const [repository, entry] of Object.entries(entries)) {
         const live = await this.github.repository(repository);

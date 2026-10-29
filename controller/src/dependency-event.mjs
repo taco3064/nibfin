@@ -24,14 +24,14 @@ export async function relayDependencyEvent({ github, entry, execution, stateDire
   // The receiving Core independently validates membership, grant and live graph.
   // This owner-authenticated wakeup cannot satisfy a native label/close boundary.
   const operator = await github.api('/user');
-  if (String(operator.id) !== b.ownerId || operator.type !== 'User' || execution.repository !== 'taco3064/kairo' || execution.workflowPath !== '.github/workflows/action-stage.yml' || execution.ref !== 'main') reject();
+  if (String(operator.id) !== b.ownerId || operator.type !== 'User' || !['taco3064/kairo','taco3064/nibfin'].includes(execution.repository) || execution.workflowPath !== (execution.repository==='taco3064/nibfin'?'.github/workflows/nibfin-controller.yml':'.github/workflows/action-stage.yml') || execution.ref !== 'main') reject();
   const id = digest({ repositoryId: b.repositoryId, delivery: headers['x-github-delivery'] });
   const store = new Store(stateDirectory, 'dependency-event:' + id);
   return store.lease(async () => {
     const s = await store.read();
     if (s.attempted) return { status: s.accepted ? 'DUPLICATE' : 'WAITING', id };
     const saved = await store.transaction(s.revision, current => ({ ...current, attempted: true, payloadHash: digest(p), action: p.action, issueId: issue.node_id, delivery: headers['x-github-delivery'], attemptedAt: new Date().toISOString() }));
-    await github.api('/repos/taco3064/kairo/actions/workflows/action-stage.yml/dispatches', 'POST', { ref: 'main', inputs: { issue_id: issue.node_id,issue_ref:b.repository.split('/')[1]+'#'+issue.number } });
+    await github.api('/repos/'+execution.repository+'/actions/workflows/'+execution.workflowPath.split('/').at(-1)+'/dispatches', 'POST', { ref: 'main', inputs: { issue_id: issue.node_id,issue_ref:b.repository.split('/')[1]+'#'+issue.number } });
     await store.transaction(saved.revision, current => ({ ...current, accepted: true }));
     return { status: 'DISPATCH_ACCEPTED', id, issueId: issue.node_id };
   });

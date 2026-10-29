@@ -20,7 +20,7 @@ export function stageWorkKey(request) {
 // Never retry an ambiguous write merely because a new event arrived.
 export class ActionOutbox {
   constructor(root, github, execution, issues=[]) {
-    this.store = new Store(root, `actions-outbox:${execution.repositoryId}`);
+    this.store = new Store(root, `actions-outbox:${execution.outboxRepositoryId??execution.repositoryId}`);
     this.github = github; this.execution = execution;
     this.issues=issues;
   }
@@ -92,7 +92,7 @@ export class ActionOutbox {
       const root = repoPath(this.execution.repository), workflow = encodeURIComponent(this.execution.workflowPath.split('/').at(-1));
       const reconcile = async () => {
         const runs = await this.github.list(`${root}/actions/workflows/${workflow}/runs?event=workflow_dispatch`, 'workflow_runs');
-        const titles=[`Kairo ${id}`,actionRunTitle(requestIssueReference(item.request,this.issues),id),actionRunTitle(null,id)];
+        const titles=[`Nibfin | ${requestIssueReference(item.request,this.issues)||'Request'} | ${id}`,`Kairo ${id}`,actionRunTitle(requestIssueReference(item.request,this.issues),id),actionRunTitle(null,id)];
         const matches = runs.filter(r => titles.includes(r.display_title) && r.path === this.execution.workflowPath &&
           String(r.repository?.id) === String(this.execution.repositoryId) && this.execution.actorIds.map(String).includes(String(r.actor?.id)));
         if (matches.length > 1) throw Object.assign(new Error('Multiple Actions Runs match a dispatch intent'), { code: 'AMBIGUOUS_DISPATCH' });

@@ -9,7 +9,7 @@ export function validateBinding(b) {
   if (!b || Object.keys(b).sort().join(',') !== 'bindingId,ownerId,repository,repositoryId,runnerId,workflowBlob,workflowPath' ||
       !/^[\w.-]+\/[\w.-]+$/.test(b.repository) || !/^[a-zA-Z0-9_-]{16,80}$/.test(b.bindingId) ||
       !/^[\w.-]{1,80}$/.test(b.runnerId) || !/^[1-9]\d*$/.test(b.repositoryId) || !/^[1-9]\d*$/.test(b.ownerId) ||
-      b.workflowPath !== '.github/workflows/kairo.yml' || !/^[a-f0-9]{40}$/.test(b.workflowBlob)) fail('invalid descriptor');
+      !['.github/workflows/kairo.yml','.github/workflows/nibfin-events.yml'].includes(b.workflowPath) || !/^[a-f0-9]{40}$/.test(b.workflowBlob)) fail('invalid descriptor');
   return b;
 }
 export const bindingSecret = (root, b) => createHmac('sha256', root).update(`kairo-binding-v1\n${canonical(validateBinding(b))}`).digest('hex');
@@ -25,7 +25,7 @@ export async function readBindings(config, policy) {
   if (!/^[a-f0-9]{64}$/.test(raw)) fail('invalid local root key');
   const root = Buffer.from(raw, 'hex');
   if (rootIdentity(root) !== policy.publicRunner.rootId) fail('machine identity differs from grant');
-  const registry = JSON.parse(await readFile(config.publicRunner.registryPath, 'utf8'));
+  const registry = JSON.parse(await readFile(config.independentTransport?.registryPath || config.publicRunner.registryPath, 'utf8'));
   if (registry.runnerId !== config.runnerId || !Array.isArray(registry.bindings)) fail('registry machine mismatch');
   const bindings = {};
   for (const [repository, approved] of Object.entries(policy.publicRunner.bindings || {})) {
@@ -69,7 +69,7 @@ async function enrollBindingUnlocked(config, github, repository, secretOutput, e
   if (!/^[a-f0-9]{64}$/.test(raw)) fail('invalid root');
   const root = Buffer.from(raw, 'hex');
   let registry;
-  try { registry = JSON.parse(await readFile(config.publicRunner.registryPath, 'utf8')); }
+  try { registry = JSON.parse(await readFile(config.independentTransport?.registryPath || config.publicRunner.registryPath, 'utf8')); }
   catch (error) { if (error.code !== 'ENOENT') throw error; registry = { runnerId: config.runnerId, bindings: [] }; }
   if (registry.runnerId !== config.runnerId || !Array.isArray(registry.bindings)) fail('registry mismatch');
   // New binding IDs rotate the repository key; never silently reuse old grants.
@@ -88,7 +88,7 @@ export function revokeBinding(config, repository) {
   return registryLock(config, () => revokeBindingUnlocked(config, repository));
 }
 async function revokeBindingUnlocked(config, repository) {
-  const registry = JSON.parse(await readFile(config.publicRunner.registryPath, 'utf8'));
+  const registry = JSON.parse(await readFile(config.independentTransport?.registryPath || config.publicRunner.registryPath, 'utf8'));
   if (registry.runnerId !== config.runnerId || !Array.isArray(registry.bindings)) fail('registry mismatch');
   let count = 0;
   for (const row of registry.bindings) if (row.binding.repository === repository && row.active === true) { row.active = false; count++; }

@@ -1,3 +1,4 @@
+import {executionPolicy,notificationPolicy} from './independent-transport.mjs';
 import { binding, canonical, digest, plan } from './core.mjs';
 import { childRuntime, issueLeaseId, unitId } from './dynamic.mjs';
 import { Store } from './store.mjs';
@@ -90,7 +91,7 @@ export async function reconcileActionIssue(runtime, grant, issue, source) {
   const wakeup = await resolveBoundaryWakeup(runtime, grant, issue, state, source);
   if(wakeup?.source)source=wakeup.source;
   if (!state.pending && wakeup?.path === 'waiting') return { status: 'WAITING', code: 'NATIVE_ISSUE_EVENT_REQUIRED', issueId: issue.id, action: wakeup.action };
-  const outbox = new ActionOutbox(runtime.config.stateDirectory, runtime.github, grant.policy.actionExecution,grant.manifest.issues);
+  const outbox = new ActionOutbox(runtime.config.stateDirectory, runtime.github, executionPolicy(runtime,grant),grant.manifest.issues);
   const id = await outbox.enqueue({ schemaVersion: 1, issueId: issue.id, repository: issue.repository,
     authority: binding(grant.manifest, grant.policy), operation: decision.operation, artifacts: decision.artifacts,
     basis: stageBasis(state), source, wakeup, predecessor: runtime.actionIdentity,
@@ -108,7 +109,7 @@ export async function fanoutActionCompletion(runtime, grant, issue, completion) 
     const entry = runtime.publicBindings[target.repository];
     if (!entry) fail('FANOUT_TARGET_NOT_ENROLLED', 'Dependent repository has no enrolled caller');
     const execution = { kind: 'participant', repository: target.repository, repositoryId: entry.binding.repositoryId,
-      workflowPath: entry.binding.workflowPath, ref: 'main', actorIds: grant.policy.actionEvents[target.repository].actorIds };
+      workflowPath: entry.binding.workflowPath, ref: 'main', actorIds: notificationPolicy(runtime,grant).actionEvents[target.repository].actorIds };
     const outbox = new ActionOutbox(runtime.config.stateDirectory, runtime.github, execution,grant.manifest.issues);
     const id = await outbox.enqueue({ issueId: target.id, repository: target.repository, authority: binding(grant.manifest, grant.policy),
       sourceIssueId: issue.id, completionHash: completion.completionHash, completionReceiptHash: completion.receiptHash });
@@ -120,7 +121,7 @@ export async function fanoutActionCompletion(runtime, grant, issue, completion) 
 export async function executeActionStage(runtime, requestId) {
   const grant = await runtime.grant();
   if (grant.policy.executionMode !== 'actions-v1' || !runtime.actionIdentity) fail('ACTIONS_STAGE_REQUIRED', 'A verified Actions execution is required');
-  const outbox = new ActionOutbox(runtime.config.stateDirectory, runtime.github, grant.policy.actionExecution,grant.manifest.issues);
+  const outbox = new ActionOutbox(runtime.config.stateDirectory, runtime.github, executionPolicy(runtime,grant),grant.manifest.issues);
   const item = await outbox.read(requestId), request = item.request;
   if (canonical(request.authority) !== canonical(binding(grant.manifest, grant.policy))) fail('STALE_AUTHORITY', 'Stage dispatch belongs to another signed authority');
   const issue = grant.manifest.issues.find(i => i.id === request.issueId && i.repository === request.repository);

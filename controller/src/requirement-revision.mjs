@@ -1,3 +1,4 @@
+import {executionPolicy} from './independent-transport.mjs';
 import { websiteRevisionFor, websiteRevisionProjection, websiteRevisionBoundary, assertWebsiteRevision, websiteRevisionDependency } from './website-revision.mjs';
 import { createPublicKey, verify } from 'node:crypto';
 import { canonical, digest } from './core.mjs';
@@ -155,7 +156,7 @@ export async function assertRevisionExecution(runtime, grant, issue, requestedCy
   // Provider creation time, not a new attempt/start time: an old queued Run or
   // rerun cannot acquire the replacement cycle simply because it starts later.
   need(runtime.actionIdentity?.runId,'REVISION_FRESH_ACTION_REQUIRED');
-  const run=await runtime.github.api(`/repos/${grant.policy.actionExecution.repository}/actions/runs/${runtime.actionIdentity.runId}`);
+  const run=await runtime.github.api(`/repos/${executionPolicy(runtime,grant).repository}/actions/runs/${runtime.actionIdentity.runId}`);
   need(String(run.id)===String(runtime.actionIdentity.runId) &&
     Date.parse(run.created_at)>=runNotBefore,'STALE_REQUIREMENT_RUN');
   if(!admitted.has(runtime))admitted.set(runtime,new Map());

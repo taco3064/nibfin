@@ -121,7 +121,7 @@ export function childRuntime(runtime, grant, issue, enforceDependencies = true) 
     child.publicBindings = runtime.publicBindings;
     child.executionContext = structuredClone(runtime.executionContext);
     child.installedCoreDigest = runtime.installedCoreDigest;
-    child.coreUpgrade = runtime.coreUpgrade;
+    child.coreUpgrade = runtime.coreUpgrade; child.transport = runtime.transport;
     child.deliveryInputs = runtime.deliveryInputs;
     child.priorImplementation = issueScopeProjection(fresh,issue)?.priorImplementation || null;
     child.agentHealthOwner = runtime.agentHealthOwner || runtime;

@@ -1,3 +1,4 @@
+import {executionPolicy,notificationPolicy,rescueWorkflowFor,rescueNamespace} from './independent-transport.mjs';
 import {appendFile} from 'node:fs/promises';
 import {binding,digest} from './core.mjs';
 import {Store} from './store.mjs';
@@ -14,7 +15,7 @@ import {inspectAiRepairTarget,diagnoseAiRepair,applyAiRepair} from './rescue-ai.
 import {issueReference} from './action-display.mjs';
 
 const caseStore=(runtime,id)=>{if(!hash(id))throw Error('Invalid Rescue case ID');return new Store(runtime.config.stateDirectory,'rescue-case:'+id);};
-const indexStore=(runtime,grant)=>new Store(runtime.config.stateDirectory,'rescue-index:'+grant.policy.grantId);
+const indexStore=(runtime,grant)=>new Store(runtime.config.stateDirectory,'rescue-index:'+grant.policy.grantId+rescueNamespace(runtime));
 const sourceOf=state=>String(state.pending?.executionContext?.action?.runId??state.lastDecision?.executionContext?.action?.runId??state.events?.at(-1)?.executionContext?.action?.runId??'');
 const stopCode=error=>error.code??(error.requestMethod==='GET'&&[502,503,504].includes(error.status)?'GITHUB_READ_UNAVAILABLE':'UNCLASSIFIED');
 const snapshot=(state,issue)=>({blockedHash:digest(state.issues?.[issue.id]?.blocked??null),candidateHash:digest(state.issues?.[issue.id]?.candidate??null),pendingHash:digest(state.pending??null)});
@@ -35,17 +36,17 @@ async function registerCase(runtime,grant,source,issue,failure){
  return id;
 }
 async function updateCase(runtime,id,update){const store=caseStore(runtime,id);return store.metadataLease(async()=>{const state=await store.read();return store.transaction(state.revision,update);});}
-function baseReport(state){const r=state.request;return{caseId:r.id,nextCaseId:state.nextCaseId??null,issueRef:r.issueRef,sourceRunId:r.sourceRunId,sourceUrl:'https://github.com/taco3064/kairo/actions/runs/'+r.sourceRunId,code:r.code,reason:r.reason,actions:state.actions??[],aiDiagnosis:state.aiDiagnosis??null,resolutionSource:state.resolutionSource??null,outcome:state.outcome??'UNRESOLVED',nextCheckAt:state.nextCheckAt??null,resumeRunId:state.resumeRunId??null,resumeUrl:state.resumeRunId?'https://github.com/taco3064/kairo/actions/runs/'+state.resumeRunId:null,verification:state.verification??'Not verified'};}
-async function emitCase(runtime,id){return rescueLog(baseReport(await caseStore(runtime,id).read()));}
+function baseReport(state,repository='taco3064/kairo'){const r=state.request;return{caseId:r.id,nextCaseId:state.nextCaseId??null,issueRef:r.issueRef,sourceRunId:r.sourceRunId,sourceUrl:'https://github.com/'+repository+'/actions/runs/'+r.sourceRunId,code:r.code,reason:r.reason,actions:state.actions??[],aiDiagnosis:state.aiDiagnosis??null,resolutionSource:state.resolutionSource??null,outcome:state.outcome??'UNRESOLVED',nextCheckAt:state.nextCheckAt??null,resumeRunId:state.resumeRunId??null,resumeUrl:state.resumeRunId?'https://github.com/'+repository+'/actions/runs/'+state.resumeRunId:null,verification:state.verification??'Not verified'};}
+async function emitCase(runtime,id){return rescueLog(baseReport(await caseStore(runtime,id).read(),runtime.transport?.execution.repository));}
 async function dispatchRun(runtime,workflow,inputs){
- const result=await runtime.github.api('/repos/'+runtime.config.actionExecution.repository+'/actions/workflows/'+workflow+'/dispatches','POST',{ref:'main',inputs,return_run_details:true},'2022-11-28');
+ const result=await runtime.github.api('/repos/'+(runtime.transport?.execution??runtime.config.actionExecution).repository+'/actions/workflows/'+workflow+'/dispatches','POST',{ref:'main',inputs,return_run_details:true},'2022-11-28');
  if(!positive(result?.workflow_run_id))throw rescueStop('RESCUE_DISPATCH_UNKNOWN','Dispatch returned no Run ID; do not repeat an uncertain write');return String(result.workflow_run_id);
 }
 export async function dispatchRescue(runtime,grant,id){
  const store=caseStore(runtime,id);
  return store.metadataLease(async()=>{let state=await store.read();if(state.rescueDispatch)return state.rescueDispatch;
   state=await store.transaction(state.revision,v=>({...v,rescueDispatch:{status:'attempted',at:new Date().toISOString()}}));
-  try{const runId=await dispatchRun(runtime,'kairo-rescue.yml',{request_id:id,source_run_id:state.request.sourceRunId,issue_ref:state.request.issueRef,reason_code:state.request.code,mode:'repair'});
+  try{const runId=await dispatchRun(runtime,rescueWorkflowFor(runtime).split('/').at(-1),{request_id:id,source_run_id:state.request.sourceRunId,issue_ref:state.request.issueRef,reason_code:state.request.code,mode:'repair'});
    await store.transaction(state.revision,v=>({...v,rescueDispatch:{...v.rescueDispatch,status:'confirmed',runId}}));return{status:'confirmed',runId};
   }catch(error){await store.transaction(state.revision,v=>({...v,rescueDispatch:{...v.rescueDispatch,status:'unknown',code:stopCode(error)},outcome:'UNRESOLVED',verification:'Rescue dispatch outcome unknown; automatic replay is disabled'}));throw error;}
  });
@@ -65,7 +66,7 @@ export async function queueActionRescues(runtime,output,event,error=null){
  const ids=[];
  for(const failure of failures){
   let issue=grant.manifest.issues.find(i=>i.id===(failure.issueId??event?.inputs?.issue_id));
-  if(!issue&&event?.inputs?.request_id)try{const item=await new ActionOutbox(runtime.config.stateDirectory,runtime.github,grant.policy.actionExecution).read(event.inputs.request_id);issue=grant.manifest.issues.find(i=>i.id===item.request.issueId);}catch{}
+  if(!issue&&event?.inputs?.request_id)try{const item=await new ActionOutbox(runtime.config.stateDirectory,runtime.github,executionPolicy(runtime,grant)).read(event.inputs.request_id);issue=grant.manifest.issues.find(i=>i.id===item.request.issueId);}catch{}
   if(!issue){const attributed=[];for(const i of grant.manifest.issues){const s=await new Store(runtime.config.stateDirectory,unitId(grant,i)).read();if(sourceOf(s)===String(runtime.actionIdentity.runId))attributed.push(i);}if(attributed.length===1)issue=attributed[0];}
   const source={id:runtime.actionIdentity.runId,run_attempt:runtime.actionIdentity.runAttempt};
   const id=await registerCase(runtime,grant,source,issue,failure);ids.push(id);
@@ -267,7 +268,7 @@ async function runCase(runtime,grant,event,{verifyOnly=false}={}){
     }else if(transient){await runtime.github.api('/user');actions.push('Fresh authenticated GitHub read passed; original state retained');}
    })));
    await updateCase(runtime,id,s=>({...s,actions,outcome:'PENDING_VERIFICATION',verification:'Known remedy verified; continuation is not yet proof of resolution',resumeDispatch:{status:'attempted',at:new Date().toISOString()}}));
-   const resumeRunId=await dispatchRun(runtime,grant.policy.actionExecution.workflowPath.split('/').at(-1),{issue_id:issue.id,issue_ref:issueReference(issue)});
+   const resumeRunId=await dispatchRun(runtime,executionPolicy(runtime,grant).workflowPath.split('/').at(-1),{issue_id:issue.id,issue_ref:issueReference(issue)});
    await updateCase(runtime,id,s=>({...s,resumeRunId,nextCheckAt:new Date(Date.now()+300000).toISOString(),resumeDispatch:{...s.resumeDispatch,status:'confirmed',runId:resumeRunId}}));
    const index=indexStore(runtime,grant);await index.metadataLease(async()=>{const s=await index.read();await index.transaction(s.revision,v=>({...v,cases:{...v.cases,[id]:{...v.cases[id],resumeRunId}}}));});
   }catch(error){

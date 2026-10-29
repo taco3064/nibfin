@@ -1,10 +1,11 @@
+import {rescueWorkflowFor,rescueNamespace} from './independent-transport.mjs';
 import {positive,rescueStop,verifyRescueSource} from './rescue-policy.mjs';
 
 // Detection and repair share one pinned workflow. A completion hint never
 // supplies authority, executable content, or permission to replay a write.
 export async function detectRescueSource(runtime,grant,event){
  const hint=event.workflow_run,policy=runtime.actionExecutionPolicy(grant);
- if(event.repository?.private!==true||!positive(hint?.id)||hint.repository?.full_name!==policy.repository||hint.path!==policy.workflowPath||hint.event!=='workflow_dispatch'||hint.status!=='completed')throw rescueStop('RESCUE_SOURCE_INVALID','Unapproved completion hint');
+ if(event.repository?.private!==(policy.visibility!=='public')||!positive(hint?.id)||hint.repository?.full_name!==policy.repository||hint.path!==policy.workflowPath||hint.event!=='workflow_dispatch'||hint.status!=='completed')throw rescueStop('RESCUE_SOURCE_INVALID','Unapproved completion hint');
  const source=await verifyRescueSource(runtime,grant,hint.id);
  if(source.run_attempt!==hint.run_attempt||source.head_sha!==hint.head_sha)throw rescueStop('RESCUE_SOURCE_CHANGED','Completed source identity changed');
  let marker=null;

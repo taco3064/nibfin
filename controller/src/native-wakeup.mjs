@@ -1,3 +1,4 @@
+import {notificationPolicy} from './independent-transport.mjs';
 import { digest } from './core.mjs';
 import { Store } from './store.mjs';
 import { verifyPublicEventRun } from './action-event.mjs';
@@ -25,11 +26,12 @@ export const readInbox = (runtime,grant) => new Store(runtime.config.stateDirect
 export async function verifyInboxSource(runtime,grant,issue,source,inbox,{previous=null,state=null}={}) {
   if(source?.kind!=='public-issue-event')return null;
   const row=Object.values(inbox.seen || {}).find(r=>r.payload && wakeupKey(eventSource(r.payload))===wakeupKey(source));
-  const p=row?.payload, entry=p && runtime.publicBindings?.[p.repository], policy=p && grant.policy.actionEvents?.[p.repository];
+  const p=row?.payload, entry=p && runtime.publicBindings?.[p.repository], policy=p && notificationPolicy(runtime,grant).actionEvents?.[p.repository];
   const reject=reason=>{console.error(JSON.stringify({kind:'native-wakeup-rejected',issueId:issue.id,
     sourceRunId:source.runId,sourceAttempt:p?.runAttempt ?? null,reason,
     mutationReceiptHash:previous?digest(previous):null}));return null;};
   if(!p || !entry || !policy)return reject('VERIFIED_INBOX_SOURCE_REQUIRED');
+  if(runtime.transport && p.bindingId!==entry.binding.bindingId)return reject('RETIRED_NOTIFICATION_BINDING');
   if(source.runAttempt!==undefined && source.runAttempt!==p.runAttempt || source.issuedAt!==undefined && source.issuedAt!==p.issuedAt)
     return reject('INBOX_SOURCE_DIFFERS');
   if(p.repository!==issue.repository || !(p.issueId===issue.id || row.targetIds?.includes(issue.id)))return reject('FOREIGN_EVENT_TARGET');

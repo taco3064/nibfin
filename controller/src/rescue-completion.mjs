@@ -1,3 +1,4 @@
+import {rescueWorkflowFor,rescueNamespace} from './independent-transport.mjs';
 import{createHmac,timingSafeEqual}from'node:crypto';
 import{readFile,lstat,mkdir}from'node:fs/promises';
 import{watch}from'node:fs';
@@ -8,7 +9,7 @@ import{positive,verifyRescueSource,providerTimeoutEvidence,cleanRescueText}from'
 import{rescueIndexStore,rescueCaseStore,eligibleRescueRecheck}from'./rescue.mjs';
 import{loadRescueWakeupGrant,wakeCase}from'./rescue-wakeup.mjs';
 
-const indexStore=(r,g)=>new Store(r.config.stateDirectory,'rescue-completion-index:'+g.policy.grantId);
+const indexStore=(r,g)=>new Store(r.config.stateDirectory,'rescue-completion-index:'+g.policy.grantId+rescueNamespace(r));
 const eventStore=(r,id)=>new Store(r.config.stateDirectory,'rescue-completion:'+id);
 async function matchingCases(r,g,id){const out=[];for(const caseId of Object.keys((await rescueIndexStore(r,g).read()).cases??{})){const state=await rescueCaseStore(r,caseId).read();if(state.request&&[state.request.sourceRunId,state.resumeRunId].includes(String(id)))out.push({caseId,state});}return out;}
 export async function loadRescueCompletionSecret(path,runtime){
@@ -25,7 +26,7 @@ export async function receiveRescueCompletion(runtime,grant,secret,bytes,headers
  if(headers['x-github-event']==='ping')return{status:'IGNORED',reason:'PING'};
  if(headers['x-github-event']!=='workflow_run'||event.action!=='completed')return{status:'IGNORED',reason:'UNRELATED_EVENT'};
  const policy=runtime.actionExecutionPolicy(grant),hint=event.workflow_run;
- if(event.repository?.private!==true||event.repository.full_name!==policy.repository||String(event.repository.id)!==String(policy.repositoryId)||!positive(hint?.id)||!positive(hint.run_attempt)||!(/^[a-f0-9]{40}$/).test(hint.head_sha??'')||hint.path!==policy.workflowPath||hint.event!=='workflow_dispatch'||hint.head_branch!=='main'||hint.status!=='completed')return{status:'IGNORED',reason:'UNRELATED_SOURCE'};
+ if(event.repository?.private!==(policy.visibility!=='public')||event.repository.full_name!==policy.repository||String(event.repository.id)!==String(policy.repositoryId)||!positive(hint?.id)||!positive(hint.run_attempt)||!(/^[a-f0-9]{40}$/).test(hint.head_sha??'')||hint.path!==policy.workflowPath||hint.event!=='workflow_dispatch'||hint.head_branch!=='main'||hint.status!=='completed')return{status:'IGNORED',reason:'UNRELATED_SOURCE'};
  // Cases are committed before a successful Core return. No case means no
  // recovery work: do not create a workflow, download logs or allocate a Runner.
  if(hint.conclusion==='success'&&!(await matchingCases(runtime,grant,hint.id)).length)return{status:'IGNORED',reason:'NORMAL_COMPLETION'};
@@ -58,7 +59,7 @@ export async function processRescueCompletions(runtime,grant,{now=Date.now}={}){
      // A provider-proven crash/timeout may occur before Core can register a
      // case. Persist intent first; an uncertain POST is never replayed.
      s=await store.transaction(s.revision,v=>({...v,status:'attempted',attemptedAt:new Date().toISOString()}));
-     const result=await runtime.github.api('/repos/'+runtime.actionExecutionPolicy(grant).repository+'/actions/workflows/kairo-rescue.yml/dispatches','POST',{ref:'main',inputs:{source_run_id:String(source.id),reason_code:'PROVIDER_FAILURE',mode:'repair'},return_run_details:true},'2022-11-28');
+     const result=await runtime.github.api('/repos/'+runtime.actionExecutionPolicy(grant).repository+'/actions/workflows/'+rescueWorkflowFor(runtime).split('/').at(-1)+'/dispatches','POST',{ref:'main',inputs:{source_run_id:String(source.id),reason_code:'PROVIDER_FAILURE',mode:'repair'},return_run_details:true},'2022-11-28');
      if(!positive(result?.workflow_run_id))throw Error('Rescue dispatch outcome is uncertain');
      await store.transaction(s.revision,v=>({...v,status:'confirmed',rescueRunId:String(result.workflow_run_id),nextCheckAt:null}));return{status:'confirmed',runId:String(result.workflow_run_id)};
     }

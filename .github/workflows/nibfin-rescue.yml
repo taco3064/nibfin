@@ -1,0 +1,63 @@
+name: Nibfin Rescue
+run-name: Nibfin Rescue | ${{ inputs.issue_ref || format('Run {0}', inputs.source_run_id) }} | ${{ inputs.reason_code || 'Detect and recover' }}
+on:
+  workflow_dispatch:
+    inputs:
+      request_id:
+        description: Durable Rescue case identity
+        type: string
+      source_run_id:
+        description: Original private Core Run (verified again by the host)
+        type: string
+      issue_ref:
+        description: Display hint only
+        type: string
+      reason_code:
+        description: Display hint only
+        type: string
+      mode:
+        description: Repair known failures or diagnose without mutation
+        type: choice
+        options: [repair, diagnose]
+        default: repair
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: nibfin-rescue-${{ inputs.request_id || inputs.source_run_id || github.event.workflow_run.id }}
+  cancel-in-progress: false
+jobs:
+  rescue:
+    if: vars.NIBFIN_CONTROLLER_ACTIVE == 'true' && github.repository == 'taco3064/nibfin' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, linux, nibfin-controller]
+    timeout-minutes: 10
+    steps:
+      - name: Detect, recover and verify
+        id: rescue
+        continue-on-error: true
+        # Fixed installed Core only. Completion events recheck continuation results.
+        # No checkout, source-selected command or runner waiting for development.
+        run: node /opt/nibfin/controller/bin/nibfin.mjs rescue-run /etc/nibfin/development/actions-runtime.json
+      - name: Report ${{ steps.rescue.outputs.outcome || 'UNRESOLVED' }}
+        if: always() && !cancelled()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESCUE_CONCLUSION: ${{ steps.rescue.outputs.conclusion }}
+          RESCUE_STEP_OUTCOME: ${{ steps.rescue.outcome }}
+        # GitHub has no neutral workflow exit code. Cancel only this reporting
+        # Run for nonterminal/no-op results; never cancel the source or Agent.
+        run: |
+          node <<'NODE'
+          (async()=>{
+            const conclusion=process.env.RESCUE_CONCLUSION;
+            if(conclusion==='success'&&process.env.RESCUE_STEP_OUTCOME==='success')return;
+            if(conclusion!=='cancelled'||process.env.RESCUE_STEP_OUTCOME!=='success')throw Error('Unresolved: recovery was not verified');
+            const repository=process.env.GITHUB_REPOSITORY,id=process.env.GITHUB_RUN_ID;
+            if(repository!=='taco3064/nibfin'||!(/^[1-9]\d*$/).test(id))throw Error('Invalid reporting Run identity');
+            const response=await fetch('https://api.github.com/repos/'+repository+'/actions/runs/'+id+'/cancel',{method:'POST',headers:{Authorization:'Bearer '+process.env.GH_TOKEN,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},signal:AbortSignal.timeout(30000)});
+            if(response.status!==202)throw Error('Neutral reporting cancellation was not accepted: HTTP '+response.status);
+            // Keep the job alive until GitHub applies its accepted cancellation.
+            await new Promise(resolve=>setTimeout(resolve,90000));
+            throw Error('Neutral reporting cancellation was not applied');
+          })().catch(error=>{console.error(error.message);process.exitCode=1;});
+          NODE

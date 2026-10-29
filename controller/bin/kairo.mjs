@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {notificationPolicy,executionPolicy} from '../src/independent-transport.mjs';
 import { randomUUID } from 'node:crypto';
 import { prepareDynamic } from '../src/dynamic.mjs';
 import { readFile, writeFile, mkdir, appendFile } from 'node:fs/promises';
@@ -55,7 +56,8 @@ try {
       const server = createActionRelayServer(async repository => {
         // Local operator-controlled enrollment authorizes notifications only.
         // Execution still needs a separately verified live Owner Grant.
-        const policy = await json(args[1]);
+        const policy = runtime.transport ? notificationPolicy(runtime,await loadRescueWakeupGrant(runtime)) : await json(args[1]);
+        if(runtime.transport)policy.actionExecution=executionPolicy(runtime,{policy});
         const entries = await readBindings(runtime.config, policy);
         if (!entries[repository] || !policy.actionEvents?.[repository]) return null;
         return { github: runtime.github, entry: entries[repository], policy: policy.actionEvents[repository],

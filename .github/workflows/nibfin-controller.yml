@@ -1,0 +1,83 @@
+name: Nibfin action stage
+run-name: Nibfin | ${{ inputs.issue_ref || (inputs.event_envelope && format('{0}#{1}', fromJSON(inputs.event_envelope).payload.repository, fromJSON(inputs.event_envelope).payload.issueNumber || 'events')) || 'Request' }} | ${{ inputs.request_id || github.run_id }}
+on:
+  workflow_dispatch:
+    inputs:
+      issue_ref:
+        description: Display only, for example nibfin#229; never execution authority
+        type: string
+        required: false
+      request_id:
+        description: Durable Core-generated request identity
+        type: string
+        required: false
+      event_envelope:
+        description: Signed participant lifecycle hint; never execution authority
+        type: string
+        required: false
+      issue_id:
+        description: Explicit Owner reconciliation or grant-applied target
+        type: string
+        required: false
+permissions:
+  contents: read
+jobs:
+  resolve:
+    if: vars.NIBFIN_CONTROLLER_ACTIVE == 'true'
+    runs-on: [self-hosted, linux, nibfin-controller]
+    timeout-minutes: 5
+    steps:
+      - name: Validate routing shape without participant checkout
+        run: |
+          node <<'NODE'
+          const { readFileSync } = require('node:fs');
+          const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+          const i = event.inputs || {};
+          if (i.issue_ref && (!/^[\w.-]+(?:#[1-9]\d*(?:\+[1-9]\d*)*)?$/.test(i.issue_ref) || i.issue_ref.length > 128)) throw Error('Invalid Issue display reference');
+          if (process.env.GITHUB_REPOSITORY !== 'taco3064/nibfin' || process.env.GITHUB_EVENT_NAME !== 'workflow_dispatch') throw Error('Wrong execution origin');
+          if (i.request_id && !/^[a-f0-9]{64}$/.test(i.request_id)) throw Error('Invalid durable request identity');
+          if (i.issue_id && !/^[\w-]+$/.test(i.issue_id)) throw Error('Invalid Issue identity');
+          if (Buffer.byteLength(i.event_envelope || '') > 8192) throw Error('Event envelope too large');
+          if ([i.request_id, i.event_envelope, i.issue_id].filter(Boolean).length !== 1) throw Error('Exactly one typed reconciliation source is required');
+          NODE
+  execute:
+    needs: resolve
+    runs-on: [self-hosted, linux, nibfin-controller]
+    # Signed execution-limits amendment pins these exact workflow bytes.
+    timeout-minutes: 180
+    outputs:
+      handoffs: ${{ steps.core.outputs.handoffs }}
+    steps:
+      - name: Execute one installed and signed Core stage
+        id: core
+        # No caller checkout. Arguments and trusted paths are fixed; event input
+        # is read as JSON by the installed Core, never interpolated into shell.
+        run: node /opt/nibfin/controller/bin/nibfin.mjs action-run /etc/nibfin/development/actions-runtime.json
+  handoff:
+    needs: execute
+    if: needs.execute.outputs.handoffs != '' && needs.execute.outputs.handoffs != '[]'
+    runs-on: [self-hosted, linux, nibfin-controller]
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch persisted intents after the execution job succeeded
+        env:
+          HANDOFFS: ${{ needs.execute.outputs.handoffs }}
+        run: |
+          node <<'NODE'
+          const { execFileSync } = require('node:child_process');
+          (async () => {
+            if (process.env.GITHUB_RUN_ATTEMPT !== '1') throw Error('A rerun cannot repeat possibly completed dispatch writes; reconcile durable intents first');
+            const hints = JSON.parse(process.env.HANDOFFS);
+            if (!Array.isArray(hints) || hints.length > 100) throw Error('Invalid handoff list');
+            for (const h of hints) {
+              const privateStage = h.repository === 'taco3064/nibfin' && h.workflow === 'nibfin-controller.yml';
+              const participant = /^taco3064\/[\w.-]+$/.test(h.repository) && h.workflow === 'nibfin-events.yml' && /^[\w-]+$/.test(h.issueId || '');
+              if ((!privateStage && !participant) || !/^[a-f0-9]{64}$/.test(h.requestId) || h.ref !== 'main') throw Error('Foreign dispatch target');
+              if (h.issueRef && (!/^[\w.-]+#[1-9]\d*$/.test(h.issueRef) || h.issueRef.length > 128)) throw Error('Invalid display-only Issue reference');
+              execFileSync('gh', ['api', '--method', 'POST', '/repos/' + h.repository + '/actions/workflows/' + h.workflow + '/dispatches', '--input', '-'], {
+                input: JSON.stringify({ ref: h.ref, inputs: { request_id: h.requestId, ...(participant ? { issue_id: h.issueId } : {}), ...(privateStage && h.issueRef ? {issue_ref:h.issueRef} : {}) } }),
+                encoding: 'utf8', timeout: 30000,
+              });
+            }
+          })().catch(error => { console.error(error.message); process.exitCode = 1; });
+          NODE

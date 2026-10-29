@@ -1,3 +1,4 @@
+import {executionPolicy} from './independent-transport.mjs';
 import { createPublicKey, verify } from 'node:crypto';
 import { canonical, digest } from './core.mjs';
 import { Store } from './store.mjs';
@@ -109,7 +110,7 @@ export async function assertAssigneeRevision(runtime, grant, issue, requestedCyc
   need(assigneeCoreAllowed(grant,runtime.installedCoreDigest), 'ASSIGNEE_CORE_NOT_INSTALLED');
   if (requestedCycle !== undefined) need(requestedCycle === r.revisionHash, 'STALE_ASSIGNEE_REQUEST');
   need(runtime.actionIdentity?.runId, 'ASSIGNEE_FRESH_ACTION_REQUIRED');
-  const run = await runtime.github.api(`/repos/${grant.policy.actionExecution.repository}/actions/runs/${runtime.actionIdentity.runId}`);
+  const run = await runtime.github.api(`/repos/${executionPolicy(runtime,grant).repository}/actions/runs/${runtime.actionIdentity.runId}`);
   need(String(run.id) === String(runtime.actionIdentity.runId) && Date.parse(run.created_at) >= boundary.activatedAt, 'STALE_ASSIGNEE_RUN');
   return r.revisionHash;
 }

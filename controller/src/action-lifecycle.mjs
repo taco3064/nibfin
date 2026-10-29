@@ -1,3 +1,4 @@
+import {executionPolicy,notificationPolicy} from './independent-transport.mjs';
 import { unitId } from './dynamic.mjs';
 import { digest } from './core.mjs';
 import { Store } from './store.mjs';
@@ -35,7 +36,7 @@ export async function runActionLifecycle(runtime, event) {
   try { grant = await runtime.grant(); }
   catch (error) { if (error.status === 404) return { status: 'WAITING', code: 'NO_VALID_GRANT', handoffs: [] }; throw error; }
   if (grant.policy.executionMode !== 'actions-v1' || !runtime.actionIdentity) fail('ACTIONS_STAGE_REQUIRED', 'This command cannot run an old cohort-mode grant');
-  const outbox = new ActionOutbox(runtime.config.stateDirectory, runtime.github, grant.policy.actionExecution,grant.manifest.issues);
+  const outbox = new ActionOutbox(runtime.config.stateDirectory, runtime.github, executionPolicy(runtime,grant),grant.manifest.issues);
   const waiting = new Store(runtime.config.stateDirectory, `actions-capacity-wait:${grant.policy.grantId}`);
   const handoffs = [], results = [], wakeSources = new Map(); let targets = [], source;
   if (inputs.request_id) {
@@ -62,7 +63,7 @@ export async function runActionLifecycle(runtime, event) {
   } else if (inputs.event_envelope) {
     if (Buffer.byteLength(inputs.event_envelope) > 8192) fail('INVALID_ACTION_INPUT', 'Oversized lifecycle envelope');
     const envelope = JSON.parse(inputs.event_envelope), repository = envelope?.payload?.repository;
-    const entry = runtime.publicBindings?.[repository], policy = grant.policy.actionEvents?.[repository];
+    const entry = runtime.publicBindings?.[repository], policy = notificationPolicy(runtime,grant).actionEvents?.[repository];
     if (!entry || !policy) fail('OUT_OF_SCOPE', 'Event repository is not enrolled under this signed policy');
     const p = await verifyQueuedActionEvent(runtime.github, entry, envelope, policy, runtime.config.stateDirectory);
     targets = p.eventName === 'workflow_run'

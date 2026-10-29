@@ -1,0 +1,86 @@
+name: Nibfin Issue lifecycle
+run-name: Nibfin ${{ inputs.request_id || github.run_id }}
+on:
+  issues:
+    types: [opened, edited, labeled, unlabeled, reopened, closed, assigned, unassigned, milestoned, demilestoned]
+  workflow_dispatch:
+    inputs:
+      request_id:
+        description: Core completion dispatch identity; hint only
+        type: string
+        required: false
+      issue_id:
+        description: Optional original Issue identity; reconciliation hint only
+        type: string
+        required: false
+  workflow_run:
+    # Enrollment must replace these with the actual approved project workflow
+    # names and pin their paths in the signed event policy. Never use '*'.
+    workflows: ["Repository PR policy"]
+    types: [completed]
+permissions:
+  contents: read
+jobs:
+  sign-event:
+    if: vars.NIBFIN_CONTROLLER_ACTIVE == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      envelope: ${{ steps.sign.outputs.envelope }}
+    steps:
+      - name: Sign event metadata without participant checkout
+        id: sign
+        env:
+          NIBFIN_RUNNER_KEY: ${{ secrets.NIBFIN_RUNNER_KEY }}
+        run: |
+          node <<'NODE'
+          const { createHmac, randomBytes } = require('node:crypto');
+          const { readFileSync, appendFileSync } = require('node:fs');
+          const e = process.env;
+          if (!e.NIBFIN_RUNNER_KEY) { console.log('No enrolled key; no dispatch.'); process.exit(0); }
+          const key = JSON.parse(e.NIBFIN_RUNNER_KEY), b = key.binding;
+          const event = JSON.parse(readFileSync(e.GITHUB_EVENT_PATH, 'utf8'));
+          if (e.GITHUB_REPOSITORY !== b.repository || String(event.repository?.id) !== b.repositoryId || String(event.repository?.owner?.id) !== b.ownerId) throw Error('Foreign repository');
+          const eventName = e.GITHUB_EVENT_NAME;
+          let eventAction = null, issueId = null, issueNumber = null, relatedRunId = null;
+          if (eventName === 'issues') {
+            if (!['opened','edited','labeled','unlabeled','reopened','closed','assigned','unassigned','milestoned','demilestoned'].includes(event.action) || event.issue?.pull_request || String(event.issue?.user?.id) !== b.ownerId || !/^[\w-]+$/.test(event.issue?.node_id || '') || !Number.isSafeInteger(event.issue?.number)) throw Error('Untrusted Issue hint');
+            eventAction = event.action; issueId = event.issue.node_id; issueNumber = event.issue.number;
+          } else if (eventName === 'workflow_run') {
+            if (event.action !== 'completed' || event.workflow_run?.path === b.workflowPath || !Number.isSafeInteger(event.workflow_run?.id)) throw Error('Untrusted or recursive workflow hint');
+            eventAction = 'completed'; relatedRunId = String(event.workflow_run.id);
+          } else if (eventName === 'workflow_dispatch') {
+            issueId = event.inputs?.issue_id || null;
+            if (issueId !== null && !/^[\w-]+$/.test(issueId)) throw Error('Invalid Issue hint');
+          } else throw Error('Unsupported event');
+          const issuedAt = Date.now();
+          const payload = { schemaVersion: 3, repository: b.repository, repositoryId: b.repositoryId, runnerId: b.runnerId, bindingId: b.bindingId, runId: e.GITHUB_RUN_ID, runAttempt: Number(e.GITHUB_RUN_ATTEMPT), nonce: randomBytes(16).toString('hex'), issuedAt, expiresAt: issuedAt + 600000, eventName, eventAction, issueId, issueNumber, relatedRunId };
+          const signature = createHmac('sha256', Buffer.from(key.secret, 'hex')).update(JSON.stringify(payload, Object.keys(payload).sort())).digest('hex');
+          appendFileSync(e.GITHUB_OUTPUT, 'envelope=' + Buffer.from(JSON.stringify({ payload, signature })).toString('base64') + '\n');
+          NODE
+  relay:
+    needs: sign-event
+    if: needs.sign-event.outputs.envelope != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Explicitly dispatch protected Nibfin reconciliation
+        # Send only the signed hint. GitHub API credentials remain private.
+        # No checkout, Hooks or Agent login run here.
+        env:
+          ENVELOPE: ${{ needs.sign-event.outputs.envelope }}
+          EVENT_ENDPOINT: ${{ vars.NIBFIN_EVENT_ENDPOINT }}
+        run: |
+          node <<'NODE'
+          (async () => {
+            const endpoint = new URL(process.env.EVENT_ENDPOINT);
+            if (endpoint.protocol !== 'https:' || endpoint.username || endpoint.password || endpoint.pathname !== '/event') throw Error('Invalid enrolled event endpoint');
+            const envelope = JSON.parse(Buffer.from(process.env.ENVELOPE, 'base64').toString('utf8'));
+            // One signed notification. A failed/ambiguous write is never replayed.
+            const response = await fetch(endpoint, {
+              method: 'POST', redirect: 'error', signal: AbortSignal.timeout(30000),
+              headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(envelope),
+            });
+            if (!response.ok) throw Error('Nibfin reconciliation dispatch failed: HTTP ' + response.status);
+          })().catch(error => { console.error(error.message); process.exitCode = 1; });
+          NODE

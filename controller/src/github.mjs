@@ -200,7 +200,8 @@ export class GitHub {
     return pulls[0];
   }
   async createPull(issue, branch, base) {
-    return this.api(`${repoPath(issue.repository)}/pulls`, 'POST', { title: `Kairo: deliver #${issue.number}`, head: branch, base, body: `Implements #${issue.number}.\n\nManaged by the approved Kairo cohort. Closure follows verified delivery gates.` });
+    const name=this.ownerAuthority?'Nibfin':'Kairo';
+    return this.api(`${repoPath(issue.repository)}/pulls`, 'POST', { title: `${name}: deliver #${issue.number}`, head: branch, base, body: `Implements #${issue.number}.\n\nManaged by the approved ${name} cohort. Closure follows verified delivery gates.` });
   }
   async merge(repository, number, head, method) {
     const result = await this.api(`${repoPath(repository)}/pulls/${number}/merge`, 'PUT', { sha: head, merge_method: method });

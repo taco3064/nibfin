@@ -1,0 +1,29 @@
+name: Kairo private runner
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: [self-hosted, linux, kairo-private]
+    outputs:
+      private: ${{ steps.visibility.outputs.private }}
+    steps:
+      - id: visibility
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          test "$(gh api "repos/$REPOSITORY" --jq .private)" = true
+          echo 'private=true' >> "$GITHUB_OUTPUT"
+  resume:
+    needs: preflight
+    if: needs.preflight.outputs.private == 'true'
+    runs-on: [self-hosted, linux, kairo-private]
+    concurrency:
+      group: kairo-private-${{ github.repository }}
+      cancel-in-progress: false
+    steps:
+      - name: Resume installed pinned Core
+        # No caller checkout and no event-selected executable/configuration path.
+        # Enrollment installs this exact launcher and its trusted config.
+        run: node /opt/kairo/core/bin/kairo.mjs watch /etc/kairo/runtime.json

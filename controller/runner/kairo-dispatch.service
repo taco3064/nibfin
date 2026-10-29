@@ -1,0 +1,25 @@
+[Unit]
+Description=Kairo private public-repository dispatch controller
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=kairo
+Group=kairo
+WorkingDirectory=/opt/kairo/core
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+UMask=0077
+ExecStartPre=/usr/local/bin/node /opt/kairo/core/bin/kairo.mjs dispatch-service-check /etc/kairo/public.json
+ExecStart=/usr/local/bin/node /opt/kairo/core/bin/kairo.mjs dispatch-watch /etc/kairo/public.json
+Restart=on-success
+RestartPreventExitStatus=2 SIGINT SIGTERM SIGHUP SIGPIPE
+RestartSec=30
+KillMode=control-group
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

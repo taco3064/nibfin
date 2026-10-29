@@ -29,6 +29,14 @@ test('selects direct and transitive barrel/fixture consumers, excludes unrelated
   assert.deepEqual(plan(['tooling/beta-fixture.mjs']).tests,['test/beta.test.mjs']);
 });
 
+test('independent controller changes use their own regression while mixed product changes retain gates',()=>{
+ const result=plan(['controller/src/core.mjs','controller/test/core.test.mjs','.github/workflows/controller-ci.yml','tooling/ci-tests.mjs','.github/tests/pr-test-plan.test.mjs']);
+ assert.equal(result.mode,'scoped');assert.deepEqual(result.tests,[]);assert.equal(result.archive,false);assert.equal(result.website,false);
+ for(const path of ['src/alpha.mjs','package.json','host/entry.mjs','workflow/templates/nibfin-stage.yml'])assert.equal(plan(['controller/src/core.mjs',path]).mode,'full');
+ assert.equal(plan(['controller/src/core.mjs'],fixture(),'push').mode,'full');
+ assert.equal(plan(['tooling/ci-tests.mjs']).mode,'full');
+});
+
 test('test-only, website-only, matching docs and combined changes retain their scopes',()=>{
   assert.deepEqual(plan(['test/beta.test.mjs']).tests,['test/beta.test.mjs']);
   const website=plan(['website/src/page.astro']);assert.equal(website.mode,'scoped');

@@ -16,6 +16,13 @@ export function selectTests({files, changed, event = 'pull_request'}) {
   const full = reason => ({mode:'full', reason, changed, tests:all, sdk:true, archive:true, website:true});
   if (event !== 'pull_request') return full('Main/manual runs retain full verification');
   if (!changed.length) return full('Empty or unavailable change set');
+  // The development controller has its own full Linux regression job and is
+  // excluded from the public package. Root planner regression runs in both CI
+  // jobs before this plan is consumed. Mixed product changes retain full gates.
+  if (changed.some(path=>path.startsWith('controller/')) && changed.every(path=>
+    path.startsWith('controller/') || ['.github/workflows/controller-ci.yml','tooling/ci-tests.mjs','.github/tests/pr-test-plan.test.mjs'].includes(path))) {
+    return {mode:'scoped',reason:'Independent development controller; full controller regression runs in Development controller',changed,tests:[],sdk:false,archive:false,website:false};
+  }
   const symbols = new Map();
   for (const match of (files.get('src/index.mjs') ?? '').matchAll(/export\s*\{([^}]+)\}\s*from\s*['"](\.[^'"]+)['"]/g)) {
     const target = posix.normalize(posix.join('src', match[2]));

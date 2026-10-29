@@ -1,0 +1,18 @@
+name: Private authenticated agent smoke test
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    if: github.event.repository.private == true && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, linux, kairo-private]
+    timeout-minutes: 10
+    steps:
+      - name: Verify authenticated agent writes and reviewer isolation
+        working-directory: /opt/kairo/core
+        run: |
+          set -euo pipefail
+          scratch=$(mktemp -d /var/lib/kairo/state/agent-smoke-XXXXXXXX)
+          node bin/kairo.mjs digest
+          node scripts/agent-smoke.mjs /etc/kairo/agent-smoke.json "$scratch/run"

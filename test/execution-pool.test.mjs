@@ -1,5 +1,5 @@
 import test from'node:test';import assert from'node:assert/strict';
-import{validateExecutionPool,poolInventoryRead}from'../src/execution-pool.mjs';
+import{validateExecutionPool,poolInventoryRead,projectExecutionContext}from'../src/execution-pool.mjs';
 import{validateMemberBinding}from'../src/collaboration.mjs';
 import{observeRunnerBindings}from'../src/runners.mjs';
 import{hostedGithubTransport,createHostIdentityAdaptersForTest}from'../src/host-identity.mjs';
@@ -119,4 +119,16 @@ test('signed Actions source policy must match the protected pool before authorit
   assert.equal((await adapter.authenticate(f.argument)).repositoryId,target.repositoryId);
   const count=f.calls.length;f.config.source.policy.repository_id='other';
   assert.throws(()=>createHostIdentityAdaptersForTest(f.config,f.facility));assert.equal(f.calls.length,count);
+});
+test('approved pool context preserves the physical dispatch and Run while selecting only its protected logical target',()=>{
+  const options={version:1,repository:'example/cli',repositoryId:'42',environment:'nibfin-member',authentication:'actions-oidc',routing:'authenticated',executionPool:pool};
+  const context={repository:'example/core',repositoryId:'41',run:{id:'100',attempt:'1'},eventName:'workflow_dispatch',
+    event:{repository:{id:'41'},inputs:{target:'untrusted/other'}},env:{secret:'must-not-project'}};
+  const before=structuredClone(context),result=projectExecutionContext({options,mode:'execute',context});
+  assert.deepEqual(context,before);assert.equal(result.repository,'example/cli');assert.equal(result.repositoryId,'42');
+  assert.deepEqual(result.run,context.run);assert.deepEqual(result.event,context.event);assert.equal(result.env,undefined);
+  for(const patch of [{repository:'example/action'},{repositoryId:'42'},{eventName:'issues'}])
+    assert.throws(()=>projectExecutionContext({options,mode:'execute',context:{...context,...patch}}));
+  assert.throws(()=>projectExecutionContext({options:{...options,repositoryId:'99'},mode:'execute',context}));
+  assert.throws(()=>projectExecutionContext({options,mode:'lookup',context}));
 });

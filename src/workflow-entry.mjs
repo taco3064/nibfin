@@ -9,7 +9,7 @@ export async function workflowMain(env=process.env,{deployment}={}) {
   let output={status:'blocked',selected:'false',reason:'host-configuration-unavailable'};
   try {
     if (!/^[a-f0-9]{40}$/.test(env.NIBFIN_BUNDLE_COMMIT??'') || !/^[a-f0-9]{40}$/.test(env.NIBFIN_HOST_COMMIT??'')) throw Error('pins');
-    const context={repository:env.GITHUB_REPOSITORY?.toLowerCase(),repositoryId:env.GITHUB_REPOSITORY_ID,
+    let context={repository:env.GITHUB_REPOSITORY?.toLowerCase(),repositoryId:env.GITHUB_REPOSITORY_ID,
       run:{id:env.GITHUB_RUN_ID,attempt:env.GITHUB_RUN_ATTEMPT},eventName:env.GITHUB_EVENT_NAME,
       event:JSON.parse(await readFile(env.GITHUB_EVENT_PATH,'utf8'))};
     const input=env.NIBFIN_MODE==='wake'?{event:projectIssue(context.event)}:JSON.parse(env.NIBFIN_INPUT);
@@ -23,6 +23,7 @@ export async function workflowMain(env=process.env,{deployment}={}) {
         commit:env.NIBFIN_HOST_COMMIT,approval:approvals.host}});
     if (!deployment) deployment=await loadProtectedDeployment({source:env.NIBFIN_HOST_CAPABILITY_SOURCE,
       options:env.NIBFIN_HOST_OPTIONS,approval:approvals.deployment,validate:host.validateHostOptions,mode:env.NIBFIN_MODE});
+    context=core.projectExecutionContext({options:deployment.options,mode:env.NIBFIN_MODE,context});
     const controller=new AbortController(),cancel=()=>controller.abort();
     process.once('SIGTERM',cancel);process.once('SIGINT',cancel);
     try {output=await createWorkflowEntry(await host.configure({core,mode:env.NIBFIN_MODE,context,deployment})).invoke(env.NIBFIN_MODE,input,context,{signal:controller.signal});}

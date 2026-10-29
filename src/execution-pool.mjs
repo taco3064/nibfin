@@ -41,6 +41,23 @@ export function poolTarget(pool,{owner,repository,id,ownerId,ownerType}){
 export function poolLogicalTarget(pool,{repository,repositoryId}){
   const p=validateExecutionPool(pool);need(p.targets.some(t=>t.repository===repository&&t.repositoryId===repositoryId));return p;
 }
+/** Called only after protected deployment options are approved. Retain the real
+ * dispatch event and Run; project the logical target separately from its source.
+ * This is a context check, never Actions authentication or Issue authorization.
+ */
+export function projectExecutionContext({options,mode,context}){
+  need(context&&options&&typeof context.repository==='string');
+  githubId(context.repositoryId);githubId(context.run?.id);githubId(context.run?.attempt);
+  if(options.executionPool!==undefined){
+    const pool=poolLogicalTarget(options.executionPool,options);
+    need(['resolve','execute','compute'].includes(mode)&&options.routing==='authenticated'
+      &&options.authentication==='actions-oidc'&&context.eventName==='workflow_dispatch'
+      &&context.repository===pool.source.repository&&context.repositoryId===pool.source.repositoryId);
+  }else need(context.repository===options.repository&&context.repositoryId===options.repositoryId);
+  return {repository:options.repository,repositoryId:options.repositoryId,run:{...context.run},
+    ...(context.eventName===undefined?{}:{eventName:context.eventName}),
+    ...(context.event===undefined?{}:{event:structuredClone(context.event)})};
+}
 /** Only these read endpoints cross the logical target boundary. Mutations,
  * collaborator reads, arbitrary source content and other repositories do not.
  */

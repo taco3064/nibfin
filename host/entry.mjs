@@ -1,4 +1,5 @@
-// First-party protected composition. No imports, environment reads or effects at construction.
+// First-party protected composition. No environment reads or effects at construction.
+import {poolLogicalTarget} from '../src/execution-pool.mjs';
 export const hostModes = Object.freeze({
   lookup: Object.freeze(['authenticate','lookup']),
   resolve: Object.freeze(['authenticate','delivery','retain']),
@@ -23,14 +24,16 @@ const repository = v => typeof v==='string' && /^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0
 /** Serializable options only; no module names, paths, credentials or callback JSON. */
 export function validateHostOptions(options, mode) {
   need(Object.hasOwn(hostModes,mode));
-  fields(options,['version','repository','repositoryId','environment'],['groupId','authentication','routing']);
+  fields(options,['version','repository','repositoryId','environment'],['groupId','authentication','routing','executionPool']);
   need(options.version===1 && repository(options.repository) && id(options.repositoryId));
   need(options.environment=== (['execute','compute'].includes(mode)?'nibfin-member':'nibfin-hosted'));
   if (Object.hasOwn(options,'authentication')) need(options.authentication==='actions-oidc');
   if (Object.hasOwn(options,'routing')) need(options.routing==='authenticated' && options.authentication==='actions-oidc'
     && ['resolve','execute','compute'].includes(mode));
   if (Object.hasOwn(options,'groupId')) need(['resolve','execute','compute'].includes(mode) && id(options.groupId));
-  return Object.freeze({...options});
+  const pool=options.executionPool===undefined?null:poolLogicalTarget(options.executionPool,options);
+  if(pool)need(options.routing==='authenticated'&&['resolve','execute','compute'].includes(mode)&&options.groupId===undefined);
+  return Object.freeze({...options,...(pool?{executionPool:pool}:{})});
 }
 /** A trusted embedding host supplies executable capabilities separately from event/context.
  * No callback is invoked here. The returned object is consumed by createWorkflowEntry.
@@ -107,7 +110,8 @@ export function configure({core,mode,context,deployment}={}) {
         if(routed) {
           need(!routing);
           routing=core.createHostRouting({adapters,current:config?.current,mode,
-            maxCheckpointMs:deployment.identity.authorization.maxCheckpointMs,now:deployment.identity.now});
+            maxCheckpointMs:deployment.identity.authorization.maxCheckpointMs,now:deployment.identity.now,
+            ...(options.executionPool?{executionPool:options.executionPool}:{})});
           config={...config,provider:adapters.routing.provider,authorization:{eligibility:adapters.routing.eligibility},
             selector:routing.selector,...(mode==='resolve'?{}:{checkpoint:routing.checkpoint})};
         }

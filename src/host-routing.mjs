@@ -1,6 +1,7 @@
 import {createAssigneeSelector} from './selection.mjs';
 import {observeRunnerBindings} from './runners.mjs';
 import {canonicalJSON} from './grants.mjs';
+import {validateExecutionPool,poolLogicalTarget} from './execution-pool.mjs';
 
 const need=ok=>{if(!ok)throw Error('host-routing:unavailable');};
 const same=(a,b)=>canonicalJSON(a)===canonicalJSON(b);
@@ -8,12 +9,20 @@ const same=(a,b)=>canonicalJSON(a)===canonicalJSON(b);
  * identity adapter; event/input/environment fields are never Runner evidence.
  * Construction does no reads. The current Core plan owns registration records.
  */
-export function createHostRouting({adapters,current,mode,maxCheckpointMs,now=Date.now}={}) {
+export function createHostRouting({adapters,current,mode,maxCheckpointMs,now=Date.now,executionPool}={}) {
   need(typeof adapters?.routing?.provider?.request==='function' && typeof current==='function' && typeof adapters?.memberEligibility==='function'
     && typeof adapters?.observeExecution==='function' && ['resolve','execute','compute'].includes(mode));
   const selector=createAssigneeSelector({provider:adapters.routing.provider,now,maxCheckpointMs,
     authorizationFor:member=>({eligibility:(intent,settings)=>adapters.memberEligibility(member,intent,settings)})});
   const memberMode=mode!=='resolve';
+  const pool=executionPool===undefined?null:validateExecutionPool(executionPool);
+  function selectedInput(input){
+    if(pool){
+      need(input.executionPool===undefined||same(input.executionPool,pool));
+      return {...input,executionPool:pool};
+    }
+    need(input.executionPool===undefined);return input;
+  }
   let selected=null, retained=null, observed=null;
   function bounded(signal) {
     const started=now();let latest=started;
@@ -31,11 +40,15 @@ export function createHostRouting({adapters,current,mode,maxCheckpointMs,now=Dat
     const checkpoint=bounded(signal);
     const observation=await adapters.observeExecution({signal});
     const p=await current();
+    if(pool)poolLogicalTarget(pool,p.target);
     need(observation.operatorId===selection.memberId && observation.repository===p.target.repository && observation.repositoryId===p.target.repositoryId
       && same(observation.run,p.invocation.run));
     // A repository registration cannot receive a Job from another repository.
     // Organization registrations may serve other allowed repos in that org.
-    need(input.registration.level==='repository'
+    need(pool
+      ? input.registration.level==='repository'&&observation.sourceRepositoryId===pool.source.repositoryId
+        &&observation.sourceRepository===pool.source.repository
+      : input.registration.level==='repository'
       ? observation.sourceRepositoryId===input.target.id
         && observation.sourceRepository===p.target.repository
       : observation.sourceRepository.split('/')[0]===input.registration.organization.toLowerCase());
@@ -53,6 +66,7 @@ export function createHostRouting({adapters,current,mode,maxCheckpointMs,now=Dat
     return true;
   }
   async function select(input,settings={}) {
+    try{input=selectedInput(input);}catch{return {outcome:'blocked',reason:'execution_pool_unavailable'};}
     const memberId=retained?.memberId;
     const selection=await selector.select(input,{...settings,...(memberId?{memberId}:{})});
     if(memberMode && selection.outcome==='selected') {
@@ -70,7 +84,7 @@ export function createHostRouting({adapters,current,mode,maxCheckpointMs,now=Dat
       try {
         need(retained && same(retained.request,request) && same(retained.route,route)
           && retained.memberId===memberId && selected?.memberId===memberId);
-        return await actual((await current()).selectionInput,selected,signal);
+        return await actual(selectedInput((await current()).selectionInput),selected,signal);
       } catch {return false;}
     },
     async group({id,target,labels}) {

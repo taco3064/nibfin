@@ -258,7 +258,7 @@ test('Issue #86 AC4: approved replacement invalidates complete historical chains
   const keys = generateKeyPairSync('ed25519');
   const privateKey = keys.privateKey.export({type:'pkcs8',format:'pem'});
   const publicKey = keys.publicKey.export({type:'spki',format:'pem'});
-  const first = exportAuthority({source:'https://app.notion.com/p/40006b644a2080dab1a8c2e562f95373',
+  const first = exportAuthority({source:'https://github.com/example-org/core/issues/101',
     revision:'1',approvalId:'approval-1',cycle:'cycle-1',
     components:[{id:'scope',kind:'section',body:'Full approved source',references:[]}]});
   const approve = v => {

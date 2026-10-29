@@ -2,13 +2,14 @@
 
 The root `@nibfin/core` entry exports `exportAuthority`, `importAuthority`,
 `authoritySnapshot`, `verifyAuthority` and `synchronizeAuthority`. These are local,
-serializable, pure interfaces. They perform no Notion reads, provider mutations,
+serializable, pure interfaces. They perform no provider reads or mutations,
 automatic approval, refresh, signing, persistence or restart. Local tests establish
 these bounded contracts, not live provider or complete product delivery support.
 
 `observeIssueAuthority` is a separate read-only provider adapter for an installed
 GitHub Issue target. Native canonical `https://github.com/owner/repo/issues/number`
-sources are supported alongside historical Notion exports. The protected caller
+sources are the only accepted requirement sources. Proposal documents are not
+requirement authority. The protected caller
 supplies the exact repository ID, Issue database/node IDs, number, cycle and
 approval identity. Each call freshly reads the public repository and Issue,
 checks those independent identities and retains the full current body as one
@@ -28,7 +29,7 @@ Old exports and receipts do not become current simply because the URL is valid.
 
 ```js
 {
-  source: 'https://app.notion.com/p/40006b644a2080dab1a8c2e562f95373',
+  source: 'https://github.com/example-org/core/issues/101',
   revision: '2026-10-24T13:10:19.626Z',
   approvalId: 'owner-approval-1',
   cycle: 'authorization-cycle-1',
@@ -39,7 +40,8 @@ Old exports and receipts do not become current simply because the URL is valid.
 }
 ```
 
-Source is a canonical lowercase 32-hex Notion document URL in the displayed form;
+Source is a canonical GitHub Issue URL in the displayed form, using lowercase
+owner/repository coordinates and a positive decimal Issue number;
 URL aliases are deliberately unsupported. Revision, approvalId, cycle, component
 IDs and reference IDs are nonempty strings without controls or `*`. Components
 are a nonempty ordered array, each with exactly `id`, `kind`, `body`, `references`.
@@ -54,7 +56,7 @@ encoding. No Unicode, newline, whitespace or component-order normalization occur
 The Owner review must enumerate and approve ALL material sections, attachments
 and referenced content, their order, exact bodies and reference edges. Completeness
 means equality with that independently approved full representation. It is not a
-claim that this package observed all live Notion blocks. The trusted application
+claim that this package observed all current Issue requirements. The trusted application
 must obtain a complete export and review it independently; a caller-provided
 `complete:true`, self-selected inventory or self-recomputed hash proves nothing.
 Do not include credentials or private material in public candidates or diagnostics.

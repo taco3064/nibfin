@@ -14,7 +14,6 @@ function token(value) {
 }
 function source(value) {
   if(typeof value!=='string')fail('source');
-  if(/^https:\/\/app\.notion\.com\/p\/[a-f0-9]{32}$/.test(value))return;
   const issue=/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/issues\/([1-9][0-9]*)$/.exec(value);
   try{if(!issue||repositoryCoordinates(issue[1],issue[2]).key!==issue[1]+'/'+issue[2])fail('source');githubId(issue[3]);}
   catch{fail('source');}

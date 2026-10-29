@@ -49,13 +49,13 @@ test('only exact public repository and Issue identities can supply the current S
   assert.doesNotMatch(JSON.stringify(await observeIssueAuthority(f.input)),/PRIVATE/);
 });
 
-test('source syntax rejects aliases, PRs, mutable suffixes and credential-bearing URLs while retaining historical Notion exports',()=>{
+test('source syntax rejects aliases, PRs, mutable suffixes and credential-bearing URLs and proposal document sources',()=>{
   const base={revision:'1',approvalId:'approval',cycle:'cycle',components:[{id:'scope',kind:'section',body:'Scope',references:[]}]};
   for(const source of ['http://github.com/example/core/issues/1','https://github.com.evil.example/example/core/issues/1',
     'https://token@github.com/example/core/issues/1','https://github.com/example/core/pull/1','https://github.com/example/core/issues/01',
     'https://github.com/Example/Core/issues/1','https://github.com/example/core/issues/1#comment','https://github.com/example/core/issues/1?ref=main',
-    'https://github.com/example/../issues/1'])assert.throws(()=>exportAuthority({...base,source}),/authority:source/);
-  assert.ok(exportAuthority({...base,source:'https://app.notion.com/p/'+'a'.repeat(32)}).identity);
+    'https://github.com/example/../issues/1', 'https://app.notion.com/p/'+'a'.repeat(32)])assert.throws(()=>exportAuthority({...base,source}),/authority:source/);
+  assert.ok(exportAuthority({...base,source:'https://github.com/example/core/issues/1'}).identity);
 });
 
 test('cancelled, expired and hanging observations remain unavailable and never manufacture authority',async()=>{

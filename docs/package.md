@@ -167,11 +167,12 @@ lowercase `owner/repository` coordinates and visibility exactly public. Personal
 and organization public owners use identical predicates; ownership never selects
 Runner registration level or enables automatic registration. Private targets fail.
 A snapshot is exactly `{source, revision, body, hash}`: nonempty source/revision
-strings, exact body string and `bodyDigest(body)`. Use approved immutable source
-locators and revisions. Hashing arbitrary Issue prose does not establish product
-authority, approval or truthful GitHub observations. The caller supplies approved
-Proposal snapshots independently of untrusted Issue content. The Grant API has
-no hidden Notion fetch or provider verification. The explicit approved-export
+strings, exact body string and `bodyDigest(body)`. Requirements come from the current GitHub Issue, identified by canonical URL
+and content revision. Proposal documents do not supply requirement authority.
+Hashing arbitrary prose does not establish approval or truthful GitHub observations.
+The protected host binds the Issue read to the Owner's existing authorization;
+the Issue text cannot grant execution privileges. The Grant API has
+no hidden provider fetch or provider verification. The explicit approved-export
 interface and pure synchronization transition are specified in
 [authority.md](authority.md); they reuse these full signed snapshots.
 

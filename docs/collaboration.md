@@ -80,3 +80,41 @@ API/process boundaries and test keys. The archive verifier executes these
 contracts against candidate package bytes. Live multi-account/model/Runner
 isolation, official queueing, Org enrollment and external E2E remain Unverified
 until separately authorized tests run. No release or live certification is claimed.
+# Shared personal-repository execution pool
+
+An explicit protected `executionPool` can route several public repositories owned
+by the same personal account through one public execution repository. Register
+each physical Runner only with that execution repository; logical target bindings
+reuse its actual Runner IDs. Two instances therefore remain two registrations,
+even when three logical repositories have bindings for each instance.
+
+The version 1 pool contains `source` and a finite `targets` array. Every identity
+has `version: 1`, canonical `repository`, stable string `repositoryId`, `ownerId`
+and `ownerType: "User"`. The source must appear in the target set, every target
+must have the same owner, and names and stable IDs must be unique. Put this value
+in protected deployment options, never workflow event inputs or model output.
+Repository-level registration remains the actual source repository. A pooled
+member record explicitly uses `version: 2`, retains its logical `repositoryId`,
+and adds `executionRepositoryId` equal to the source registration ID. Legacy
+records and organization routing keep their existing checks.
+
+The selector still reads the logical Issue's assignees and permissions and checks
+its own Grant. Only the source repository identity and exact paginated Runner
+inventory receive a cross-repository read capability. Actual source visibility,
+stable identity, owner and inventory are rechecked. Hosted credentials must cover
+both repositories; local management reads require administration at the real
+source. No source mutation, collaborator query or arbitrary file read is added.
+
+After protected deployment options are approved, `projectExecutionContext`
+checks that the real `workflow_dispatch` belongs to the configured source and
+projects its logical target for the Core invocation. It preserves the actual
+event and Run and does not authenticate Actions or authorize an Issue. OIDC,
+retained request, Grant, member and actual Runner checks remain independent.
+The dependency-free host bootstrap receives the pure pool validator from the
+approved Core package; it does not import an unchecked adjacent source graph.
+
+This describes the Core contract. CLI onboarding, the Action consumer and actual
+Runner/service installation must install a matching producer set and supply this
+protected configuration before a pool is operational. Source fixtures alone do
+not certify that installation or a maintainer cutover.
+

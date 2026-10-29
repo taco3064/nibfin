@@ -196,7 +196,9 @@ test('hosted credentials stay at hosted steps; CLI failures do not leak inputs o
   const {mkdtemp,writeFile,readFile,rm}=await import('node:fs/promises'),{tmpdir}=await import('node:os');
   const {join}=await import('node:path');
   const docs=workflowYAML(),w=docs.get(delivery),sentinel='HOST-MANAGEMENT-SENTINEL';
-  assert.equal(w.on.workflow_call.secrets,undefined);
+  assert.deepEqual(w.on.workflow_call.secrets,{NIBFIN_HOST_TOKEN:{required:false}});
+  assert.deepEqual(docs.get('workflow/templates/nibfin-stage.yml').jobs.stage.secrets,
+    {NIBFIN_HOST_TOKEN:'${{ secrets.NIBFIN_HOST_TOKEN }}'});
   const context={...ctx,vars:{NIBFIN_BUNDLE_COMMIT:'a'.repeat(40),NIBFIN_HOST_COMMIT:'b'.repeat(40)},
     secrets:{NIBFIN_HOST_TOKEN:sentinel},github:{...ctx.github,token:'read-only'},
     needs:{resolve:{outputs:{execution_mode:'compute',resolution:'ref-resolution'}}},inputs:{issue:'101',nibfin_request:'request-1',nibfin_correlation:'corr'}};

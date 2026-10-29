@@ -84,7 +84,7 @@ test('source transport requires an installed dispatch policy, exact workflow/ref
   // Use the real provider HTTP projection too: it omits target/operation after
   // completing its own authorization checkpoint, rather than passing fixtures.
   const provider=createGithubProvider({identity:'hosted-authorized',transport,authorize:()=>true,attempts:1,now:()=>1100});
-  const submitted=await provider.request({...write,body:JSON.parse(write.body)});
+  const submitted=await provider.request({...write,correlation:'request-1',body:JSON.parse(write.body)});
   assert.equal(submitted.outcome,'submitted',JSON.stringify(submitted));
   assert.equal(calls.at(-1).request.body,write.body);
   for(const endpoint of ['/repos/example/core/actions/workflows/50/runs?event=workflow_dispatch&per_page=100',

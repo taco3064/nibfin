@@ -50,7 +50,7 @@ export function projectExecutionContext({options,mode,context}){
   githubId(context.repositoryId);githubId(context.run?.id);githubId(context.run?.attempt);
   if(options.executionPool!==undefined){
     const pool=poolLogicalTarget(options.executionPool,options);
-    need(['resolve','execute','compute'].includes(mode)&&options.routing==='authenticated'
+    need(['lookup','resolve','execute','compute'].includes(mode)&&options.routing==='authenticated'
       &&options.authentication==='actions-oidc'&&context.eventName==='workflow_dispatch'
       &&context.repository===pool.source.repository&&context.repositoryId===pool.source.repositoryId);
   }else need(context.repository===options.repository&&context.repositoryId===options.repositoryId);

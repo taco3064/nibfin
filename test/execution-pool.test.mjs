@@ -5,7 +5,8 @@ import{observeRunnerBindings}from'../src/runners.mjs';
 import{hostedGithubTransport,createHostIdentityAdaptersForTest}from'../src/host-identity.mjs';
 import{createHostRouting}from'../src/host-routing.mjs';
 import{createGithubProvider}from'../src/provider.mjs';
-import{validateHostOptions}from'../host/entry.mjs';
+import{validateHostOptions,configure}from'../host/entry.mjs';
+import * as core from '../src/index.mjs';
 import{hostIdentityFixture}from'../tooling/host-identity-fixture.mjs';
 const identity=(repository,repositoryId)=>({version:1,repository,repositoryId,ownerId:'7',ownerType:'User'});
 const source=identity('example/core','41'),targets=[source,identity('example/cli','42'),identity('example/action','43')];
@@ -87,6 +88,11 @@ test('pool configuration stays protected and cannot enter unrelated host modes o
     const o=structuredClone(options);edit(o);assert.throws(()=>validateHostOptions(o,'execute',validateExecutionPool));
   }
   assert.throws(()=>validateHostOptions({...options,environment:'nibfin-hosted'},'lookup'));
+  assert.deepEqual(validateHostOptions({...options,environment:'nibfin-hosted'},'lookup',validateExecutionPool).executionPool,pool);
+  const unpooled={...options,environment:'nibfin-hosted'};delete unpooled.executionPool;
+  assert.throws(()=>validateHostOptions(unpooled,'lookup',validateExecutionPool));
+  for(const mode of ['wake','registration','rescue'])
+    assert.throws(()=>validateHostOptions({...options,environment:'nibfin-hosted'},mode,validateExecutionPool));
 });
 test('actual Runner verification binds logical target, real source, operator and observed Runner independently',async()=>{
   const f=fixture(),member={id:'8',login:'member'},run={id:'101',attempt:'1'};
@@ -107,7 +113,8 @@ test('actual Runner verification binds logical target, real source, operator and
   assert.equal((await routing.selector.select(forged)).reason,'execution_pool_unavailable');
 });
 test('signed Actions source policy must match the protected pool before authority is consulted',async()=>{
-  const f=await hostIdentityFixture('resolve'),source=identity('example-org/automation','91');source.ownerId='17';
+  for(const mode of ['lookup','resolve']){
+  const f=await hostIdentityFixture(mode),source=identity('example-org/automation','91');source.ownerId='17';
   const target=identity('example-org/core','9007199254740993');target.ownerId='17';
   const p={version:1,source,targets:[source,target]};
   Object.assign(f.config.options,{routing:'authenticated',executionPool:p});
@@ -119,6 +126,7 @@ test('signed Actions source policy must match the protected pool before authorit
   assert.equal((await adapter.authenticate(f.argument)).repositoryId,target.repositoryId);
   const count=f.calls.length;f.config.source.policy.repository_id='other';
   assert.throws(()=>createHostIdentityAdaptersForTest(f.config,f.facility));assert.equal(f.calls.length,count);
+  }
 });
 test('approved pool context preserves the physical dispatch and Run while selecting only its protected logical target',()=>{
   const options={version:1,repository:'example/cli',repositoryId:'42',environment:'nibfin-member',authentication:'actions-oidc',routing:'authenticated',executionPool:pool};
@@ -130,5 +138,33 @@ test('approved pool context preserves the physical dispatch and Run while select
   for(const patch of [{repository:'example/action'},{repositoryId:'42'},{eventName:'issues'}])
     assert.throws(()=>projectExecutionContext({options,mode:'execute',context:{...context,...patch}}));
   assert.throws(()=>projectExecutionContext({options:{...options,repositoryId:'99'},mode:'execute',context}));
-  assert.throws(()=>projectExecutionContext({options,mode:'lookup',context}));
+  assert.equal(projectExecutionContext({options:{...options,environment:'nibfin-hosted'},mode:'lookup',context}).repositoryId,'42');
+  for(const mode of ['wake','registration','rescue'])assert.throws(()=>projectExecutionContext({options,mode,context}));
+});
+
+test('pooled lookup reaches only its protected logical target after source authentication and creates no Runner routing state',async()=>{
+  const f=await hostIdentityFixture('lookup'),source={...identity('example-org/automation','91'),ownerId:'17'},
+    target={...identity('example-org/core','9007199254740993'),ownerId:'17'},executionPool={version:1,source,targets:[source,target]};
+  Object.assign(f.config.options,{routing:'authenticated',executionPool});
+  Object.assign(f.policy,{repository:source.repository,repository_owner_id:'17',workflow_ref:source.repository+'/.github/workflows/stage.yml@refs/heads/main'});
+  f.state.token=await f.sign({repository:f.policy.repository,repository_owner_id:'17',workflow_ref:f.policy.workflow_ref});
+  f.replies['/repos/example-org/core'].owner.type='User';
+  f.replies['/repos/example-org/automation']={...actual(source),owner:{id:'17',login:'example-org',type:'User'}};
+  const physical={repository:source.repository,repositoryId:source.repositoryId,run:{id:f.policy.run_id,attempt:f.policy.run_attempt},
+    eventName:'workflow_dispatch',event:{inputs:{target:'untrusted/other'}}};
+  const context=projectExecutionContext({options:f.config.options,mode:'lookup',context:physical});
+  const {options,mode,...identityConfiguration}=f.config;
+  let calls=0,lookupTarget={repository:target.repository,repositoryId:target.repositoryId,number:'101'};
+  const host=configure({core:{...core,createHostIdentityAdapters:c=>createHostIdentityAdaptersForTest(c,f.facility)},mode,context,
+    deployment:{options,identity:identityConfiguration,capabilities:{lookup:async argument=>{
+      calls++;assert.equal(argument.identity.repositoryId,target.repositoryId);assert.deepEqual(argument.context,undefined);return lookupTarget;
+    }}}});
+  assert.equal(host.bindResolution,undefined);assert.equal(host.runnerObservation,undefined);
+  const entry=core.createWorkflowEntry(host),input={nibfin_request:'retained-request',nibfin_correlation:'original-correlation'};
+  assert.deepEqual(await entry.invoke('lookup',input,context),{status:'resolved',issue:'101'});assert.equal(calls,1);
+  lookupTarget={...lookupTarget,repository:'untrusted/other'};
+  assert.equal((await entry.invoke('lookup',input,context)).status,'blocked');
+  const before=calls;f.state.token=await f.sign({repository:'untrusted/other'});
+  assert.equal((await entry.invoke('lookup',input,context)).status,'blocked');assert.equal(calls,before);
+  assert.ok(f.calls.every(r=>r.method==='GET'));assert.deepEqual(f.handoffs,[]);
 });

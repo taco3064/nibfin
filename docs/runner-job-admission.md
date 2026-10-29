@@ -58,3 +58,24 @@ The host administrator, OS, immutable installed sources, Runner binary and gh
 login store remain trusted. A hook is not a VM boundary or protection from a
 compromised Runner/OS. Unsupported layouts and real Linux/WSL registration,
 service, credentials and lifecycle support remain explicit until actually tested.
+
+
+## Official Organization registrations
+
+The optional policy field `registrationLevel` is `repository` by default or
+explicitly `organization`. The official Runner stores the configured registration
+URL in `.runner.gitHubUrl`; an Org-level registration therefore has an Org URL,
+not a fabricated repository URL. The Hook parses that exact scope and retains
+all actual Run/Attempt/job/Runner, binary and workflow-source checks.
+
+An Org policy requires matching Org URL, target owner ID and authenticated
+`Organization` owner type. A per-instance policy set may list distinct exact
+repositories in that same Org, each with its own stable ID and workflow pins.
+Unlisted repositories, inconsistent names/IDs, another Org, mixed registration
+levels or another instance reject. Repository registrations remain bound to one
+repository. The Hook selects a listed repository before making bounded API reads;
+Org registration never becomes blanket admission or Issue authority.
+
+This implements source-level scope compatibility. It does not certify a live
+Organization registration or replace the Core's independent eligibility checks.
+Official source: https://github.com/actions/runner/blob/v2.331.0/src/Runner.Listener/Configuration/ConfigurationManager.cs#L140

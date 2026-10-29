@@ -89,6 +89,7 @@ export function createAssigneeSelector({provider, authorizationFor, now = Date.n
           if (response.outcome === 'read') fresh(response.observedAt);
           return response;
         }}, {target, registration:c.registration, records,
+          ...(c.executionPool===undefined?{}:{executionPool:c.executionPool}),
           conditions:{...conditions,labels:[]},correlation:'selection',signal});
         if (r.outcome !== 'matched' || r.inventory !== 'complete') stop('runners');
         if (conditions.groupId !== undefined

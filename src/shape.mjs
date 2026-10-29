@@ -2,6 +2,7 @@ import {bodyDigest, canonicalJSON, contentIdentity, compareEvidence, selectInstr
   parseCandidateObligations, reconcileCandidateObligations, controlledIntent,
   nativeConcurrency, githubId, repositoryCoordinates} from './index.mjs';
 
+import {assertRequirementsScope,requirementsDocumentFrame} from './requirements-document.mjs';
 const same = (a,b) => canonicalJSON(a) === canonicalJSON(b);
 const clone = structuredClone;
 const finding = e => /^shape:[a-z-]+$/.test(e?.message) ? e.message : 'shape:unavailable';
@@ -30,6 +31,7 @@ export function createShapeFlow({provider, authorization, dependencies, dependen
   }
   function intake(v) {
     const t=v.target;
+    require(v.requirementsDocument===undefined||v.requirementsDocument==='scope-shape-v1','requirements-format');
     require(v.instructions && Object.keys(v.instructions).every(k=>['repository','shared','approvals'].includes(k)),'instruction-configuration');
     require(typeof v.decision==='string' && /^[a-f0-9]{64}$/.test(v.decision),'decision');
     githubId(t.repositoryId); githubId(t.databaseId); githubId(t.number);
@@ -65,7 +67,9 @@ export function createShapeFlow({provider, authorization, dependencies, dependen
     const selected=selectInstructions({...pin.instructions,skill:'shape',role:name});
     // prepareRole binds task to the existing lifecycle/backend task capability.
     const task=freeze({target:pin.target,original:pin.original,authority:pin.binding,
-      proposedBody:body,author,obligations:await obligations()});
+      proposedBody:body,author,obligations:await obligations(),
+      ...(pin.requirementsDocument?{requirementsDocument:{format:pin.requirementsDocument,scope:pin.original.body,
+        frame:requirementsDocumentFrame(pin.original.body)}}:{})});
     const prepared=await prepareRole({role:name,skill:'shape',instructions:selected,task});
     const {lifecycle,input}=prepared;
     require(input.execution.role===name && input.execution.skill==='shape'
@@ -93,11 +97,13 @@ export function createShapeFlow({provider, authorization, dependencies, dependen
     const proposed=name==='shape' ? await readBody(input.execution.id) : body;
     require(typeof proposed==='string' && proposed!==pin.original.body
       && receipt.inputs.body===bodyDigest(proposed),'body-evidence');
+    if(pin.requirementsDocument)assertRequirementsScope(proposed,pin.original.body);
     if (name==='shape-validator') require(receipt.inputs.author===author && receipt.binding.shapeHash===bodyDigest(body),'validator-body');
     await checkpoint(pin,name);
     return {body:proposed,receipt};
   }
   async function validate(pin, author, validator) {
+    if(pin.requirementsDocument)assertRequirementsScope(author.body,pin.original.body);
     const a=compareEvidence(author.receipt,await evidenceCurrent(author.receipt.execution.id));
     const v=compareEvidence(validator.receipt,await evidenceCurrent(validator.receipt.execution.id));
     require(a.stage==='shape' && v.stage==='shape-validator' && author.body===validator.body

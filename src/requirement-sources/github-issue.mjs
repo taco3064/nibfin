@@ -1,4 +1,5 @@
 import {repositoryCoordinates,githubId} from '../identity.mjs';
+import {parseRequirementsDocument} from '../requirements-document.mjs';
 
 const need=ok=>{if(!ok)throw Error('requirement-source:target');};
 function validateTarget(target){
@@ -25,7 +26,8 @@ async function read({target,request}){
   need(issue?.id===target.databaseId&&issue.node_id===target.issueId&&String(issue.number)===target.number
     &&issue.repository_url==='https://api.github.com'+root&&issue.url==='https://api.github.com'+path
     &&!Object.hasOwn(issue,'pull_request'));
-  return {body:issue.body};
+  const document=parseRequirementsDocument(issue.body);
+  return {body:document.scope,document:{...document,currentBody:issue.body}};
 }
 // Provider-specific identity, URL and API behavior stays in this one adapter.
 // No approval, signing, writes, persistence, labels or lifecycle decisions.

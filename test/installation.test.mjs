@@ -96,6 +96,21 @@ test('failed switch, confirmed switch and explicit rollback retain protected wor
   work.unknownWrite=true;assert.equal((await attempt(v.current,v.next)).status,'blocked');assert.equal(calls,count);
 });
 
+test('explicit maintenance upgrades preserve the real pause and original work through switch and rollback',async()=>{
+  const v=transition();v.work.paused=true;let installation=structuredClone(v.current),calls=0;
+  const original=structuredClone(v.work),args={maintenance:true,observe:async()=>({installation,work:v.work}),
+    retain:async intent=>{assert.equal(intent.plan.maintenance,'preserve-pause');return {status:'retained',identity:intent.identity,prior:'new'};},
+    switchPins:async request=>{calls++;assert.deepEqual(v.work,original);installation=structuredClone(request.next);}};
+  assert.equal((await applyInstallationTransition({...args,current:v.current,next:v.next})).status,'switched');
+  assert.equal((await applyInstallationTransition({...args,current:v.next,next:v.current})).status,'switched');
+  assert.equal(calls,2);assert.deepEqual(v.work,original);assert.deepEqual(installation,v.current);
+  for(const change of [w=>w.hold={id:'owner'},w=>w.unknownWrite=true,w=>w.active=true,w=>w.terminated=false,
+    w=>w.reconciled=false,w=>w.restrictionsChecked=false,w=>w.paused=false]){
+    const input=transition();input.work.paused=true;change(input.work);
+    assert.equal(planInstallationTransition(input,{maintenance:true}).status,'blocked');
+  }
+});
+
 test('isolated readiness bootstrap diagnoses missing/tampered package bytes before importing broken runtime owners',()=>{
   const original=fileURLToPath(new URL('../',import.meta.resolve('@nibfin/core'))),root=mkdtempSync(join(tmpdir(),'nibfin-readiness-'));
   const identity=distributionIdentity(),expected={packageVersion:identity.packageVersion,coreSha256:identity.components.core.sha256};

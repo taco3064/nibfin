@@ -1,6 +1,7 @@
 // Adapted from taco3064/kairo@d1b47d5e073cf15bdcdc1fbbec098401649878d9.
 // See docs/kairo-reuse.md for ownership, adapters and deviations.
 import { validateSchema } from './candidate-schema.mjs';
+import {parseRequirementsDocument} from './requirements-document.mjs';
 
 export const candidateContractSchema = {
   type: 'object', additionalProperties: false, required: ['artifacts', 'hooks'], properties: {
@@ -12,6 +13,7 @@ export function safeCandidatePath(path) {
   return typeof path === 'string' && /^[A-Za-z0-9_.-][A-Za-z0-9_./-]*$/.test(path) && path.split('/').every(p => p && !['.', '..', '.git'].includes(p.toLowerCase()));
 }
 export function candidateContract(body) {
+  const document=parseRequirementsDocument(body||'');body=document.shape??document.scope;
   const blocks = [...(body || '').matchAll(/^```kairo-candidate\r?\n([\s\S]*?)^```\s*$/gm)];
   if (blocks.length !== 1) throw new Error('Shape must contain exactly one kairo-candidate obligations block');
   return validateCandidateInventory(JSON.parse(blocks[0][1]));

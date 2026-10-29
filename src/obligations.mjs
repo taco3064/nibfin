@@ -1,4 +1,5 @@
 import {validateCandidateInventory} from './candidate-contract.mjs';
+import {parseRequirementsDocument} from './requirements-document.mjs';
 import {lstatSync} from 'node:fs';
 import {resolve, join, parse} from 'node:path';
 
@@ -52,6 +53,8 @@ function inventoryDiagnostics(inventory) {
 export function parseCandidateObligations(body) {
   const errors = [], blocks = [], prose = [];
   if (typeof body !== 'string') return result([diagnostic('body', '', 'Expected a string')]);
+  try{const document=parseRequirementsDocument(body);body=document.shape??document.scope;}
+  catch{return result([diagnostic('body','','Invalid requirements document')]);}
   let fence = null, content = [];
   for (const line of body.split(/\r?\n/)) {
     if (fence) {

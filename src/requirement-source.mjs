@@ -33,7 +33,8 @@ export async function observeRequirementAuthority({source,provider,cycle,approva
     const observedAt=now();need(Number.isSafeInteger(observedAt)&&observedAt>=startedAt
       &&observedAt-startedAt<timeoutMs&&!signal.aborted);
     const canonicalSource=adapter.canonicalSource(selected.target);need(adapter.acceptsSource(canonicalSource));
-    return {outcome:'observed',source:selected,startedAt,observedAt,authority:exportAuthority({source:canonicalSource,
+    return {outcome:'observed',source:selected,startedAt,observedAt,
+      ...(observed.document?{document:JSON.parse(canonicalJSON(observed.document))}:{}),authority:exportAuthority({source:canonicalSource,
       revision:bodyDigest(observed.body),cycle,approvalId,components:[{id:'scope',kind:'section',body:observed.body,references:[]}]})};
   }catch{return {outcome:'unavailable',reason:'requirement-source-unavailable'};}
   finally{active=false;if(abort)signal.removeEventListener('abort',abort);}

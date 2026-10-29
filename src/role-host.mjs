@@ -11,6 +11,7 @@ import {canonicalJSON} from './grants.mjs';
 import {skillForRole} from './evidence.mjs';
 import {bodyDigest} from './canonical.mjs';
 import {assertRequirementsScope} from './requirements-document.mjs';
+import {importWorkspace,materializeWorkspace} from './workspace.mjs';
 const fail = code => {throw Error(`role-host:${code}`);};
 const clone = v=>JSON.parse(canonicalJSON(v));
 const roles=['shape','shape-validator','shape-diagnosis','shaper-review','deliver','accept'];
@@ -59,6 +60,25 @@ export function createProtectedRoleHost({configuration,bind,retain,probe,observe
           ||typeof current!=='function'||typeof prompt!=='string'||!inputs||['id','request','result'].some(k=>used.has(input.execution[k])))fail('binding');
       const budget=createRoleBudget({deadlineAt,reserveMs,now});
       const launchInputs=clone(inputs);
+      // Native independent reviewers consume Core's complete verified transfer.
+      // The configured role selects the destination; neither the transfer nor
+      // model output can choose a path or replace an existing working copy.
+      let workspaceReceipt=null;
+      if(task.task?.workspace!==undefined||task.task?.expected!==undefined){
+        if(profile.os!=='linux'||!['accept','shaper-review'].includes(task.role))fail('workspace-transfer-role');
+        const descriptor=profile.backend,instance=descriptor.environment.instances.find(i=>i.id===descriptor.instanceId);
+        const expected=task.task.expected;
+        if(!expected||canonicalJSON(input.workspace)!==canonicalJSON({path:instance.workspace,access:'read'})
+          ||canonicalJSON(expected.candidate)!==canonicalJSON(launchInputs.candidate)
+          ||expected.binding?.repository!==task.task.repository
+          ||['scopeHash','shapeHash','policy'].some(k=>expected.binding[k]!==input.binding[k]))fail('workspace-transfer-binding');
+        const capture=importWorkspace(Buffer.from(canonicalJSON(task.task.workspace)),{expected});
+        const materialized=materializeWorkspace(capture,{expected,root:instance.workspace});
+        const reference=await retain({version:1,kind:'role-workspace',execution:clone(input.execution),
+          binding:clone(input.binding),workspace:materialized.workspace});
+        if(typeof reference!=='string'||!reference)fail('workspace-retention');
+        workspaceReceipt={...materialized,reference};
+      }
       let authored=null;
       const currentWithOutput=id=>{
         const value=clone(current(id));
@@ -128,6 +148,7 @@ export function createProtectedRoleHost({configuration,bind,retain,probe,observe
         backend:collectionBackend,current:currentWithOutput,startCurrent,resultContext,collectFailures:true});
       for(const key of ['id','request','result'])used.add(input.execution[key]);
       const value=Object.freeze({taskIdentity:contentIdentity(task.task),input:clone(input),lifecycle,lane,budget,
+        ...(workspaceReceipt?{workspace:clone(workspaceReceipt)}:{}),
         current:currentWithOutput,
         ...(shapeAuthor?{readBody:()=>{if(!authored)fail('shape-unavailable');return authored.body;}}:{}),
         ...(task.role==='deliver'?{bindCandidate:async value=> {

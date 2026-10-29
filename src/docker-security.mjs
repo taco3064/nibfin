@@ -64,3 +64,21 @@ export function assertContainerConfiguration(container,args) {
   const sorted=xs=>xs.sort((a,b)=>a.Destination.localeCompare(b.Destination));
   if(!same(sorted(expected),sorted(observed)))throw Error('docker-security: mount mismatch');
 }
+
+
+// Explicit public Node-image metadata. Never inherit an arbitrary image or host
+// environment. Overrides are non-credential constants; the complete container
+// environment must still match the actual fixed launch arguments.
+const node22Environment=Object.freeze(['NODE_VERSION=22.23.3','YARN_VERSION=1.22.22']);
+const node22ImageEnvironment=Object.freeze(['PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',...node22Environment]);
+export function imageEnvironmentOverrides(layout='path-only-v1') {
+  if(layout==='path-only-v1')return Object.freeze([]);
+  if(layout==='node22-bookworm-v1')return node22Environment;
+  throw Error('docker-security: unsupported image environment layout');
+}
+export function imageEnvironmentMatches(values,layout='path-only-v1') {
+  imageEnvironmentOverrides(layout);
+  if(!Array.isArray(values)||values.some(v=>typeof v!=='string'))return false;
+  if(layout==='path-only-v1')return values.every(v=>/^PATH=/.test(v));
+  return JSON.stringify([...values].sort())===JSON.stringify([...node22ImageEnvironment].sort());
+}

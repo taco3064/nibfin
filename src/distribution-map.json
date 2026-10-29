@@ -220,7 +220,7 @@
     },
     {
       "path": "docs/codex.md",
-      "sha256": "11fc85450f7ff32710be82c5686dafd5b4d11b8330bd46a39624a85459a20fa5"
+      "sha256": "3d4db869a5c49e31e4e58c87d98235688ebc3578d34132d037c20e9b105cec54"
     },
     {
       "path": "docs/collaboration.md",
@@ -508,7 +508,7 @@
     },
     {
       "path": "src/codex.mjs",
-      "sha256": "3d2b9d42355f6b71623b7000f9d54c65273e5193e04cd800a4dd10e84e93d6b2"
+      "sha256": "b3fb278b280161f05e463b753a13c128a582fbdcd56ab957a7f2d697e9ef683a"
     },
     {
       "path": "src/collaboration.mjs",
@@ -568,7 +568,7 @@
     },
     {
       "path": "src/docker-security.mjs",
-      "sha256": "79953dc40471525501e39d3c9f657623e1629b74d29118a1fcad7e8bc7b3b859"
+      "sha256": "7eaa5f02337feb11124c15ec303537a5f86805d27f28a5eb9814c9f5326f747c"
     },
     {
       "path": "src/dynamic.mjs",
@@ -580,7 +580,7 @@
     },
     {
       "path": "src/egress.mjs",
-      "sha256": "85011364b1e79ebd97d5cf338d9cfa545e069b3ca1244744257a5a00feddf9cd"
+      "sha256": "e18f0b85eca9ac1a0532f3e71bd1f109ec580aed0b92cc127f582f91a4986fcc"
     },
     {
       "path": "src/evidence.mjs",
@@ -632,7 +632,7 @@
     },
     {
       "path": "src/index.mjs",
-      "sha256": "b2e47917c27cb64275c9b61de5d65bafa6b8e266785c5fa8329e5f7b5fa7004f"
+      "sha256": "35c69df9084f3ceb698487b204b84afdcb242bf55b9d4bf19ac73e090125f859"
     },
     {
       "path": "src/installation.mjs",

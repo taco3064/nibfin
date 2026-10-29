@@ -17,7 +17,13 @@ test('endpoint/port and public-address checks deny private, metadata, aliases an
   for(const address of ['127.0.0.1','10.1.2.3','172.16.0.1','192.168.1.1','169.254.169.254','100.64.0.1','0.0.0.0',
     '224.1.2.3','198.18.1.1','192.0.2.1','::1','fe80::1','fc00::1','::ffff:127.0.0.1','2001:0db8:0000::1','2002:7f00:1::'])assert.equal(publicAddress(address),false,address);
   for(const address of ['8.8.8.8','1.1.1.1','2001:4860:4860::8888','2606:4700:4700::1111'])assert.equal(publicAddress(address),true,address);
-  assert.deepEqual(endpointProfiles['dependency-download'],['registry.npmjs.org']);assert.deepEqual(endpointProfiles.hooks,[]);
+  assert.deepEqual(endpointProfiles['dependency-download'],['registry.npmjs.org','cdn.playwright.dev','playwright.download.prss.microsoft.com']);
+  for(const host of endpointProfiles['dependency-download']){
+    assert.equal(connectDestination(host+':443',endpointProfiles['dependency-download']),host);
+    for(const target of [host+'.evil.example:443',host+'.:443',host+':80'])
+      assert.throws(()=>connectDestination(target,endpointProfiles['dependency-download']));
+  }
+  assert.throws(()=>connectDestination('download.microsoft.com:443',endpointProfiles['dependency-download']));assert.deepEqual(endpointProfiles.hooks,[]);
   const allow=endpointProfiles.claude;
   assert.equal(connectDestination('api.anthropic.com:443',allow),'api.anthropic.com');
   for(const destination of ['api.anthropic.com:80','api.anthropic.com:444','api.anthropic.com.:443','api.anthropic.com.evil.com:443',

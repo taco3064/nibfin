@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {observeRequirementAuthority,observeIssueAuthority,supportedRequirementSources,bodyDigest} from '../src/index.mjs';
+import {observeRequirementAuthority,observeIssueAuthority,supportedRequirementSources,bodyDigest,createGithubProvider} from '../src/index.mjs';
 
 const target={repository:'example-org/core',repositoryId:'42',issueId:'I_101',databaseId:'61',number:'101'};
 function fixture(){
@@ -8,8 +8,8 @@ function fixture(){
     issue={id:'61',node_id:'I_101',number:101,body,repository_url:'https://api.github.com/repos/'+target.repository,
       url:'https://api.github.com/repos/'+target.repository+'/issues/101'};
   return {calls,repo,issue,input:{source:{kind:'github-issue',target:structuredClone(target)},cycle:'cycle-1',approvalId:'installed-owner-policy',
-    now:()=>1100,provider:{request:async r=>{calls.push(r);assert.equal(r.method,'GET');
-      return {outcome:'read',data:r.endpoint==='/repos/'+target.repository?repo:issue};}}}};
+    now:()=>1100,provider:createGithubProvider({attempts:1,transport:async r=>{calls.push(r);assert.equal(r.method,'GET');
+      return {status:200,body:JSON.stringify(r.endpoint==='/repos/'+target.repository?repo:issue)};}})}};
 }
 
 test('generic requirement entry preserves the GitHub compatibility contract and exact content identity',async()=>{

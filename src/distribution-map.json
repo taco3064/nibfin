@@ -204,7 +204,7 @@
     },
     {
       "path": "docs/authority.md",
-      "sha256": "947b35dd387e783e17f3ebbbe36fbd5dbd7e0d947e9ceb574f962e875f779c3c"
+      "sha256": "74d65e1c77ac23d31fa36ebbf43df272b76c88b6a837c4ebb3977d7b9a6aeb99"
     },
     {
       "path": "docs/authorization.md",
@@ -644,7 +644,7 @@
     },
     {
       "path": "src/installation.mjs",
-      "sha256": "448fbca3a06a1602f06f7ad655bcf4bfcc0b7db5f0609f382a7cb18769ba573d"
+      "sha256": "1bb2e05f396a65c15ed2bf2489830df2b98caa4a95f1f946cbc2c3b03fd7d373"
     },
     {
       "path": "src/instructions.mjs",

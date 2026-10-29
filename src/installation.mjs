@@ -89,9 +89,10 @@ function pins(value){fields(value,'runtime workflow skills source recovery jobAd
  * clears a hold, grants authority or treats earlier evidence as current proof.
  * The host persists/reconciles its intent with the existing operation owner.
  */
-export function planInstallationTransition(input,{maintenance=false}={}){
+export function planInstallationTransition(input,{maintenance=false,transaction}={}){
   try{
     need(typeof maintenance==='boolean','maintenance');
+    need(transaction===undefined||typeof transaction==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(transaction),'transaction');
     fields(input,'version current next work');need(input.version===1,'version');
     for(const install of [input.current,input.next]){
       fields(install,'packageVersion pins');releaseVersion(install.packageVersion);pins(install.pins);
@@ -112,6 +113,7 @@ export function planInstallationTransition(input,{maintenance=false}={}){
       return {version:1,status:'blocked',code:'migration-and-reauthorization-required'};
     return freeze({version:1,status:'planned',operation:changed?'switch':'unchanged',
       ...(maintenance?{maintenance:'preserve-pause'}:{}),
+      ...(transaction?{transaction}:{}),
       expected:structuredClone(input.current),next:structuredClone(input.next),
       protectedState:releaseHash(canonicalJSON(w)),preserve:structuredClone({conversations:w.conversations,pending:w.pending,receipts:w.receipts}),
       evidence:changed?'fresh-gates-required':'retain-exact-identity',reauthorization:changed?'required-before-execution':'unchanged'});
@@ -122,13 +124,13 @@ export function planInstallationTransition(input,{maintenance=false}={}){
  * existing host custody/intent store owns durability and uncertain-write replay.
  * switchPins must preserve protected work and switch the whole pin set together.
  */
-export async function applyInstallationTransition({current,next,observe,retain,switchPins,maintenance=false}={}){
+export async function applyInstallationTransition({current,next,observe,retain,switchPins,maintenance=false,transaction}={}){
   try{
     need([observe,retain,switchPins].every(f=>typeof f==='function'),'capabilities');
     const before=structuredClone(await observe());
     const atCurrent=same(before.installation,current),atNext=same(before.installation,next);
     if(!atCurrent&&!atNext)return {version:1,status:'blocked',code:'installation-drift'};
-    const plan=planInstallationTransition({version:1,current,next,work:before.work},{maintenance});
+    const plan=planInstallationTransition({version:1,current,next,work:before.work},{maintenance,transaction});
     if(plan.status!=='planned')return plan;
     if(plan.operation==='unchanged')return {version:1,status:'unchanged',plan};
     const intent={version:1,kind:'installation-switch',identity:releaseHash(canonicalJSON(plan)),plan};

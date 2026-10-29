@@ -15,8 +15,11 @@ sources are the only accepted requirement sources. Proposal documents are not
 requirement authority. The protected caller
 supplies the exact repository ID, Issue database/node IDs, number, cycle and
 approval identity. Each call freshly reads the public repository and Issue,
-checks those independent identities and retains the full current body as one
-Scope component with a content-derived revision. No source URL or module is
+checks those independent identities and reads the current requirements document.
+Raw Issues supply their complete body as Scope. Native Scope/Shape documents keep
+the exact Scope as authority and return the full current body and Shape separately
+in `document`. Shape publication therefore does not change requirement authority;
+ordinary Owner edits to Scope do. No saved local Scope substitutes for a fresh read. No source URL or module is
 selected from Issue text. Cancellation, missing/changed identities, empty or
 oversized bodies and unavailable reads return a sanitized unavailable result.
 

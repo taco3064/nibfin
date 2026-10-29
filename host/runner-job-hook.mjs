@@ -72,7 +72,8 @@ export function runJobHook(policyPath){
     const selected=candidates.filter(p=>p.workflowPath===run.path&&p.jobName===matches[0].name&&p.ref==='refs/heads/'+run.head_branch&&p.events.includes(run.event));
     if(selected.length!==1)fail('unapproved-workflow');policy=selected[0];
     const workflow=api(`${prefix}/contents/${policy.workflowPath}?ref=${run.head_sha}`);
-    result=verifyRunnerJobAdmission(policy,{context,run,job:matches[0],workflow,localRunner:{id:local.agentId,name:local.agentName,
+    const workflowDependencies=policy.workflowDependencies?.map(d=>api(`${prefix}/contents/${d.path}?ref=${run.head_sha}`));
+    result=verifyRunnerJobAdmission(policy,{context,run,job:matches[0],workflow,...(workflowDependencies?{workflowDependencies}:{}),localRunner:{id:local.agentId,name:local.agentName,
       ...localRunnerRegistration(local.gitHubUrl),workerSha256}});
   }catch(error){result={allowed:false,code:/^[a-z-]+$/.test(error.message)?error.message:'observation-unavailable'};}
   // Private diagnostic only, never raw provider output, process arguments or tokens.

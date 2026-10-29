@@ -24,7 +24,7 @@ export async function observeRequirementAuthority({source,provider,cycle,approva
       need(active&&!signal.aborted&&input&&Object.keys(input).sort().join(' ')==='endpoint target'
         &&typeof input.endpoint==='string'&&typeof input.target==='string');
       const response=await provider.request({...input,method:'GET',operation:'authority-read',
-        correlation:'requirement-source:'+selected.kind,signal});
+        correlation:'requirement-source',signal});
       need(active&&!signal.aborted&&response?.outcome==='read');return response.data;
     };
     const observed=await Promise.race([Promise.resolve().then(()=>adapter.read({target:structuredClone(selected.target),request})),

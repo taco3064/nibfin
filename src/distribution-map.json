@@ -724,7 +724,7 @@
     },
     {
       "path": "src/requirement-source.mjs",
-      "sha256": "c02d310ebdf968337f456fcc21a312532ceb92398fcb949e4df3c737876d8ba1"
+      "sha256": "71de0190382e0ec72bbd283f48ba19099e145308cc59a582ca815d500c02add5"
     },
     {
       "path": "src/requirement-sources/github-issue.mjs",

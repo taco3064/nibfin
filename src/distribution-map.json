@@ -464,7 +464,7 @@
     },
     {
       "path": "src/agent-session.mjs",
-      "sha256": "ef66c323035e264c716257f336caf72c6a4c703d3ed48d69df70b9276f66c50d"
+      "sha256": "1ce6e675d2cffe168de0394f4932def6b3abb28351de4fba3d3260141c026b0c"
     },
     {
       "path": "src/archive.mjs",
@@ -500,7 +500,7 @@
     },
     {
       "path": "src/claude-entry.mjs",
-      "sha256": "cb0c3872815cfe704b20023c9e2fd999122a873b4b30baf2dbac941826b4e07d"
+      "sha256": "e5ed3d459e3979f480faf940ef4f669dc8ca44db42a3813388a94f8f025fa3d8"
     },
     {
       "path": "src/claude.mjs",
@@ -508,11 +508,11 @@
     },
     {
       "path": "src/codex-entry.mjs",
-      "sha256": "ca7def64b1bd79a9806a773f53359caa07b8d178c2011f5a5e57b973a5acf05b"
+      "sha256": "ad15deaa7b809eb563968a72acba315e7e4e15615252eaa444a7ab4c146617b5"
     },
     {
       "path": "src/codex.mjs",
-      "sha256": "b3fb278b280161f05e463b753a13c128a582fbdcd56ab957a7f2d697e9ef683a"
+      "sha256": "b2d457c827e382cd216d0acfdd4c4e7cada471f99b40d1589ee1f93c3d755c66"
     },
     {
       "path": "src/collaboration.mjs",
@@ -604,7 +604,7 @@
     },
     {
       "path": "src/gemini-entry.mjs",
-      "sha256": "73e9d60190f123662355b058471508330fe6b5332e58f60cb65678ac184f4fc4"
+      "sha256": "17921e444f6b788fdce1ff368becbec350fcb92f4c3998c7135da40c850d0d6c"
     },
     {
       "path": "src/gemini.mjs",
@@ -656,7 +656,7 @@
     },
     {
       "path": "src/lifecycle.mjs",
-      "sha256": "3afeb7d9bdeeed88f9a9e97d48baa57f5841176d1628befaba8c54d6f6699f18"
+      "sha256": "980aeddc12c6a4cd9e49bdbc50d44d17cb1d1a71fa71b34880c2bd0f2c30afd4"
     },
     {
       "path": "src/node-verification.mjs",
@@ -792,7 +792,7 @@
     },
     {
       "path": "src/role-host.mjs",
-      "sha256": "8a878832ef7f22886590ef90ca78026e707db0afc61bd2cefd6932114edf69fd"
+      "sha256": "5f67a9434b6c5fd97595f8500119864e9dbc9f84e1270dde73da4c3e78af194a"
     },
     {
       "path": "src/role-session.mjs",

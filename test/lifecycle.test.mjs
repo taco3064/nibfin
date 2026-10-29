@@ -232,13 +232,15 @@ test('AC4/6 regression: retained backend responses cannot mutate observations or
   assert.equal((await f.life.cleanup()).status,'completed');
 });
 
-test('Deliver-only deferred Candidate contract cannot authorize other roles or incomplete collection',async()=>{
-  const f=setup('deliver',{},descriptor(),true);
+test('deferred Author output cannot authorize reviewers or incomplete collection',async()=>{
+  for(const role of ['deliver','shape']) {
+  const f=setup(role,{},descriptor(),true);
   delete f.trusted.expected.inputs;
   assert.equal((await f.life.start(f.input)).start.status,'started');
   f.trusted.expected.inputs=clone(f.expected.inputs);
   assert.equal((await f.life.collect(f.input.execution.id)).result.status,'valid');
-  for(const role of ['shape','shape-validator','shape-diagnosis','shaper-review','accept']){
+  }
+  for(const role of ['shape-validator','shape-diagnosis','shaper-review','accept']){
     const x=setup(role,{},descriptor(),true);await assert.rejects(x.life.start(x.input));assert.equal(x.calls.length,0);
   }
   const bad=setup('deliver',{},descriptor(),true);await bad.life.start(bad.input);

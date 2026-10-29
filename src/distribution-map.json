@@ -360,7 +360,7 @@
     },
     {
       "path": "docs/workspace.md",
-      "sha256": "26c7a99836fe5f03663949ee54e0571b5135f690a819eec3d1ef36cdc8198fe1"
+      "sha256": "429122dd09bb502d75021a71d2d1dcab81a48f19e81101b0a0055ebdff7e35f0"
     },
     {
       "path": "docs/wsl.md",
@@ -640,7 +640,7 @@
     },
     {
       "path": "src/index.mjs",
-      "sha256": "45749d86781370687eb3e6023fc119e68c52dea0bbac61e6ae71ef532d7f3d8d"
+      "sha256": "36344f470c5c8a3e7d70c1951321a5e78922504e2b50130e65a154c126101a8b"
     },
     {
       "path": "src/installation.mjs",
@@ -864,7 +864,7 @@
     },
     {
       "path": "src/workspace.mjs",
-      "sha256": "a6c347ac7db3ac4937df70018fa0361bfb59db8a9d2ac8a5c41c7410d7c43db1"
+      "sha256": "b3eaed802f260a8eb096ee9ce1f811f5d76ff5a47299e8f559e20f59ab736001"
     },
     {
       "path": "src/wsl-guest.mjs",

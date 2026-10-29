@@ -32,7 +32,7 @@ export {checkDeploymentHealth, verifyDeployment, readDeploymentObservation,
 export {observeRunners, observeRunnerBindings} from './runners.mjs';
 export {selectInstructions, instructionSeparator} from './instructions.mjs';
 
-export {workspaceLimits, captureWorkspace, verifyWorkspace, exportWorkspace, importWorkspace} from './workspace.mjs';
+export {workspaceLimits, captureWorkspace, verifyWorkspace, exportWorkspace, importWorkspace,materializeWorkspace} from './workspace.mjs';
 export {createAssigneeSelector} from './selection.mjs';
 
 export {controlledIntent, createControlledOperations, observeControlledOperation} from './operations.mjs';

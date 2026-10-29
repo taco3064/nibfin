@@ -1,7 +1,7 @@
 # Local Candidate capture
 
 `@nibfin/core` exports `captureWorkspace`, `verifyWorkspace`, `exportWorkspace`,
-`importWorkspace` and `workspaceLimits`. These synchronous APIs require Node 22
+`importWorkspace`, `materializeWorkspace` and `workspaceLimits`. These synchronous APIs require Node 22
 and Git with SHA-1 repositories. No provider, login or network is used. Hooks,
 filters, credential helpers and external diff drivers are never executed. Lazy
 object fetching and all Git transport protocols are disabled; each subprocess has
@@ -22,7 +22,19 @@ const expected = snapshot.expected;
 const transfer = exportWorkspace(snapshot);
 const restored = importWorkspace(transfer, {expected});
 verifyWorkspace(restored, expected);
+// Trusted host selects an empty/nonexistent destination below its private directory.
+materializeWorkspace(restored, {expected, root: '/private/role/checkout'});
 ```
+
+On Linux, `materializeWorkspace` restores the verified base commit, Candidate tree,
+file modes and declared ignored sources into an independent role checkout. It uses
+local object writes and raw file bytes, without fetching, filters or repository
+scripts. The immediate parent must belong to the current account and be private.
+Existing nonempty directories and links are rejected; original work is never
+overwritten. A private staging tree is published only after all content is checked,
+and removed on failure. This filesystem receipt does not grant Acceptance or mark
+pending work as accepted. The protected host still supplies the independently
+retained expectation and chooses when the role may consume the checkout.
 
 `base` must be the full immutable commit ID, never an ambiguous revision expression.
 The caller authenticates repository identity and supplies its permitted paths and

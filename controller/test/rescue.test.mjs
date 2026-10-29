@@ -593,7 +593,7 @@ test('completion-triggered Rescue authenticates the pinned workflow and verifies
  r.environment={GITHUB_REPOSITORY:'taco3064/kairo',GITHUB_EVENT_NAME:'workflow_run',GITHUB_RUN_ID:'300',GITHUB_RUN_ATTEMPT:'1',GITHUB_JOB:'rescue',GITHUB_SHA:run.head_sha,RUNNER_NAME:'runner'};
  r.github.api=async path=>path.includes('/contents/')?{sha:policy.workflowBlob}:run;r.github.repository=async()=>({private:true});r.github.list=async()=>[{id:99,name:'rescue',status:'in_progress',runner_name:'runner',runner_id:2}];
  const event={repository:{private:true},workflow_run:source()};assert.equal((await verifyRescueInvocation(r,grant,event)).runId,'300');
- event.workflow_run.path=rescueWorkflow;await assert.rejects(verifyRescueInvocation(r,grant,event),/approved private Core hint/);
+ event.workflow_run.path=rescueWorkflow;await assert.rejects(verifyRescueInvocation(r,grant,event),/approved (?:private )?Core hint/);
 });
 
 async function aiFixture(t,{stage='accept',result,mutate=false}={}){

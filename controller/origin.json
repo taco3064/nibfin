@@ -877,28 +877,148 @@
   "operationalDataIncluded": false,
   "adaptations": [
     {
+      "path": "bin/kairo.mjs",
+      "sha256": "c64c469ce93a357d60e1bb68e1d9d5d116423005428e1e706472a45eea9c01ff",
+      "bytes": 12076,
+      "reason": "Nibfin-owned signed transport, local authority, notification and recovery compatibility; original upstream bytes remain recorded in files."
+    },
+    {
+      "path": "src/action-lifecycle.mjs",
+      "sha256": "f602cdad01d6da3c6e7f01c5509f795b96421acf55edacf2e96b2aa3e7b99d04",
+      "bytes": 9096,
+      "reason": "Nibfin-owned signed transport, local authority, notification and recovery compatibility; original upstream bytes remain recorded in files."
+    },
+    {
+      "path": "src/action-outbox.mjs",
+      "sha256": "7ebb1dadeb27d784161010ab0d95448c098b1e9d1a6b5be04b8088b54e2d960c",
+      "bytes": 8529,
+      "reason": "Nibfin-owned signed transport, local authority, notification and recovery compatibility; original upstream bytes remain recorded in files."
+    },
+    {
       "path": "src/action-provenance.mjs",
-      "sha256": "dcd08128e22fdecb218b7a8025f216f11fb8c3d4d8216c63bfc030ab925f1d7e",
-      "bytes": 7694,
-      "reason": "Permit signed Owner-session historical Run grouping while requiring a fresh dispatched continuation Run; retain strict per-stage mode."
+      "sha256": "156902e95d0caa8f6a88b85510ed283cf58755de525cfbadf26db5b0f86e5476",
+      "bytes": 7886,
+      "reason": "Nibfin-owned signed transport, local authority, notification and recovery compatibility; original upstream bytes remain recorded in files."
+    },
+    {
+      "path": "src/action-relay.mjs",
+      "sha256": "f8d1cb891bc486441f575dc7744c16799588c2d5851d9b4e944d2c3f8ba16b3f",
+      "bytes": 5740,
+      "reason": "Nibfin-owned signed transport, local authority, notification and recovery compatibility; original upstream bytes remain recorded in files."
     },
     {
       "path": "src/action-stage.mjs",
-      "sha256": "9eceaa622d6fa50501eafdf9783dc0bfcc0521c71b267ed56370f908fa0717d6",
-      "bytes": 16469,
-      "reason": "Permit signed Owner-session historical Run grouping while requiring a fresh dispatched continuation Run; retain strict per-stage mode."
+      "sha256": "339d3a72bc0ded4f0edadc1c1bdbbb4343f96d02dd6d96f294dc98dbd27db6cd",
+      "bytes": 16574,
+      "reason": "Nibfin-owned signed transport, local authority, notification and recovery compatibility; original upstream bytes remain recorded in files."
     },
     {
-      "path": "test/action-provenance.test.mjs",
-      "sha256": "3798c866a2e1d37d49c389b02e8c2c86ebdac50261c163621689c54f98f33179",
-      "bytes": 7578,
-      "reason": "Permit signed Owner-session historical Run grouping while requiring a fresh dispatched continuation Run; retain strict per-stage mode."
+      "path": "src/assignee-revision.mjs",
+      "sha256": "47653c04f1ade549c1b9608f9d2f983e277b688c7cdda2ba5f06b84bd4f3ab82",
+      "bytes": 17967,
+      "reason": "Nibfin-owned signed transport, local authority, notification and recovery compatibility; original upstream bytes remain recorded in files."
+    },
+    {
+      "path": "src/dependency-event.mjs",
+      "sha256": "ed2c4520e80e8965377df15435c191a4fa7904726fafd7b37403efeeb81bd944",
+      "bytes": 3655,
+      "reason": "Nibfin-owned signed transport, local authority, notification and recovery compatibility; original upstream bytes remain recorded in files."
+    },
+    {
+      "path": "src/dynamic.mjs",
+      "sha256": "9e716b7f329faf4036949e174ee831a0ce77d196290a5482dd5741c882ee8c0c",
+      "bytes": 26211,
+      "reason": "Nibfin-owned signed transport, local authority, notification and recovery compatibility; original upstream bytes remain recorded in files."
+    },
+    {
+      "path": "src/github.mjs",
+      "sha256": "998034bfafcc1a50daf5f25be99afa711bfa4c5cfedf86a2995859ca957b16a2",
+      "bytes": 19366,
+      "reason": "Nibfin-owned signed transport, local authority, notification and recovery compatibility; original upstream bytes remain recorded in files."
+    },
+    {
+      "path": "src/native-wakeup.mjs",
+      "sha256": "795304c0314d6e68b6218f6d42f09a42ebf55611abfd6be6a0ff3bd9533d98f4",
+      "bytes": 5887,
+      "reason": "Nibfin-owned signed transport, local authority, notification and recovery compatibility; original upstream bytes remain recorded in files."
+    },
+    {
+      "path": "src/owner-identity.mjs",
+      "sha256": "99a92d7dfa7ed0d50565045d3bee34d22d801bc83f7d416d5ccb24d5a0450e83",
+      "bytes": 1260,
+      "reason": "Nibfin-owned signed transport, local authority, notification and recovery compatibility; original upstream bytes remain recorded in files."
+    },
+    {
+      "path": "src/requirement-revision.mjs",
+      "sha256": "b3f097875711c13b66b6d908e4a2c72c578082154ee9328e508ec82de7c77473",
+      "bytes": 20476,
+      "reason": "Nibfin-owned signed transport, local authority, notification and recovery compatibility; original upstream bytes remain recorded in files."
+    },
+    {
+      "path": "src/rescue-completion.mjs",
+      "sha256": "91ba80a776415d5e5ff5e515cee0cfea4e041324dbf1ca71411b12b46000a538",
+      "bytes": 9483,
+      "reason": "Nibfin-owned signed transport, local authority, notification and recovery compatibility; original upstream bytes remain recorded in files."
+    },
+    {
+      "path": "src/rescue-detection.mjs",
+      "sha256": "fbabec6a6f35cb9a749b9181af7f278b7ce0de096c9c001eb30ac17361528fa0",
+      "bytes": 1950,
+      "reason": "Nibfin-owned signed transport, local authority, notification and recovery compatibility; original upstream bytes remain recorded in files."
+    },
+    {
+      "path": "src/rescue-policy.mjs",
+      "sha256": "08ee327a346847de441afda35f083ca3a02e4181e2af804a56068218d8662e4b",
+      "bytes": 9651,
+      "reason": "Nibfin-owned signed transport, local authority, notification and recovery compatibility; original upstream bytes remain recorded in files."
+    },
+    {
+      "path": "src/rescue-wakeup.mjs",
+      "sha256": "29c1ff8facfb2b4f2d049d6da6de17d744a7839488a7c7e7e6de124aca7fcc98",
+      "bytes": 10717,
+      "reason": "Nibfin-owned signed transport, local authority, notification and recovery compatibility; original upstream bytes remain recorded in files."
+    },
+    {
+      "path": "src/rescue.mjs",
+      "sha256": "1f36265262630be689fea12653381a62d56dfd6bf9a95f420561dcf7c5da7c75",
+      "bytes": 30077,
+      "reason": "Nibfin-owned signed transport, local authority, notification and recovery compatibility; original upstream bytes remain recorded in files."
+    },
+    {
+      "path": "src/runner-binding.mjs",
+      "sha256": "9d1a58945f26c01586aafbdb983d44c678bd72d7a9346839217d02da5c0c9852",
+      "bytes": 9362,
+      "reason": "Nibfin-owned signed transport, local authority, notification and recovery compatibility; original upstream bytes remain recorded in files."
+    },
+    {
+      "path": "src/runtime.mjs",
+      "sha256": "9f9915fb90cd07dad66ed99c7a0a39930a2be3550f9f0d7df0c95d8339f258b6",
+      "bytes": 82155,
+      "reason": "Nibfin-owned signed transport, local authority, notification and recovery compatibility; original upstream bytes remain recorded in files."
+    },
+    {
+      "path": "src/website-revision.mjs",
+      "sha256": "efcb576c255acd2b8934c98eafce0a36eb560bc25b60c8ccecbe31f5ff3b5f50",
+      "bytes": 11881,
+      "reason": "Nibfin-owned signed transport, local authority, notification and recovery compatibility; original upstream bytes remain recorded in files."
     },
     {
       "path": "test/action-integration.test.mjs",
       "sha256": "59d4fda502a7ec2c056c39d6cecc8cb66fd6af1ed6a731cfcc862bbd9b28997c",
       "bytes": 48294,
       "reason": "Exercise the real Runtime and dispatched Accept after an Owner session yields with grouped historical stage receipts."
+    },
+    {
+      "path": "test/action-provenance.test.mjs",
+      "sha256": "0e4f05167d39795793fd36a9efb12bd1cf8364fbcb297caf32f4c2dcd594c7b0",
+      "bytes": 8613,
+      "reason": "Nibfin-owned signed transport, local authority, notification and recovery compatibility; original upstream bytes remain recorded in files."
+    },
+    {
+      "path": "test/rescue.test.mjs",
+      "sha256": "daa6f195e29f00728e2a7bf79b2888cfc38d6e7d7101cda2d44264614dcdfc30",
+      "bytes": 74852,
+      "reason": "Nibfin-owned signed transport, local authority, notification and recovery compatibility; original upstream bytes remain recorded in files."
     }
   ]
 }

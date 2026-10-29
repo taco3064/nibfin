@@ -20,6 +20,12 @@ function fixture() {
   return { policy, identity, state, gh };
 }
 
+test('Nibfin public execution requires the exact opted-in repository, stable owner, workflow pins and Owner login',async()=>{
+ const make=()=>{const f=fixture();Object.assign(f.policy,{repository:'taco3064/nibfin',repositoryId:'1427838662',visibility:'public',identityMode:'local-gh',ownerId:'7'});Object.assign(f.state.repository,{id:1427838662,private:false,owner:{id:7}});f.state.run.repository={id:1427838662,full_name:'taco3064/nibfin'};const api=f.gh.api;f.gh.api=async p=>p==='/user'?{id:7,type:'User'}:api(p);return f;};
+ const good=make();assert.equal((await verifyActionRun(good.gh,good.policy,good.identity)).repository,'taco3064/nibfin');
+ for(const mutate of [f=>delete f.policy.visibility,f=>f.state.repository.id++,f=>f.state.repository.owner.id++,f=>f.state.repository.private=true,f=>f.state.blob='0'.repeat(40),f=>f.state.run.event='pull_request',f=>f.state.run.triggering_actor.id++]){const f=make();mutate(f);await assert.rejects(verifyActionRun(f.gh,f.policy,f.identity),{code:'ACTION_PROVENANCE_INVALID'});}
+});
+
 test('effective workflow pin retains historical Run identity and rejects unexpected current or old bytes',async()=>{
  const f=fixture(),original=f.policy.workflowBlob,newPin='c'.repeat(40),api=f.gh.api;
  const before=await verifyActionRun(f.gh,f.policy,f.identity);

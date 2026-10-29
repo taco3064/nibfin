@@ -80,7 +80,7 @@ API/process boundaries and test keys. The archive verifier executes these
 contracts against candidate package bytes. Live multi-account/model/Runner
 isolation, official queueing, Org enrollment and external E2E remain Unverified
 until separately authorized tests run. No release or live certification is claimed.
-# Shared personal-repository execution pool
+## Shared personal-repository execution pool
 
 An explicit protected `executionPool` can route several public repositories owned
 by the same personal account through one public execution repository. Register

@@ -28,3 +28,26 @@ for(const signal of ['SIGINT','SIGTERM','SIGHUP'])test(`denied hook cancellation
   await rm(root,{recursive:true,force:true});
  }
 });
+
+test('missing Node entry invokes the real shell fallback and prevents a continuation sentinel',{skip:process.platform!=='linux'},async()=>{
+ const root=await mkdtemp(join(tmpdir(),'nibfin-hook-fallback-'));let worker;
+ try{
+  await mkdir(join(root,'bin'));const executable=join(root,'bin/Runner.Worker');
+  await copyFile('/usr/bin/bash',executable);await chmod(executable,0o700);
+  const hook=join(root,'runner-job-hook.sh'),sentinel=join(root,'always-sentinel');
+  await copyFile(new URL('../host/runner-job-hook.sh',import.meta.url),hook);await chmod(hook,0o700);
+  // As in the measured upstream always() bypass, a mere nonzero exit would
+  // continue this process. Only terminating the Worker prevents the sentinel.
+  worker=spawn(executable,['-c','/usr/bin/bash "$1"; echo continued > "$2"','--',hook,sentinel],
+    {env:{PATH:'/usr/local/bin:/usr/bin:/bin',HOME:root},stdio:'ignore'});
+  const exit=await new Promise((resolve,reject)=>{
+   const timer=setTimeout(()=>reject(Error('fallback did not terminate Worker')),3000);
+   worker.once('error',error=>{clearTimeout(timer);reject(error);});
+   worker.once('exit',(code,signal)=>{clearTimeout(timer);resolve({code,signal});});
+  });
+  assert.equal(exit.signal,'SIGKILL');await assert.rejects(readFile(sentinel),{code:'ENOENT'});
+ }finally{
+  if(worker&&worker.exitCode===null&&worker.signalCode===null)worker.kill('SIGKILL');
+  await rm(root,{recursive:true,force:true});
+ }
+});

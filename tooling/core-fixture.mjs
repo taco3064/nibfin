@@ -37,7 +37,7 @@ export function coreFixture() {
   const dependencies=createDependencyEvaluator({provider,authorize:n=>authorization.eligibility({operation:'readiness'}),
     current:()=>null,retrieve:()=>null});
   Object.assign(sh.pin.binding,{authority:authority.identity,grant:contentIdentity(grant)});
-  const pin={target:sh.pin.target,cycle:'cycle-1',visibility:'public',ownership:'organization',
+  const pin={restrictions:{restrictionsChecked:true,hold:null,paused:false,unknownWrite:false},target:sh.pin.target,cycle:'cycle-1',visibility:'public',ownership:'organization',
     binding:sh.pin.binding,scopeBody:sh.pin.original.body,shapeBody:null,
     authority:{export:authority,context:{grant,grantContext:context,
       expected:{source:authority.source,revision:authority.revision,approvalId:authority.approvalId,cycle:authority.cycle}}},

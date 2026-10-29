@@ -1,7 +1,7 @@
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {protectedHostFiles} from './host-source.mjs';
-import {repositoryCoordinates} from './index.mjs';
+import {repositoryCoordinates} from './identity.mjs';
 export const workflowFiles=Object.freeze(['.github/workflows/nibfin-delivery.yml','.github/workflows/nibfin-registration.yml',
   'workflow/templates/nibfin-rescue.yml','workflow/templates/nibfin-stage.yml','workflow/templates/nibfin-wakeup.yml','workflow/templates/nibfin-register.yml',
   'workflow/action/action.yml','src/workflow.mjs','src/workflow-entry.mjs','src/workflow-install.mjs','docs/workflows.md','src/host-source.mjs','docs/protected-host.md',...protectedHostFiles]);

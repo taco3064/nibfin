@@ -1,3 +1,4 @@
+import {distributionAPI,distributionProfiles} from './distribution-contract.mjs';
 import {workflowFiles} from './workflow-install.mjs';
 import {inspectPackageArchive} from './archive.mjs';
 import {createHash} from 'node:crypto';
@@ -40,10 +41,15 @@ function componentsValid(components) {
     if (JSON.stringify(components[name]) !== JSON.stringify({version:'unknown',content:'unknown',status:'unreleased'})) fail('upstream-mapping');
   }
 }
+export function releaseDistribution(components){
+  return {api:distributionAPI,profiles:distributionProfiles,
+    sourceMapSha256:components.core.files.find(f=>f.path==='src/distribution-map.json')?.sha256??null};
+}
 export function validateReleaseCompatibility(metadata, components) {
   componentsValid(components);
   if (metadata?.format !== 1 || JSON.stringify(metadata.components) !== JSON.stringify(components)
       || !Array.isArray(metadata.entries) || !metadata.entries.length) fail('compatibility-format');
+  if(JSON.stringify(metadata.distribution)!==JSON.stringify(releaseDistribution(components)))fail('distribution-compatibility');
   const ids = new Set();
   for (const e of metadata.entries) {
     if (!e || typeof e.id !== 'string' || ids.has(e.id)) fail('entry-id'); ids.add(e.id);

@@ -47,3 +47,10 @@ test('Controller/Rescue policy set shares exactly one instance and has no ambigu
   assert.equal(verifyRunnerJobAdmission(policy,observation).allowed,false);
   assert.equal(verifyRunnerJobAdmission({...policy,events:['workflow_run']},observation).allowed,true);
 });
+
+test('missing or unavailable authenticated read observations deny rather than defaulting to admission',()=>{
+ for(const field of ['context','run','job','workflow','localRunner']){
+  const observation=fixture();delete observation[field];assert.equal(verifyRunnerJobAdmission(policy,observation).allowed,false);
+ }
+ assert.equal(verifyRunnerJobAdmission(policy,null).allowed,false);
+});

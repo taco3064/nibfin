@@ -206,3 +206,15 @@ test('cancellation at preparation/readiness prevents launch; a started role requ
     assert.equal(resumed.disposition,'completed',JSON.stringify(resumed));assert.equal(f.sh.records.length,1);
   }
 });
+
+test('Owner hold/pause and unavailable restriction observations block the real Core before stage execution',async()=>{
+  for(const restriction of [undefined,{restrictionsChecked:false,hold:null,paused:false,unknownWrite:false},
+    {restrictionsChecked:true,hold:{id:'authenticated-owner-hold'},paused:false,unknownWrite:false},
+    {restrictionsChecked:true,hold:null,paused:true,unknownWrite:false},
+    {restrictionsChecked:true,hold:null,paused:false,unknownWrite:true}]){
+    const f=coreFixture(),request=await f.queued(),before=structuredClone(f.pin.receipts);
+    f.pin.restrictions=restriction;
+    assert.equal((await f.core.run(request)).disposition,'blocked');
+    assert.equal(f.sh.records.length,0);assert.deepEqual(f.pin.receipts,before);
+  }
+});

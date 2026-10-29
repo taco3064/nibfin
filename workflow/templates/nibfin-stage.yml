@@ -48,6 +48,8 @@ jobs:
   stage:
     needs: lookup
     uses: ./.github/workflows/nibfin-delivery.yml
+    secrets:
+      NIBFIN_HOST_TOKEN: ${{ secrets.NIBFIN_HOST_TOKEN }}
     permissions: {contents: read, actions: read, id-token: write}
     with:
       issue: ${{ needs.lookup.outputs.issue }}

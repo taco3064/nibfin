@@ -184,7 +184,7 @@
   "files": [
     {
       "path": ".github/workflows/nibfin-delivery.yml",
-      "sha256": "f7aaddbe66abaf655869b19f4a945dcda9b3e7723c3c59db7fcf8e0d1ffe64f6"
+      "sha256": "b3e8db24841d734a63351e2d9861fe833826e953f83b46c1347da18133ba1903"
     },
     {
       "path": ".github/workflows/nibfin-registration.yml",
@@ -372,7 +372,7 @@
     },
     {
       "path": "host/configuration.schema.json",
-      "sha256": "a912cd7598a2e2501d33f11caf858403e5be2e973fb39708fb7a326cf6460642"
+      "sha256": "c3efe33ce889cd93745cb571ed64998ec692b2c494c10e3d71f7e819767c2758"
     },
     {
       "path": "host/custody.example.mjs",
@@ -380,7 +380,7 @@
     },
     {
       "path": "host/entry.mjs",
-      "sha256": "351262633ff2334ec27fcf3ee308086617bdd7b9200e2a060a3284be94f1271c"
+      "sha256": "3864db36a6f3769fe1d89a965dfd61c7c8e3efc155c85d8b997d7e018f4343d4"
     },
     {
       "path": "host/package-lock.json",
@@ -588,7 +588,7 @@
     },
     {
       "path": "src/execution-pool.mjs",
-      "sha256": "822f34952f1c313fcc00122fea3015b538694a6ed7183aee9e6c4f055137f382"
+      "sha256": "3f0d933af2e4935530f8d2e628151a653efa3a5377d8b56358f6b88da9a96c83"
     },
     {
       "path": "src/fanout.mjs",
@@ -620,7 +620,7 @@
     },
     {
       "path": "src/host-identity.mjs",
-      "sha256": "a372834ef9df2bf3d954034c3684b99db49d30a312872a188c445db8f562a6a6"
+      "sha256": "3eca3937d048666b597931387c1ee03e075549143298bf8bb398c0ce4ed8761c"
     },
     {
       "path": "src/host-routing.mjs",
@@ -864,7 +864,7 @@
     },
     {
       "path": "workflow/templates/nibfin-stage.yml",
-      "sha256": "e8123c783c6360eb9a6c785f37c398e713c4b0343c597e9665ce1ac438b7baaa"
+      "sha256": "1373455a705a482a279855b092858f767ed9f7515c9d1da3376fbbdf8b3650d2"
     },
     {
       "path": "workflow/templates/nibfin-wakeup.yml",

@@ -171,10 +171,22 @@
           }
         },
         {
-          "not": {
+          "if": {
+            "required": [
+              "executionPool"
+            ]
+          },
+          "then": {
             "required": [
               "routing"
             ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "routing"
+              ]
+            }
           }
         }
       ]
@@ -190,6 +202,18 @@
               "const": "nibfin-hosted"
             }
           }
+        },
+        {
+          "if": {
+            "required": [
+              "executionPool"
+            ]
+          },
+          "then": {
+            "required": [
+              "routing"
+            ]
+          }
         }
       ]
     },
@@ -204,6 +228,18 @@
               "const": "nibfin-member"
             }
           }
+        },
+        {
+          "if": {
+            "required": [
+              "executionPool"
+            ]
+          },
+          "then": {
+            "required": [
+              "routing"
+            ]
+          }
         }
       ]
     },
@@ -211,13 +247,110 @@
       "$ref": "#/$defs/execute"
     },
     "wake": {
-      "$ref": "#/$defs/lookup"
+      "allOf": [
+        {
+          "$ref": "#"
+        },
+        {
+          "properties": {
+            "environment": {
+              "const": "nibfin-hosted"
+            }
+          },
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "groupId"
+                ]
+              },
+              {
+                "required": [
+                  "routing"
+                ]
+              }
+            ]
+          }
+        }
+      ]
     },
     "registration": {
-      "$ref": "#/$defs/lookup"
+      "allOf": [
+        {
+          "allOf": [
+            {
+              "$ref": "#"
+            },
+            {
+              "properties": {
+                "environment": {
+                  "const": "nibfin-hosted"
+                }
+              },
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "groupId"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "routing"
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "executionPool"
+            ]
+          }
+        }
+      ]
     },
     "rescue": {
-      "$ref": "#/$defs/lookup"
+      "allOf": [
+        {
+          "allOf": [
+            {
+              "$ref": "#"
+            },
+            {
+              "properties": {
+                "environment": {
+                  "const": "nibfin-hosted"
+                }
+              },
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "groupId"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "routing"
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "executionPool"
+            ]
+          }
+        }
+      ]
     },
     "environment": {
       "anyOf": [
@@ -282,7 +415,6 @@
       },
       "then": {
         "required": [
-          "routing",
           "authentication"
         ],
         "not": {

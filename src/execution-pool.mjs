@@ -50,9 +50,11 @@ export function projectExecutionContext({options,mode,context}){
   githubId(context.repositoryId);githubId(context.run?.id);githubId(context.run?.attempt);
   if(options.executionPool!==undefined){
     const pool=poolLogicalTarget(options.executionPool,options);
-    need(['lookup','resolve','execute','compute'].includes(mode)&&options.routing==='authenticated'
-      &&options.authentication==='actions-oidc'&&context.eventName==='workflow_dispatch'
-      &&context.repository===pool.source.repository&&context.repositoryId===pool.source.repositoryId);
+    need(options.authentication==='actions-oidc');
+    if(mode==='wake')need(options.routing===undefined&&context.repository===options.repository
+      &&context.repositoryId===options.repositoryId&&context.eventName==='issues');
+    else need(['lookup','resolve','execute','compute'].includes(mode)&&options.routing==='authenticated'
+      &&context.eventName==='workflow_dispatch'&&context.repository===pool.source.repository&&context.repositoryId===pool.source.repositoryId);
   }else need(context.repository===options.repository&&context.repositoryId===options.repositoryId);
   return {repository:options.repository,repositoryId:options.repositoryId,run:{...context.run},
     ...(context.eventName===undefined?{}:{eventName:context.eventName}),
@@ -90,7 +92,10 @@ export function validatePoolDispatch(pool,value){
 /** Narrow physical-source access. The logical Grant/checkpoint still owns POST. */
 export function poolDispatchAccess(pool,policy,request){
   const p=validateExecutionPool(pool),d=validatePoolDispatch(p,policy),root='/repos/'+p.source.repository;
-  if(request.operation!=='dispatch'||request.target!==d.workflow)return false;
+  // Provider HTTP transport intentionally strips authorization metadata. When
+  // supplied by the host allowlist, it must agree; HTTP scope uses pinned routes.
+  if(request.operation!==undefined&&request.operation!=='dispatch'
+    ||request.target!==undefined&&request.target!==d.workflow)return false;
   if(request.method==='POST'){
     if(request.endpoint!==`${root}/actions/workflows/${d.workflow}/dispatches`)return false;
     let body;try{body=typeof request.body==='string'?JSON.parse(request.body):request.body;}catch{return false;}

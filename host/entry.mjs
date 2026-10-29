@@ -36,7 +36,9 @@ export function validateHostOptions(options, mode,validatePool) {
   if(options.executionPool!==undefined){
     need(typeof validatePool==='function');pool=validatePool(options.executionPool);
     need(pool.targets.some(t=>t.repository===options.repository&&t.repositoryId===options.repositoryId)
-      &&options.routing==='authenticated'&&['lookup','resolve','execute','compute'].includes(mode)&&options.groupId===undefined);
+      &&options.authentication==='actions-oidc'&&options.groupId===undefined
+      &&(mode==='wake'&&options.routing===undefined
+        ||options.routing==='authenticated'&&['lookup','resolve','execute','compute'].includes(mode)));
   }
   return Object.freeze({...options,...(pool?{executionPool:pool}:{})});
 }

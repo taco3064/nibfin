@@ -1,5 +1,6 @@
 import test from'node:test';import assert from'node:assert/strict';
-import{validateExecutionPool,poolInventoryRead,projectExecutionContext}from'../src/execution-pool.mjs';
+import{validateExecutionPool,poolInventoryRead,projectExecutionContext,validatePoolDispatch,poolDispatchAccess}from'../src/execution-pool.mjs';
+import{operationsFixture,operationInput}from'../tooling/operations-fixture.mjs';
 import{validateMemberBinding}from'../src/collaboration.mjs';
 import{observeRunnerBindings}from'../src/runners.mjs';
 import{hostedGithubTransport,createHostIdentityAdaptersForTest}from'../src/host-identity.mjs';
@@ -11,6 +12,81 @@ import{hostIdentityFixture}from'../tooling/host-identity-fixture.mjs';
 const identity=(repository,repositoryId)=>({version:1,repository,repositoryId,ownerId:'7',ownerType:'User'});
 const source=identity('example/core','41'),targets=[source,identity('example/cli','42'),identity('example/action','43')];
 const pool={version:1,source,targets},registration={level:'repository',id:'41'};
+const dispatchPolicy={version:1,repository:'example/cli',repositoryId:'42',workflow:'50',ref:'main',
+  sha:'b'.repeat(40),workflowDigest:'d'.repeat(64)};
+function pooledOperation(){
+  const input=operationInput('dispatch');input.binding.repository='example/cli';
+  input.payload.ref='main';input.payload.refIdentity={sha:dispatchPolicy.sha,workflowDigest:dispatchPolicy.workflowDigest};
+  input.payload.executionSource={repository:source.repository,repositoryId:source.repositoryId};
+  return input;
+}
+const dispatchOptions={executionPool:pool,poolDispatch:dispatchPolicy};
+
+test('pooled dispatch retains logical authorization and independently reads back the actual source Run',async()=>{
+  const f=operationsFixture(pooledOperation());
+  f.state.beforeWrite=r=>assert.equal(r.endpoint,'/repos/example/core/actions/workflows/50/dispatches');
+  const result=await f.fresh(undefined,undefined,dispatchOptions).execute(f.input);
+  assert.equal(result.outcome,'confirmed-success',JSON.stringify(result));
+  assert.equal(result.observation.endpoint,'/repos/example/core/actions/runs/70');
+  assert.equal(f.writes().length,1);
+  assert.ok(f.calls.some(r=>r.checkpoint&&r.endpoint==='/repos/example/cli/issues/101'));
+  assert.ok(!f.calls.some(r=>r.checkpoint&&r.endpoint==='/repos/example/core/issues/101'));
+  assert.equal((await f.fresh(undefined,undefined,dispatchOptions).execute(f.input)).outcome,'confirmed-success');
+  assert.equal(f.writes().length,1);
+});
+
+test('pool membership never supplies dispatch permission or a substitute protected workflow',async()=>{
+  for(const edit of [v=>v.payload.executionSource.repository='example/action',v=>v.payload.executionSource.repositoryId='43',
+    v=>delete v.payload.executionSource,v=>v.payload.ref='other',v=>v.payload.refIdentity.sha='e'.repeat(40),
+    v=>v.payload.refIdentity.workflowDigest='e'.repeat(64),v=>{v.target.id='51';v.target.workflow='51';},
+    v=>v.binding.repository='example/action']){
+    const f=operationsFixture(pooledOperation());edit(f.input);
+    assert.equal((await f.fresh(undefined,undefined,dispatchOptions).execute(f.input)).outcome,'unknown');
+    assert.equal(f.writes().length,0);
+  }
+  const f=operationsFixture(pooledOperation());
+  assert.equal((await f.fresh().execute(f.input)).outcome,'unknown');assert.equal(f.writes().length,0);
+  assert.throws(()=>validatePoolDispatch(pool,{...dispatchPolicy,repositoryId:'43'}));
+});
+
+test('pooled dispatch cannot replay unknown effects or accept a logical-target Run as source readback',async()=>{
+  for(const scenario of ['lost','absent','wrong-run','denied']){
+    const f=operationsFixture(pooledOperation());
+    if(scenario==='lost')f.state.lost=true;
+    if(scenario==='absent')f.state.onWrite=()=>{f.state.effect=false;};
+    if(scenario==='wrong-run')f.state.mutate=d=>({...d,repository:{id:'42'}});
+    if(scenario==='denied')f.state.allowed=false;
+    const expected=scenario==='lost'?'confirmed-success':scenario==='denied'?'confirmed-no-effect':'unknown';
+    assert.equal((await f.fresh(undefined,undefined,dispatchOptions).execute(f.input)).outcome,expected,scenario);
+    assert.equal(f.writes().length,scenario==='denied'?0:1);
+    await f.fresh(undefined,undefined,dispatchOptions).execute(f.input);
+    assert.equal(f.writes().length,scenario==='denied'?0:1);
+  }
+});
+
+test('source transport requires an installed dispatch policy, exact workflow/ref and both repository credentials',async()=>{
+  let covered=true;const calls=[];
+  const make=policy=>hostedGithubTransport({repository:'example/cli',repositoryId:'42',executionPool:pool,
+    ...(policy?{poolDispatch:policy}:{}),now:()=>1100,
+    getCredential:()=>({token:'test-token',expiresAt:2000,repositoryIds:covered?['41','42']:['42'],permissions:{actions:'write'}}),
+    fetcher:async(url,request)=>{calls.push({url,request});const r=new Response('{}');Object.defineProperty(r,'url',{value:url});return r;}});
+  const transport=make(dispatchPolicy),write={method:'POST',endpoint:'/repos/example/core/actions/workflows/50/dispatches',
+    operation:'dispatch',target:'50',body:JSON.stringify({ref:'main',inputs:{nibfin_correlation:'request-1'}})};
+  assert.equal((await make()(write)).status,403);
+  assert.equal((await transport(write)).status,200);const count=calls.length;
+  for(const change of [r=>r.target='51',r=>r.operation='label',r=>r.endpoint=r.endpoint.replace('/50/','/51/'),
+    r=>r.body=JSON.stringify({ref:'other',inputs:{}}),r=>r.endpoint='/repos/example/action/actions/workflows/50/dispatches']){
+    const r=structuredClone(write);change(r);assert.equal((await transport(r)).status,403);
+  }
+  assert.equal(calls.length,count);covered=false;assert.equal((await transport(write)).failure,'authentication');
+  assert.equal(calls.length,count);
+  for(const endpoint of ['/repos/example/core/actions/workflows/50/runs?event=workflow_dispatch&per_page=100',
+    '/repos/example/core/actions/runs/70'])assert.equal(poolDispatchAccess(pool,dispatchPolicy,{...write,method:'GET',endpoint}),true);
+  for(const endpoint of ['/repos/example/core/actions/workflows/51/runs?event=workflow_dispatch',
+    '/repos/example/core/actions/workflows/50/runs?event=workflow_dispatch&event=issues',
+    '/repos/example/core/actions/runs/70/artifacts','/repos/example/core/contents/private'])
+    assert.equal(poolDispatchAccess(pool,dispatchPolicy,{...write,method:'GET',endpoint}),false);
+});
 const target=t=>({owner:'example',repository:t.repository.split('/')[1],id:t.repositoryId,ownerId:'7',ownerType:'User'});
 const records=id=>['21','22'].map((runnerId,i)=>({version:2,instanceId:'local-'+i,runnerId,memberId:'8',
   repositoryId:id,executionRepositoryId:'41',registration,platform:'linux'}));

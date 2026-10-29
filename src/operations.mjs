@@ -1,5 +1,6 @@
 import {deliveryWriteRequest,requireMergeIdentity} from './github.mjs';
 import {randomUUID} from 'node:crypto';
+import {validateExecutionPool,validatePoolDispatch} from './execution-pool.mjs';
 import {githubId, repositoryCoordinates, canonicalJSON, bodyDigest, contentIdentity, prepareCustodyManifest, publishCustody} from './index.mjs';
 
 const same = (a, b) => canonicalJSON(a) === canonicalJSON(b);
@@ -49,13 +50,19 @@ export function controlledIntent(input) {
     if (v.kind === 'merge') githubId(t.number);
   }
   if (v.kind === 'dispatch') {
-    if (t.workflow !== t.id || t.number !== null || !exact(p, 'ref inputs' + (p.refIdentity ? ' refIdentity' : '') + (p.handoff ? ' handoff' : '')+(p.display?' display':''))
+    if (t.workflow !== t.id || t.number !== null || !exact(p, 'ref inputs' + (p.refIdentity ? ' refIdentity' : '') + (p.handoff ? ' handoff' : '')+(p.display?' display':'')+(p.executionSource?' executionSource':''))
         || (p.refIdentity ? !exact(p.refIdentity, 'sha workflowDigest') || !sha(p.refIdentity.sha) || !hash(p.refIdentity.workflowDigest)
           || typeof p.ref !== 'string' || !/^[A-Za-z0-9_][A-Za-z0-9_./-]{0,119}$/.test(p.ref) || sha(p.ref) || p.ref.startsWith('refs/')
           || p.ref.includes('..') || p.ref.includes('//') || /[/.]$/.test(p.ref) || p.ref.split('/').some(s=>s.endsWith('.lock')) : !sha(p.ref))
         || !p.inputs || typeof p.inputs !== 'object' || Array.isArray(p.inputs)
         || Object.values(p.inputs).some(x => typeof x !== 'string')
         || p.inputs.nibfin_correlation !== v.correlation) fail();
+    if(p.executionSource){
+      if(!p.refIdentity||!exact(p.executionSource,'repository repositoryId'))fail();
+      githubId(p.executionSource.repositoryId);
+      const parts=p.executionSource.repository?.split('/');
+      if(parts?.length!==2||repositoryCoordinates(...parts).key!==p.executionSource.repository)fail();
+    }
     if(p.display&&(!exact(p.display,'repository issue')||p.display.repository!==b.repository
       ||p.display.issue!==b.number||p.inputs.nibfin_issue!==b.number))fail();
     if (p.handoff && (!p.refIdentity || !exact(p.handoff, 'source origin target workflow')
@@ -118,14 +125,16 @@ function custodyBinding(v, phase, source) {
 }
 /** Independent GETs only. Acknowledgment is never sufficient. */
 async function observe(provider, v, signal, allowAbsent = false, reconcilePR = false) {
-  const root = `/repos/${v.binding.repository}`, options = {operation: v.kind, correlation: v.correlation, target: v.target.id, signal};
+  const executionSource=v.kind==='dispatch'?v.payload.executionSource:undefined;
+  const repository=executionSource??v.binding;
+  const root = `/repos/${repository.repository}`, options = {operation: v.kind, correlation: v.correlation, target: v.target.id, signal};
   const read = async endpoint => {
     const r = await provider.request({...options, endpoint, method: 'GET'});
     if (r.outcome !== 'read' || signal?.aborted) throw Error('readback');
     return r;
   };
   const repo = await read(root);
-  if (repo.data?.id !== v.binding.repositoryId || repo.data.full_name?.toLowerCase() !== v.binding.repository
+  if (repo.data?.id !== repository.repositoryId || repo.data.full_name?.toLowerCase() !== repository.repository
       || repo.data.private !== false) throw Error('repository');
   if (v.kind === 'comment') {
     const issue=(await read(`${root}/issues/${v.target.number}`)).data;
@@ -158,7 +167,7 @@ async function observe(provider, v, signal, allowAbsent = false, reconcilePR = f
         && d.base?.ref === v.payload.base && d.head?.sha === v.binding.head && d.base?.sha === v.binding.base
         && d.base?.repo?.id === v.binding.repositoryId && d.head?.repo?.id === v.binding.repositoryId
       : d.workflow_id === v.target.id && d.event === 'workflow_dispatch' && d.head_sha === (v.payload.refIdentity?.sha ?? v.payload.ref)
-        && dispatchTitleMatches(d.display_title,v) && d.repository?.id === v.binding.repositoryId;
+        && dispatchTitleMatches(d.display_title,v) && d.repository?.id === repository.repositoryId;
     const matches = result.data.filter(matchesEffect);
     if (v.kind === 'pr' && (allowAbsent || reconcilePR)) {
       const related = result.data.filter(d => d.body?.includes(`<!-- nibfin-operation:${v.correlation} -->`)
@@ -221,11 +230,14 @@ async function observe(provider, v, signal, allowAbsent = false, reconcilePR = f
  * traceable custody references, or positively attests a new request. Never infer
  * newness from a missing artifact. Writes must use createAuthorizationBoundary.
  */
-export function createControlledOperations({authorization, provider, custody, publication, locate, execution, beforeSubmit = async () => {}, reconcileExistingPR = false, causalClose = false, timeoutMs = 30000} = {}) {
+export function createControlledOperations({authorization, provider, custody, publication, locate, execution, executionPool, poolDispatch, beforeSubmit = async () => {}, reconcileExistingPR = false, causalClose = false, timeoutMs = 30000} = {}) {
   if (typeof authorization?.request !== 'function' || typeof provider?.request !== 'function'
       || typeof provider?.collection !== 'function' || typeof custody?.retrieve !== 'function'
       || typeof publication !== 'function' || typeof locate !== 'function') throw Error('operations:capability');
   if (typeof causalClose !== 'boolean') fail();
+  const pool=executionPool===undefined?null:validateExecutionPool(executionPool);
+  const dispatch=poolDispatch===undefined?null:validatePoolDispatch(pool,poolDispatch);
+  if(!!pool!==!!dispatch)fail();
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 86400000) throw Error('operations:timeout');
   if (!exact(execution, 'runId attempt')) fail();
   githubId(execution.runId); githubId(execution.attempt);
@@ -269,6 +281,14 @@ export function createControlledOperations({authorization, provider, custody, pu
     let v, prior, refs = {}, submission;
     try {
       v = controlledIntent(input);
+      if(v.kind==='dispatch'){
+        if(v.payload.executionSource){
+          if(!dispatch||!same(v.payload.executionSource,{repository:pool.source.repository,repositoryId:pool.source.repositoryId})
+            ||v.binding.repository!==dispatch.repository||v.binding.repositoryId!==dispatch.repositoryId
+            ||v.target.workflow!==dispatch.workflow||v.payload.ref!==dispatch.ref
+            ||!same(v.payload.refIdentity,{sha:dispatch.sha,workflowDigest:dispatch.workflowDigest}))fail();
+        }else if(dispatch)fail();
+      }
       prior = await bounded(locate({identity: contentIdentity(v), correlation: v.correlation, binding: structuredClone(v.binding)}), signal);
       if (signal?.aborted) return unknown(refs, 'cancelled');
       if (prior?.outcome === 'found') {

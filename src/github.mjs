@@ -54,7 +54,7 @@ export class GithubObservation {
 // createPull/merge. The existing Nibfin operations owner supplies a validated,
 // authorized intent and retains/reconciles each submission before any retry.
 export function deliveryWriteRequest(v) {
-  const repository=v.binding.repository;
+  const repository=(v.kind==='dispatch'?v.payload.executionSource?.repository:undefined)??v.binding.repository;
   if(!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository))throw Error('Invalid repository identity');
   const root='/repos/'+repository,t=v.target;
   const route={pr:['POST','/pulls'],merge:['PUT',`/pulls/${t.number}/merge`],

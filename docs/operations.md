@@ -235,3 +235,19 @@ repository and Issue number. Run readback still requires the exact immutable
 operation marker, pinned workflow/head and repository ID. Only the displayed
 repository spelling is case-normalized; display text cannot select a request or
 grant authority. Older dispatches retain their original exact title contract.
+
+For a personal-account shared execution pool, an installed `poolDispatch` policy
+pins one logical repository/ID, actual source workflow ID, named ref, commit SHA
+and workflow digest. `createControlledOperations` requires both `executionPool`
+and that policy. A dispatch intent additionally retains `payload.executionSource`
+with the actual source repository and ID, plus its existing `refIdentity`. The
+destination is part of immutable intent custody; changing deployment configuration
+cannot reinterpret a previously retained dispatch. No event input selects a policy.
+
+The Issue binding, signed Grant, assignee and Write checks remain on the logical
+repository. Only the dispatch POST and independent source Run readback use the
+physical source. Hosted transport separately requires the protected policy, exact
+workflow/ref and credentials covering both repository IDs. Pool membership alone
+does not admit any source mutation. A missing/conflicting Run or lost retention
+remains unknown and never causes an automatic second dispatch. This API is a
+composition capability; its tests do not certify a deployed shared Runner pool.

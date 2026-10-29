@@ -75,3 +75,38 @@ export function poolInventoryRead(pool,request){
     const n=Number(match[2]);return Number.isSafeInteger(n)&&n<=(match[1]==='per_page'?100:1000);
   });
 }
+
+/** Installed per logical target and workflow, never selected by dispatch inputs. */
+export function validatePoolDispatch(pool,value){
+  fields(value,['version','repository','repositoryId','workflow','ref','sha','workflowDigest']);
+  poolLogicalTarget(pool,value);githubId(value.workflow);
+  need(value.version===1&&typeof value.ref==='string'&&/^[A-Za-z0-9_][A-Za-z0-9_./-]{0,119}$/.test(value.ref)
+    &&!value.ref.startsWith('refs/')&&!value.ref.includes('..')&&!value.ref.includes('//')
+    &&!/[/.]$/.test(value.ref)&&!value.ref.split('/').some(p=>p.endsWith('.lock'))
+    &&!/^[a-f0-9]{40}$/.test(value.ref)&&/^[a-f0-9]{40}$/.test(value.sha)
+    &&/^[a-f0-9]{64}$/.test(value.workflowDigest));
+  return freeze({...value});
+}
+/** Narrow physical-source access. The logical Grant/checkpoint still owns POST. */
+export function poolDispatchAccess(pool,policy,request){
+  const p=validateExecutionPool(pool),d=validatePoolDispatch(p,policy),root='/repos/'+p.source.repository;
+  if(request.operation!=='dispatch'||request.target!==d.workflow)return false;
+  if(request.method==='POST'){
+    if(request.endpoint!==`${root}/actions/workflows/${d.workflow}/dispatches`)return false;
+    let body;try{body=typeof request.body==='string'?JSON.parse(request.body):request.body;}catch{return false;}
+    return !!body&&canonicalJSON(Object.keys(body).sort())===canonicalJSON(['inputs','ref'])
+      &&body.ref===d.ref&&body.inputs&&typeof body.inputs==='object'&&!Array.isArray(body.inputs)
+      &&Object.values(body.inputs).every(v=>typeof v==='string');
+  }
+  if(request.method!=='GET')return false;
+  if(new RegExp('^'+root.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'/actions/runs/[1-9][0-9]*$').test(request.endpoint))return true;
+  const [path,query,...extra]=(request.endpoint??'').split('?');
+  if(extra.length||path!==`${root}/actions/workflows/${d.workflow}/runs`||!query)return false;
+  const seen=new Set();
+  return query.split('&').every(pair=>{
+    const [key,value,...rest]=pair.split('=');if(rest.length||seen.has(key))return false;seen.add(key);
+    if(key==='event')return value==='workflow_dispatch';
+    return ['page','per_page'].includes(key)&&/^[1-9][0-9]*$/.test(value)
+      &&Number.isSafeInteger(Number(value))&&Number(value)<=(key==='per_page'?100:1000);
+  })&&seen.has('event');
+}

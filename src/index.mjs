@@ -1,5 +1,5 @@
 export {githubId,repositoryCoordinates,memberRunnerLabel} from './identity.mjs';
-export {validateExecutionPool,projectExecutionContext} from './execution-pool.mjs';
+export {validateExecutionPool,projectExecutionContext,validatePoolDispatch} from './execution-pool.mjs';
 
 export {canonicalJSON, bodyDigest, prepareGrant, signGrant, verifyGrant} from './grants.mjs';
 export {createGithubProvider, localGhTransport, parseGithubJson, publicDiagnostic, githubApiVersion} from './provider.mjs';

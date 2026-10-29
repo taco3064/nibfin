@@ -23,6 +23,7 @@ export function operationInput(kind = 'close') {
 export function operationsFixture(input = operationInput()) {
   let execution = {runId:'100',attempt:'1'};
   const b = input.binding, root = `/repos/${b.repository}`, records = new Map(), history = new Map(), attempted = new Set(), calls = [];
+  const source=input.payload.executionSource??b,dispatchRoot='/repos/'+source.repository;
   const state = {effect: false, allowed: true, lost: false, status: 200, failRead: false, incomplete: false,
     retainFail: false, corrupt: false, expired: false, mutate: d => d, beforeWrite: () => {}};
   let next = 900;
@@ -31,7 +32,7 @@ export function operationsFixture(input = operationInput()) {
     if(input.kind==='comment')return {id:'81',body:input.payload.body,user:{id:'7'},created_at:'2026-10-24T12:00:00Z',
       updated_at:'2026-10-24T12:00:00Z',issue_url:`https://api.github.com${root}/issues/${b.number}`};
     if (input.kind === 'dispatch') return {id: '70', workflow_id: input.target.id, event: 'workflow_dispatch',
-      display_title: 'nibfin-operation:'+input.correlation+(input.payload.display?' '+input.payload.display.repository+'#'+input.payload.display.issue:''), head_sha: b.head, repository: {id: b.repositoryId}, status: 'queued'};
+      display_title: 'nibfin-operation:'+input.correlation+(input.payload.display?' '+input.payload.display.repository+'#'+input.payload.display.issue:''), head_sha: b.head, repository: {id: source.repositoryId}, status: 'queued'};
     if (['pr', 'merge'].includes(input.kind)) return {id: '60', number: 102, title: input.payload.title, body: input.payload.body,
       head: {ref: input.payload.head, sha: b.head, repo: {id: '42'}}, base: {ref: input.kind === 'merge' ? b.baseRef : input.payload.base, sha: b.base, repo: {id: '42'}},
       merged: input.kind === 'merge', state: input.kind === 'merge' ? 'closed' : 'open', merge_commit_sha: 'd'.repeat(40)};
@@ -50,6 +51,7 @@ export function operationsFixture(input = operationInput()) {
     }
     if (state.failRead && !r.endpoint.includes('/artifacts') && r.endpoint !== root) return response({}, 500);
     if (r.endpoint === root) return response({id: b.repositoryId, full_name: b.repository, private: false});
+    if(r.endpoint===dispatchRoot)return response(state.sourceRepository??{id:source.repositoryId,full_name:source.repository,private:false});
     const all = [...records.values()].map(x => x.metadata);
     if (/\/actions\/runs\/\d+\/artifacts\?per_page=100$/.test(r.endpoint)) {
       const runId=r.endpoint.match(/\/runs\/(\d+)\//)[1], filtered=all.filter(a=>a.workflow_run.id===runId);
@@ -61,7 +63,7 @@ export function operationsFixture(input = operationInput()) {
       return response({id:input.target.id,node_id:b.issueId,number:Number(b.number),repository_url:`https://api.github.com${root}`});
     const d = state.mutate(effectData());
     const headers = state.incomplete ? {link: `<https://evil.example/page>; rel="next"`} : {};
-    if (r.endpoint.startsWith(`${root}/actions/workflows/`)) return response({total_count:state.total ?? (state.effect ? 1 : 0),workflow_runs: state.runs ?? (state.effect ? [d] : [])}, state.status, headers);
+    if (r.endpoint.startsWith(`${dispatchRoot}/actions/workflows/`)) return response({total_count:state.total ?? (state.effect ? 1 : 0),workflow_runs: state.runs ?? (state.effect ? [d] : [])}, state.status, headers);
     if (r.endpoint === `${root}/pulls?state=all&per_page=100`) return response(state.prs ? state.prs(d) : state.effect ? [d] : [], state.status, headers);
     if(r.endpoint.endsWith('/comments?per_page=100')) return response(state.comments??(state.effect?[d]:[]),state.status,headers);
     if (r.endpoint.includes('/labels')) return response(state.effect ? (input.payload.labels ?? []).map(name=>({id:'80',name})) : [], state.status, headers);

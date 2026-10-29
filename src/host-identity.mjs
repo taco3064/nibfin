@@ -4,7 +4,7 @@ import {createGithubProvider, localGhTransport, publicDiagnostic, githubEndpoint
 import {createAuthorizationBoundary} from './authorization.mjs';
 import {verifyGrant} from './grants.mjs';
 import {githubId, repositoryCoordinates, canonicalJSON} from './index.mjs';
-import {poolLogicalTarget,poolInventoryRead} from './execution-pool.mjs';
+import {poolLogicalTarget,poolInventoryRead,validatePoolDispatch,poolDispatchAccess} from './execution-pool.mjs';
 
 const need = ok => {if (!ok) throw Error('host-identity:configuration');};
 const fail = kind => ({outcome:'failed',diagnostic:{kind}});
@@ -18,12 +18,14 @@ const exact = (v,required,optional=[]) => need(v && Object.getPrototypeOf(v)===O
 /** Protected App/Workflow token acquisition only. Metadata is an upper bound from
  * trusted issuance configuration; GitHub still enforces actual endpoint rights.
  * No token, response body or fetch exception is exposed as a diagnostic. */
-export function hostedGithubTransport({getCredential, repository, repositoryId, organization, operatorId, now=Date.now, fetcher=fetch,executionPool}={}) {
+export function hostedGithubTransport({getCredential, repository, repositoryId, organization, operatorId, now=Date.now, fetcher=fetch,executionPool,poolDispatch}={}) {
   need(typeof getCredential==='function' && typeof now==='function' && typeof fetcher==='function');
   githubId(repositoryId);
   need(repositoryCoordinates(...repository.split('/')).key===repository);
   need(organization===undefined || organization===repository.split('/')[0]);
   const pool=executionPool===undefined?null:poolLogicalTarget(executionPool,{repository,repositoryId});
+  const dispatchPolicy=poolDispatch===undefined?null:validatePoolDispatch(pool,poolDispatch);
+  need(!dispatchPolicy||dispatchPolicy.repository===repository&&dispatchPolicy.repositoryId===repositoryId);
   const dispatch = async (request, credential, prepared=false) => {
     try {
       if(typeof request.endpoint!=='string' || !/^\/(?:[A-Za-z0-9_./?=&-]|%[0-9A-Fa-f]{2})+$/.test(request.endpoint)
@@ -33,7 +35,8 @@ export function hostedGithubTransport({getCredential, repository, repositoryId, 
       const orgPrefix=organization && '/orgs/'+organization;
       const right=githubEndpointPermission(request.method,request.endpoint);
       const poolRead=pool&&poolInventoryRead(pool,request);
-      const scoped=poolRead||request.endpoint===repoPrefix || request.endpoint.startsWith(repoPrefix+'/')
+      const poolOperation=dispatchPolicy&&poolDispatchAccess(pool,dispatchPolicy,request);
+      const scoped=poolRead||poolOperation||request.endpoint===repoPrefix || request.endpoint.startsWith(repoPrefix+'/')
         || orgPrefix && (request.endpoint===orgPrefix || request.endpoint.startsWith(orgPrefix+'/'))
         || /^\/users\/[A-Za-z0-9-]+$/.test(request.endpoint);
       if (!right || !scoped) return {status:403,body:'{}'};
@@ -43,7 +46,7 @@ export function hostedGithubTransport({getCredential, repository, repositoryId, 
         || !Number.isSafeInteger(c.expiresAt) || c.expiresAt<=now()
         || operatorId!==undefined && c.installationId!==operatorId
         || !Array.isArray(c.repositoryIds) || !c.repositoryIds.includes(repositoryId)
-        ||poolRead&&!c.repositoryIds.includes(pool.source.repositoryId)) return {failure:'authentication'};
+        ||(poolRead||poolOperation)&&!c.repositoryIds.includes(pool.source.repositoryId)) return {failure:'authentication'};
       if (right!=='public:read') {
         const [name,level]=right.split(':');
         if (name.startsWith('organization_') && c.organization!==organization) return {status:403,body:'{}'};
@@ -88,7 +91,7 @@ function compose(configuration, testFacility) {
   exact(configuration,['options','mode','source','api','operations'],['now','authorization']);
   need(configuration.mode==='registration'||configuration.authorization!==undefined);
   exact(configuration.source,['policy','getToken','continuation'],['getAssociation','timeoutMs']);
-  exact(configuration.api,['kind','operator'],['executable','getCredential','organization']);
+  exact(configuration.api,['kind','operator'],['executable','getCredential','organization','poolDispatch']);
   if(configuration.mode!=='registration')exact(configuration.authorization,['getCheckpoint','maxCheckpointMs']);
   const options=structuredClone(configuration.options),mode=configuration.mode,source={...configuration.source},
     api={...configuration.api,operator:{...configuration.api?.operator}},authorization={...configuration.authorization},now=configuration.now??Date.now;
@@ -123,7 +126,9 @@ function compose(configuration, testFacility) {
   if(continuation.kind!=='none')need(typeof continuation.getEvidence==='function');
   need(api.kind===(isMember(mode)?'local':'hosted'));
   exact(api,api.kind==='local'?['kind','operator']:['kind','operator','getCredential'],
-    api.kind==='local'?['executable','organization']:['organization']);
+    api.kind==='local'?['executable','organization']:['organization','poolDispatch']);
+  const dispatchPolicy=api.poolDispatch===undefined?null:validatePoolDispatch(pool,api.poolDispatch);
+  need(!dispatchPolicy||dispatchPolicy.repository===options.repository&&dispatchPolicy.repositoryId===options.repositoryId);
   if(api.kind==='hosted')need(typeof api.getCredential==='function');
   if(api.organization!==undefined)need(api.organization===options.repository.split('/')[0]);
   if(mode!=='registration'){need(typeof authorization?.getCheckpoint==='function');
@@ -133,7 +138,10 @@ function compose(configuration, testFacility) {
   for(const operation of operations) {
     exact(operation,['method','endpoint','target','operation']);githubId(operation.target);
     const right=githubEndpointPermission(operation.method,operation.endpoint);
-    need(right && (pool&&poolInventoryRead(pool,operation)||operation.endpoint==='/repos/'+options.repository || operation.endpoint.startsWith('/repos/'+options.repository+'/')
+    const dispatchEndpoint=dispatchPolicy&&operation.operation==='dispatch'&&operation.method==='POST'
+      &&operation.target===dispatchPolicy.workflow&&operation.endpoint===`/repos/${pool.source.repository}/actions/workflows/${dispatchPolicy.workflow}/dispatches`;
+    need(right && (dispatchEndpoint||dispatchPolicy&&poolDispatchAccess(pool,dispatchPolicy,operation)
+      ||pool&&poolInventoryRead(pool,operation)||operation.endpoint==='/repos/'+options.repository || operation.endpoint.startsWith('/repos/'+options.repository+'/')
       || /^\/users\/[A-Za-z0-9-]+$/.test(operation.endpoint)
       || api.organization && (operation.endpoint==='/orgs/'+api.organization || operation.endpoint.startsWith('/orgs/'+api.organization+'/'))));
   }
@@ -141,7 +149,7 @@ function compose(configuration, testFacility) {
   const transport=testFacility?.transport ?? (api.kind==='local'?localGhTransport({executable:api.executable})
     :hostedGithubTransport({getCredential:api.getCredential,repository:options.repository,
       repositoryId:options.repositoryId,organization:api.organization,operatorId:api.operator.id,now,
-      ...(pool?{executionPool:pool}:{})}));
+      ...(pool?{executionPool:pool}:{}),...(dispatchPolicy?{poolDispatch:dispatchPolicy}:{})}));
   const identity=api.kind==='local'?'local-stored-login':'hosted-authorized';
   const reader=createGithubProvider({transport,identity,now});
   const getCheckpoint=authorization.getCheckpoint;

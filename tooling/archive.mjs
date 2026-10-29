@@ -230,7 +230,7 @@ assert.equal((await authorization.request({method:'PATCH',endpoint:'/repos/examp
 context.revocation.available=false;
 assert.equal((await authorization.eligibility()).ok,false);
 context.revocation.available=true;
-const exported = exportAuthority({source:'https://app.notion.com/p/40006b644a2080dab1a8c2e562f95373',
+const exported = exportAuthority({source:'https://github.com/example-org/core/issues/101',
   revision:'1', approvalId:'approval-1', cycle:'cycle-1', components:[
     {id:'section',kind:'section',body:'Hello\\n世界',references:['attachment']},
     {id:'attachment',kind:'attachment',body:'AAEC',references:[]}]});

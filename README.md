@@ -37,8 +37,9 @@ with fresh authorization and native dependency checks. Its retained local proof
 does not certify live Actions execution.
 
 The [approved-export contract](docs/authority.md) documents full representation,
-independent approval, cycle binding and dependent-evidence invalidation. It uses
-locally supplied exports and does not connect to live Notion.
+independent approval, cycle binding and dependent-evidence invalidation. GitHub Issues are the requirement source. The read-only Issue observer obtains
+the current body; protected Owner authorization remains separate from Issue prose.
+Proposal documents are not requirement authority.
 
 The [protected registration contract](docs/registration.md) provides Owner opt-in,
 fresh member eligibility and encrypted short-lived responses through Actions

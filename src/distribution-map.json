@@ -428,7 +428,7 @@
     },
     {
       "path": "package.json",
-      "sha256": "61fba01d82a90ca539ddf2da9a4bb10781fed9180b44d255e08cd5265e15b268"
+      "sha256": "fae18313e1edc9d606fa3eb3fd2c8f2d3af77fbdc4fb95f9bfcd575e1ec69530"
     },
     {
       "path": "skills/accept/SKILL.md",
@@ -640,7 +640,7 @@
     },
     {
       "path": "src/index.mjs",
-      "sha256": "36344f470c5c8a3e7d70c1951321a5e78922504e2b50130e65a154c126101a8b"
+      "sha256": "621f3ecb9c1b19727df25ef06965355b2878feecb7c9b7a26a7650c376dcd05d"
     },
     {
       "path": "src/installation.mjs",
@@ -657,6 +657,10 @@
     {
       "path": "src/lifecycle.mjs",
       "sha256": "980aeddc12c6a4cd9e49bdbc50d44d17cb1d1a71fa71b34880c2bd0f2c30afd4"
+    },
+    {
+      "path": "src/native-role-bindings.mjs",
+      "sha256": "3afa5467371b98699e576cfaf1e1c7f3c7418bc318f75b3cbfaae01f2f4d11c0"
     },
     {
       "path": "src/node-verification.mjs",
@@ -792,7 +796,7 @@
     },
     {
       "path": "src/role-host.mjs",
-      "sha256": "41b3167e39b01411e474e1a580f0f476bc4d755d155af2e5b19847fc75333567"
+      "sha256": "793589254bbe8c4bad9c15089aef7eaaef30d1e00b43101e234064b87d130abe"
     },
     {
       "path": "src/role-session.mjs",

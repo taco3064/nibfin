@@ -134,6 +134,7 @@
     "src/node-verification.mjs",
     "src/runner.mjs",
     "src/role-host.mjs",
+    "src/native-role-bindings.mjs",
     "src/egress.mjs",
     "src/egress-gateway.mjs",
     "src/agent-session.mjs",

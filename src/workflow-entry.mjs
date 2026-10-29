@@ -32,6 +32,9 @@ export async function workflowMain(env=process.env,{deployment}={}) {
     if (!/^[a-z_]+$/.test(key) || typeof value!=='string' || value.length>32768 || /[\r\n]/.test(value)) throw Error('workflow:output');
     await appendFile(env.GITHUB_OUTPUT,`${key}=${value}\n`);
   }
+  // Rescue can exit successfully only for independently verified completion.
+  // In particular a neutral Check/output must never leave this workflow green.
+  if(env.NIBFIN_MODE==='rescue')return output.outcome==='RESOLVED'&&output.conclusion==='success'&&output.status==='resolved'?0:1;
   return ['blocked','unknown','unconfirmed','denied','unavailable','unresolved','rejected','expired'].includes(output.status)?1:0;
 }
 if (process.argv[1] && import.meta.url===pathToFileURL(resolve(process.argv[1])).href)

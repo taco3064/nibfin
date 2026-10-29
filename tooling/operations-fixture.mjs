@@ -31,7 +31,7 @@ export function operationsFixture(input = operationInput()) {
     if(input.kind==='comment')return {id:'81',body:input.payload.body,user:{id:'7'},created_at:'2026-10-24T12:00:00Z',
       updated_at:'2026-10-24T12:00:00Z',issue_url:`https://api.github.com${root}/issues/${b.number}`};
     if (input.kind === 'dispatch') return {id: '70', workflow_id: input.target.id, event: 'workflow_dispatch',
-      display_title: 'nibfin-operation:'+input.correlation, head_sha: b.head, repository: {id: b.repositoryId}, status: 'queued'};
+      display_title: 'nibfin-operation:'+input.correlation+(input.payload.display?' '+input.payload.display.repository+'#'+input.payload.display.issue:''), head_sha: b.head, repository: {id: b.repositoryId}, status: 'queued'};
     if (['pr', 'merge'].includes(input.kind)) return {id: '60', number: 102, title: input.payload.title, body: input.payload.body,
       head: {ref: input.payload.head, sha: b.head, repo: {id: '42'}}, base: {ref: input.kind === 'merge' ? b.baseRef : input.payload.base, sha: b.base, repo: {id: '42'}},
       merged: input.kind === 'merge', state: input.kind === 'merge' ? 'closed' : 'open', merge_commit_sha: 'd'.repeat(40)};

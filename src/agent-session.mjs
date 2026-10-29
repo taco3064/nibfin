@@ -50,7 +50,7 @@ export function executeSession({request,adapter,version,invoke,decode,inspect,ru
   const deadline=Math.min(request.deadlineAt??now()+request.timeout,now()+request.timeout);
   if(!Number.isSafeInteger(deadline)||!Number.isSafeInteger(request.timeout)||request.timeout<=0)fail('deadline');
   const continuity=createRoleSession(request,adapter,version,{persisted});
-  let session=null,model=policy.model,attempt=0;
+  let session=continuity.id,model=policy.model,attempt=0;
   const fallbacks=[...policy.fallbacks];
   while(attempt++<policy.attempts) {
     if(request.signal?.aborted)return {diagnostic:'cancelled'};
@@ -68,7 +68,7 @@ export function executeSession({request,adapter,version,invoke,decode,inspect,ru
       session=continuity.id;
     }
     if(!response.error&&response.status===0&&observation.success===true) {
-      try{return {evidence:decode(response.stdout,request.context)};}catch{return {diagnostic:'invalid-result'};}
+      try{return {evidence:decode(response.stdout,request.context),session:{id:session,adapter,version}};}catch{return {diagnostic:'invalid-result'};}
     }
     if(observation.capacity!==true||observation.unknownExternalWrite===true||!session||response.error)return {diagnostic:'provider-failure'};
     if(attempt===policy.attempts)return {diagnostic:'capacity-exhausted'};

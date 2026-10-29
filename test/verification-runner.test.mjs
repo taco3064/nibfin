@@ -50,3 +50,28 @@ test('retention failure after command completion cannot release the lane or coun
  await assert.rejects(runVerification(process.execPath,['-e',sabotage],o));
  assert.equal((await runVerification(process.execPath,['-e','process.exit(0)'],o)).status,'busy');
 });
+// PR54 EPIPE case, using Nibfin's stronger subreaper rather than donor groups.
+test('closed stdout EPIPE retains failed evidence, reconciles descendants and releases only its owned lane',async t=>{
+  const {Writable}=await import('node:stream');const o=await fixture(t);
+  const output=new Writable({write(_chunk,_encoding,done){done(Object.assign(Error('closed'),{code:'EPIPE'}));}});
+  const result=await runVerification(process.execPath,['-e','console.log("receipt must not pass")'],{...o,stdout:output});
+  assert.equal(result.status,'output_error');assert.equal(result.exitCode,74);assert.equal(result.errorCode,'EPIPE');
+  assert.equal(JSON.parse(await readFile(result.receiptPath)).status,'output_error');await assert.rejects(access(join(o.directory,'active.lock')));
+  assert.equal((await runVerification(process.execPath,['-e','process.exit(0)'],o)).status,'passed');
+});
+test('a foreign lane lock is preserved and the command cannot retain a passing verdict',async t=>{
+  const o=await fixture(t);
+  const code=`require('fs').writeFileSync(${JSON.stringify(join(o.directory,'active.lock'))},JSON.stringify({id:'different-owner',pid:process.pid}));`;
+  const result=await runVerification(process.execPath,['-e',code],o);assert.equal(result.status,'unresolved');
+  assert.equal(JSON.parse(await readFile(join(o.directory,'active.lock'))).id,'different-owner');
+  assert.equal(JSON.parse(await readFile(result.receiptPath)).status,'unresolved');
+});
+test('EPIPE while a real command is active stops its process tree before returning',async t=>{
+  const {Writable}=await import('node:stream');const o=await fixture(t),marker=join(o.directory,'descendant-ran');
+  const output=new Writable({write(_b,_e,done){done(Object.assign(Error('closed'),{code:'EPIPE'}));}});
+  const descendant=`setTimeout(()=>require('fs').writeFileSync(${JSON.stringify(marker)},'escaped'),1500);setInterval(()=>{},1000);`;
+  const code=`require('child_process').spawn(process.execPath,['-e',${JSON.stringify(descendant)}],{detached:true,stdio:'ignore'});console.log('first output');setInterval(()=>{},1000);`;
+  const started=Date.now(),result=await runVerification(process.execPath,['-e',code],{...o,stdout:output});
+  assert.equal(result.status,'output_error');assert.equal(result.errorCode,'EPIPE');assert.ok(Date.now()-started<5000);
+  await new Promise(done=>setTimeout(done,1600));await assert.rejects(access(marker));await assert.rejects(access(join(o.directory,'active.lock')));
+});

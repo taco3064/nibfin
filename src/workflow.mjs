@@ -1,6 +1,6 @@
 import {verifySessionResult} from './collaboration.mjs';
 import {createCore, createEventRelay, createRegistrationHost, canonicalJSON, githubId,
-  memberRunnerLabel, repositoryCoordinates} from './index.mjs';
+  memberRunnerLabel, repositoryCoordinates,createRescueController,reportRescueOutcome} from './index.mjs';
 
 export const workflowVersion = 1;
 const writers = new Set(['publication','pr','merge','closure','delivered','fanout','recovery']);
@@ -10,6 +10,11 @@ const opaque = v => typeof v === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(v);
 const exact = (v,keys) => need(v && same(Object.keys(v).sort(),keys.split(' ').sort()));
 const deliveryKeys = 'nibfin_request nibfin_correlation';
 export function workflowInput(mode,input) {
+  if(mode==='rescue') {
+    exact(input,'request_id source_run_id source_attempt mode nibfin_correlation nibfin_issue');
+    need(/^[a-f0-9]{64}$/.test(input.request_id)&&['repair','diagnose','verify'].includes(input.mode));
+    githubId(input.source_run_id);githubId(input.source_attempt);githubId(input.nibfin_issue);need(opaque(input.nibfin_correlation));return structuredClone(input);
+  }
   exact(input, mode === 'registration' ? 'nibfin_registration public_key level'
     : ['resolve','execute','compute'].includes(mode) ? deliveryKeys+' issue'+(mode!=='resolve'?' resolution':'')
     : mode === 'lookup' ? deliveryKeys : 'event');
@@ -60,6 +65,18 @@ export function createWorkflowEntry(host) {
       githubId(identity.repositoryId); githubId(identity.run.id); githubId(identity.run.attempt);
       const [owner,repo]=identity.repository.split('/');need(repositoryCoordinates(owner,repo).key===identity.repository);
       need(identity.repository===context.repository && identity.repositoryId===context.repositoryId && same(identity.run,context.run));
+      if(mode==='rescue') {
+        need(context.eventName==='workflow_dispatch');
+        const config=await host.rescue({identity,input,context,signal});
+        const held=(await config.records.read()).cases[input.request_id];
+        need(held&&held.source.runId===input.source_run_id&&held.source.attempt===input.source_attempt&&held.target.number===input.nibfin_issue);
+        const controller=createRescueController(config);
+        const result=input.mode==='verify'?await controller.verify(input.request_id):await controller.run(input.request_id,{diagnoseOnly:input.mode==='diagnose',signal});
+        const reporting=await reportRescueOutcome({outcome:result.outcome,reportingRun:identity.run.id,
+          capability:config.reporting?.capability,report:config.reporting?.report??(async()=>({confirmed:false}))});
+        return {status:reporting.outcome==='reported'?(result.outcome==='UNRESOLVED'?'unresolved':result.outcome.toLowerCase()):'blocked',
+          outcome:result.outcome,conclusion:reporting.conclusion,reason:reporting.outcome==='reported'?'verified-report':'reporting-'+reporting.outcome};
+      }
       if (mode==='wake') {
         // createEventRelay independently authenticates projection, source and predecessor.
         const result=await createEventRelay(await host.relay({identity,context})).wake(input.event);
@@ -146,6 +163,7 @@ export function createWorkflowEntry(host) {
       const value={...result,routing:{route,memberId:held.memberId,
         ...(typeof host.runnerObservation==='function'?{execution:host.runnerObservation()}:{})}};
       const reference=await host.retain({kind:'stage-result',key:request.request,value,identity,signal});need(opaque(reference));
+      if(typeof host.recordBlocked==='function')await host.recordBlocked({identity,value,reference,request});
       return {status:result.disposition,reference};
     } catch {return activeRequest?{status:'unresolved',request:activeRequest,reason:'result-reconciliation-required'}
       :{status:'blocked',selected:'false',reason:'invalid-or-unavailable'};}

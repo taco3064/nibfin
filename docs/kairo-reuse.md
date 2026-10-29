@@ -38,3 +38,37 @@ independent Accept. Unavailable capture or unsupported Hook execution remains an
 external failure and cannot grant a replacement Writer. Host adapters persist the
 original result and install the authorized repair handoff only after termination
 and side-effect reconciliation; Issue or model content cannot supply that source.
+
+## #231 recovery origin mapping
+
+The approved read-only PR57 source archive is revision
+`2f726d174b3b43699030f6558681751f17501dac` (archive SHA-256
+`40da4817d312b3d4ea134d364ce576c6c4a90a9029556038328748076a37d2b8`).
+Unified Rescue behavior originates at merged PR54,
+`710a92306ed0d5d28162ce0c0c3ea4ebcbcb8028`; PR57 supersedes completion routing.
+Unrelated mechanisms retain `d1b47d5e073cf15bdcdc1fbbec098401649878d9`.
+No unrelated bytes from PR57 are relabeled as that baseline. PR56 display-title
+work is not used. The archive is source input, never inherited test evidence.
+
+| Donor path / family | Maintained Nibfin owner / adapted tests | Revision and adaptation |
+| --- | --- | --- |
+| `src/action-stage.mjs`, `src/action-lifecycle.mjs` | `src/workflow.mjs`, `src/core.mjs`, `src/runtime.mjs`; workflows, core-owners, delivery-composition tests | Original baseline; existing v1 stage receipts, native needs and independent role owners retained |
+| `src/action-outbox.mjs` | `src/operations.mjs`, `src/relay.mjs`; operations, relay, fanout tests | Original baseline; retained intent/attempt/custody/readback replaces private local outbox, no second queue |
+| `src/action-event.mjs`, `src/action-provenance.mjs` | `src/actions.mjs`, `src/host-identity.mjs`, `src/relay.mjs`; actions, host-identity, relay tests | Original baseline; public repository, per-member eligibility, pinned OIDC source and distinct event/dispatch observations |
+| `src/dynamic.mjs`, `src/dependency-event.mjs` | `src/dynamic.mjs`, `src/fanout.mjs`, `src/collaboration.mjs`; dynamic, fanout, rescue-composition tests | Original baseline; actual native dependency consumers and independently current completion |
+| `src/recovery.mjs` | `src/recovery.mjs`, `src/completion.mjs`; recovery, completion tests | Original baseline; source-only disposition, incident/comment/reopen owners remain authoritative |
+| `src/rescue.mjs`, `src/rescue-detection.mjs` | `src/rescue.mjs`, `src/rescue-records.mjs`; rescue tests | PR54 as supplied in PR57; bounded case transitions and shared cycle budgets adapted to existing host state/custody capabilities, no private Store or owner-only grant schema |
+| `src/rescue-policy.mjs` | `src/rescue-policy.mjs`; rescue-completion tests | PR54; exact source/attempt, workflow pins and provider timeout annotations; parameterized public repository and actor policy |
+| `src/rescue-ai.mjs`, packaged `skills/rescue/SKILL.md` | `src/rescue-ai.mjs`, `src/rescue-agent.mjs`, `skills/rescue/SKILL.md`; rescue, rescue-agent tests | PR54; typed plan validation, read-only capture comparison, retained diagnosis and bounded existing adapter process |
+| `src/rescue-writer.mjs`, `src/role-session.mjs` | `src/rescue-continuation.mjs`, `src/rescue-session.mjs`, `src/role-session.mjs`, `src/role-host.mjs`; rescue-continuation tests | PR54; preserved UNACCEPTED workspace and original member conversation with distinct execution, Codex session restore; unsupported cross-container adapter resume is explicit |
+| `src/rescue-continuation.mjs` | `src/rescue-continuation.mjs`; rescue-continuation tests | PR54; latest precise verification receipt and current exact-head CI predicates, never convert interruption to pass |
+| `src/rescue-remedies.mjs` | `src/rescue-remedies.mjs`; rescue tests | PR54; dead PID/source/time/inode checks and race guards; private Docker/sudo/service values removed, availability reads only |
+| `src/rescue-result.mjs`, `docs/rescue.md` | `src/rescue-result.mjs`, `docs/rescue.md`; rescue tests | PR54; truthful outcomes and sanitized metrics, no broad cancellation token; unsupported neutral reporting fails visibly |
+| `src/rescue-wakeup.mjs`, service/sudoers templates | `src/rescue-wakeup.mjs`, `host/templates/nibfin-rescue-wakeups.service`, `src/rescue-install.mjs`; rescue-completion/install tests | PR54 updated by PR57; existing host subscription/due timers only, no polling Action or arbitrary privileged command interface |
+| `src/rescue-completion.mjs`, dispatch-only workflow | `src/rescue-completion.mjs`, `src/rescue-host.mjs`, `workflow/templates/nibfin-rescue.yml`; rescue-completion, rescue-workflow tests | PR57; signature over exact bytes, zero allocation for normal green Runs, provider rereads, durable bounded inbox and uncertain-dispatch reconciliation |
+| `src/verification-runner.mjs` | `src/verification-runner.mjs`, existing child/supervisor; verification-runner tests | PR54 EPIPE guard adapted to Nibfin's stronger kernel-subreaper process owner; failed receipt and owned-lane release |
+
+Relevant upstream cases are adapted against maintained public owners instead of
+copying the donor runtime or private deployment constants. Process/model/provider
+boundaries in source fixtures are synthetic; no live delivery or member-isolation
+verdict is inherited. Installation, release and live E2E remain separately owned.

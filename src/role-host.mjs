@@ -17,10 +17,11 @@ const linux={codex:createLinuxCodexBackend,claude:createLinuxClaudeBackend,gemin
  * Protected deployment supplies identities/expectations and OS observations; checkout,
  * Issue and model inputs can neither select an adapter nor change an account/profile.
  */
-export function createProtectedRoleHost({configuration,bind,retain,probe,observe,process:run,observeHost,now=Date.now}={}) {
+export function createProtectedRoleHost({configuration,bind,retain,probe,observe,process:run,observeHost,sessions,now=Date.now}={}) {
   if(!configuration||typeof bind!=='function'||typeof retain!=='function'||typeof probe!=='function'
       ||Object.keys(configuration).sort().join(' ')!=='assignments profiles runner'
       ||!Array.isArray(configuration.profiles)||!configuration.profiles.length)fail('configuration');
+  if(sessions&&[sessions.prepare,sessions.retain].some(f=>typeof f!=='function'))fail('sessions');
   const runner=runnerConfiguration(configuration.runner),profiles=new Map(),registry=createAgentEnvironments(),used=new Set();
   for(const p of clone(configuration.profiles)) {
     if(Object.keys(p).sort().join(' ')!=='agent backend id os'||profiles.has(p.id)
@@ -54,7 +55,9 @@ export function createProtectedRoleHost({configuration,bind,retain,probe,observe
       const budget=createRoleBudget({deadlineAt,reserveMs,now});
       const launchInputs=clone(inputs);
       const taskProvider=()=>({prompt,inputs:clone(launchInputs)});
-      const backendConfig=profile.os==='linux'?{...profile.backend,deadlineAt,reserveMs:budget.deadlineAt-budget.cutoff,task:taskProvider,...(run?{process:run}:{})}:
+      const session=sessions?await sessions.prepare({task:clone(task),execution:clone(input.execution),memberId:runner.account.githubUserId}):null;
+      if(session&&(profile.os!=='linux'||profile.agent!=='codex'||session.memberId!==runner.account.githubUserId))fail('session-unsupported');
+      const backendConfig=profile.os==='linux'?{...profile.backend,...(session?{session}:{}),deadlineAt,reserveMs:budget.deadlineAt-budget.cutoff,task:taskProvider,...(run?{process:run}:{})}:
         {...profile.backend,linux:{...profile.backend.linux,deadlineAt,reserveMs:budget.deadlineAt-budget.cutoff,task:taskProvider},observeHost,...(run?{process:run}:{})};
       const backend=(profile.os==='linux'?linux[profile.agent]:createWindowsWslBackend)(backendConfig);
       const lane=profile.os==='wsl'?Object.freeze({execution:input.execution.id,budget,
@@ -68,6 +71,10 @@ export function createProtectedRoleHost({configuration,bind,retain,probe,observe
       let candidate=null;
       const collectionBackend={...backend,async cleanup(query) {
         try {
+          if(session) {
+            const record=await backend.sessionEvidence(input.execution.id);
+            if((await sessions.retain({...record,role:task.role}))?.outcome!=='retained')throw Error('session-retention');
+          }
           const records=await backend.verificationEvidence(input.execution.id);
           const retained=[];
           for(const {identity,payload} of records){const reference=await retain(payload);if(typeof reference!=='string'||!reference)throw Error('retention');

@@ -11,7 +11,44 @@ const writes = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const opaqueIdFields = new Set(['gravatar_id', 'spdx_id', 'external_id', 'client_id', 'tree_id']);
 const token = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(value);
 const id = value => typeof value === 'string' && /^[1-9][0-9]*$/.test(value);
+// Narrow read contracts used by authenticated recovery; query values never
+// grant authority, select a checkout, or add a mutation capability.
+function recoveryReadPermission(value) {
+  if(typeof value!=='string')return null;
+  const [path,query,extra]=value.split('?');if(extra!==undefined)return null;
+  const root='/repos/[A-Za-z0-9_-]+/[A-Za-z0-9_.-]+';
+  const matches=tail=>new RegExp('^'+root+tail+'$').test(path);
+  const params=new URLSearchParams(query),keys=[...params.keys()];
+  if(new Set(keys).size!==keys.length)return null;
+  const pagination=()=>keys.every(k=>['page','per_page'].includes(k)&&/^[1-9][0-9]{0,5}$/.test(params.get(k)))
+    &&(!params.has('per_page')||Number(params.get('per_page'))<=100)&&query!=='';
+  if(matches('/contents/\\.github/workflows/[A-Za-z0-9_-]+\\.ya?ml'))
+    return keys.length===1&&keys[0]==='ref'&&/^(?:main|[a-f0-9]{40})$/.test(params.get('ref'))?'contents:read':null;
+  if(matches('/commits/(?:main|[a-f0-9]{40})'))return query===undefined?'contents:read':null;
+  if(matches('/actions/workflows/[A-Za-z0-9_-]+\\.ya?ml'))return query===undefined?'actions:read':null;
+  if(matches('/actions/runs/[1-9][0-9]*/attempts/[1-9][0-9]*/jobs'))
+    return pagination()?'actions:read':null;
+  if(matches('/check-runs/[1-9][0-9]*/annotations'))return pagination()?'checks:read':null;
+  if(matches('/actions/workflows/[A-Za-z0-9_-]+\\.ya?ml/runs')) {
+    if(keys.some(k=>!['event','status','created','per_page','page'].includes(k))
+      ||!['event','status','created','per_page'].every(k=>params.has(k))
+      ||params.get('event')!=='workflow_dispatch'||params.get('status')!=='completed'
+      ||!/^([1-9]|[1-9][0-9]|100)$/.test(params.get('per_page'))
+      ||params.has('page')&&!/^[12]$/.test(params.get('page')))return null;
+    const dates=params.get('created').split('..');
+    if(dates.length!==2||dates.some(d=>!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(d)
+      ||!Number.isFinite(Date.parse(d))||new Date(d).toISOString()!==d))return null;
+    const span=Date.parse(dates[1])-Date.parse(dates[0]);
+    return span>=0&&span<=86400000?'actions:read':null;
+  }
+  return null;
+}
 function endpoint(value) {
+  if (recoveryReadPermission(value)) {
+    const url=new URL(value,origin);
+    if(url.pathname+url.search!==value||url.pathname.split('/').some(p=>p==='.'||p==='..'))throw Error('unsupported');
+    return value;
+  }
   if (typeof value !== 'string' || !/^\/(?:[a-zA-Z0-9_/?=&.-]|%2[fF])+$/.test(value)
       || value.includes('..') && !(/^\/repos\/[A-Za-z0-9_-]+\/[A-Za-z0-9_.-]+\/compare\/[a-f0-9]{40}\.\.\.[a-f0-9]{40}$/.test(value) && !value.split('/compare/')[0].includes('..')) || value.includes('//')) throw Error('unsupported');
   const url = new URL(value, origin);
@@ -108,6 +145,7 @@ function classify(response) {
  * Unknown management endpoints are deliberately unsupported. */
 export function githubEndpointPermission(method, endpoint) {
   if (typeof endpoint!=='string') return null;
+  if(method==='GET'&&recoveryReadPermission(endpoint))return recoveryReadPermission(endpoint);
   if(endpoint.includes('?')) {
     const [path,query,extra]=endpoint.split('?'),params=new URLSearchParams(query);
     const keys=[...params.keys()];
@@ -270,7 +308,10 @@ export function createGithubProvider({transport, identity = 'local-stored-login'
       const result = await request({...options, method: 'GET', endpoint: path, signal, [remaining]: Math.max(1, elapsedMs - (now() - started))});
       if (result.outcome !== 'read') return {...publicDiagnostic(result), outcome: 'incomplete'};
       const values = options.envelope ? result.data?.[options.envelope] : result.data;
-      if (!Array.isArray(values) || values.some(value => !value || !id(value.id))) return {outcome: 'incomplete', diagnostic: {kind: 'malformed'}};
+      const annotations=/^\/repos\/[^/]+\/[^/]+\/check-runs\/[1-9][0-9]*\/annotations(?:\?|$)/.test(path);
+      if (!Array.isArray(values) || values.some(value => !value || (annotations
+        ? !['notice','warning','failure'].includes(value.annotation_level)||typeof value.message!=='string'
+        : !id(value.id)))) return {outcome: 'incomplete', diagnostic: {kind: 'malformed'}};
       items.push(...values);
       if (!result.link) return {outcome: 'complete', data: items};
       try {

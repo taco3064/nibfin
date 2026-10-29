@@ -234,3 +234,14 @@ test('label: submission receipt must bind the current valid attempt',async()=>{
   assert.equal((await f.fresh().execute(f.input)).outcome,'unknown');
   assert.equal(f.writes().length,1);
 });
+
+test('pre-Shape dispatch retains actual null Shape/Candidate identities through existing custody; other writes still reject null',async()=>{
+  const input=operationInput('dispatch');input.binding.shapeHash=null;input.binding.candidate=null;
+  const f=operationsFixture(input);assert.equal((await f.fresh().execute(input)).outcome,'confirmed-success');
+  assert.equal((await f.fresh().execute(input)).outcome,'confirmed-success');assert.equal(f.writes().length,1);
+  for(const kind of ['label','close','merge']) {
+    const v=operationInput(kind);v.binding.shapeHash=null;v.binding.candidate=null;
+    assert.throws(()=>controlledIntent(v));
+  }
+  const invalid=operationInput('dispatch');invalid.binding.shapeHash=null;assert.throws(()=>controlledIntent(invalid));
+});

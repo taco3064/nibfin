@@ -124,3 +124,18 @@ export {collaborationVersion,verifyRepositoryIdentity,validateMemberBinding} fro
 export {localRunnerCount,createLocalRunnerLifecycle} from './runner-lifecycle.mjs';
 export {githubReadRequest,createGithubReadService,startGithubReadBroker,authorizedRepositories} from './agent-gh-read.mjs';
 export {verificationBudget,validateBudget,runVerification} from './verification-runner.mjs';
+
+export {validateRescuePolicy,authenticateRescueWebhook,createRescueProvenance,rescueWorkflow} from './rescue-policy.mjs';
+export {createRescueRecords,initialRescueRecords} from './rescue-records.mjs';
+export {createRescueController,createRescueDispatch,rescueCaseIdentity,eligibleRescueRecheck} from './rescue.mjs';
+export {createRescueCompletionReceiver,loadRescueCompletionSecret} from './rescue-completion.mjs';
+export {startRescueWakeups} from './rescue-wakeup.mjs';
+export {validateAiRepairPlan,validateRescueTarget,diagnoseRescueTarget} from './rescue-ai.mjs';
+export {verificationRescueContinuation,ciRescueContinuation,createRescueContinuation} from './rescue-continuation.mjs';
+export {lockEvidence,recoverRescueLocks,probeRescueAvailability,createRescueRemedies} from './rescue-remedies.mjs';
+export {rescueConclusion,rescueReport,reportRescueOutcome} from './rescue-result.mjs';
+export {rescueInstallation} from './rescue-install.mjs';
+export {createRescueAgentAdapter} from './rescue-agent.mjs';
+export {createRescueHost} from './rescue-host.mjs';
+export {createRoleSessionRecovery} from './role-session.mjs';
+export {captureRescueSession,restoreRescueSession} from './rescue-session.mjs';

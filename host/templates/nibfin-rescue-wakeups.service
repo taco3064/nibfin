@@ -1,0 +1,18 @@
+# Render through the existing Owner-authorized host installer. This is ONE host
+# notifier, not a member Runner service or a polling GitHub Action.
+[Unit]
+Description=Nibfin durable recovery notifications
+After=network-online.target
+[Service]
+Type=simple
+User=@HOST_USER@
+ExecStart=@HOST_ENTRY@ rescue-notifier
+Restart=on-failure
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=@STATE_DIRECTORY@
+LoadCredential=rescue-webhook:@SECRET_FILE@
+[Install]
+WantedBy=multi-user.target

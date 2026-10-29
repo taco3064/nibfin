@@ -5,7 +5,8 @@ export const hostModes = Object.freeze({
   execute: Object.freeze(['authenticate','delivery','retain','retrieve','verifyRunner']),
   compute: Object.freeze(['authenticate','delivery','retain','retrieve','verifyRunner']),
   wake: Object.freeze(['authenticate','relay']),
-  registration: Object.freeze(['authenticate','registration','retain'])
+  registration: Object.freeze(['authenticate','registration','retain']),
+  rescue: Object.freeze(['authenticate','rescue'])
 });
 const fail = () => {throw Error('protected-host:configuration');};
 const need = value => {if (!value) fail();};
@@ -36,7 +37,7 @@ export function validateHostOptions(options, mode) {
  */
 export function configure({core,mode,context,deployment}={}) {
   try {
-    fields(deployment,['options','capabilities'],['identity','custody','registration','roles']);
+    fields(deployment,['options','capabilities'],['identity','custody','registration','roles','recovery']);
     const roleHost=deployment.roles ? (need(['execute','compute'].includes(mode) && typeof core?.createProtectedRoleHost==='function'),core.createProtectedRoleHost(deployment.roles)) : null;
     const options=validateHostOptions(deployment.options,mode), capabilities=deployment.capabilities;
     need(typeof core?.createWorkflowEntry==='function' && typeof core?.createCore==='function'
@@ -90,6 +91,14 @@ export function configure({core,mode,context,deployment}={}) {
         return {repository:options.repository,repositoryId:options.repositoryId,run:{...run},
           visibility:'public',ownership:result.ownership};
       }
+      if(name==='rescue') {
+        need(result?.policy?.repository===options.repository&&result.policy.repositoryId===options.repositoryId);
+        const original=result.authorize;need(typeof original==='function');
+        return {...result,authorize:async argument=>{
+          if(adapters)need((await adapters.eligibility({operation:'rescue'})).ok);
+          return original(argument);
+        }};
+      }
       if (name==='delivery') {
         need(record(result) && result.request?.target?.repository===options.repository
           && result.request.target.repositoryId===options.repositoryId);
@@ -119,6 +128,20 @@ export function configure({core,mode,context,deployment}={}) {
     if(storage&&['execute','compute'].includes(mode))host.beginStage=async argument=>{
       matches(argument.identity);return storage.beginStage(argument);
     };
+    if(deployment.recovery) {
+      need(['execute','compute'].includes(mode)&&typeof core.createRescueHost==='function');
+      const {configuration,secret,attribute,onError,observe}=deployment.recovery;
+      need(configuration.policy.repository===options.repository&&configuration.policy.repositoryId===options.repositoryId&&typeof observe==='function');
+      const recovery=core.createRescueHost({configuration,secret,attribute,onError});
+      host.recordBlocked=async argument=>{
+        matches(argument.identity);
+        if(!['blocked','unresolved'].includes(argument.value.disposition))return null;
+        const observation=await observe(argument);
+        need(observation.source.runId===run.id&&observation.source.attempt===run.attempt
+          &&observation.target.repository===options.repository&&observation.target.repositoryId===options.repositoryId);
+        return recovery.blocked(observation);
+      };
+    }
     return Object.freeze(host);
   } catch {fail();}
 }

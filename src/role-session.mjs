@@ -35,7 +35,10 @@ export function hasSessionData(root,id) {
 const key=(request,adapter,version)=>canonicalJSON({adapter,version,access:request.access??null,context:request.context??null});
 export function createRoleSession(request,adapter,version,{persisted}={}) {
   if(persisted!==undefined&&typeof persisted!=='function')throw Error('Role session data observer required');
-  const binding=key(request,adapter,version);let id=null,status='ready';
+  const binding=key(request,adapter,version);
+  const resume=request.resume??null;
+  if(resume&&(!sessionId(resume.id)||adapter!=='codex'||resume.memberId!==request.context?.memberId||!persisted||persisted(resume.id)!==true))throw Error('Role session resume is unsupported or not owned');
+  let id=resume?.id??null,status='ready';
   return Object.freeze({
     get id(){return id;},
     start(){
@@ -51,4 +54,32 @@ export function createRoleSession(request,adapter,version,{persisted}={}) {
     // or unresolved execution cannot acquire a new session or reset its budget.
     end(retryable=false){status=retryable&&id?'ready':'recovery-required';}
   });
+}
+
+/** A fresh execution can resume only an explicitly bound original conversation.
+ * Snapshot/restore are the existing workspace/custody owner's capabilities. This
+ * session metadata never constitutes StageResult/Accept or retry permission. */
+export function createRoleSessionRecovery({current,load,restore,retain}={}) {
+  if([current,load,restore,retain].some(f=>typeof f!=='function'))throw Error('role-session:recovery');
+  return async input=>{
+    const c=await current(),original=await load(input.target);
+    if(c.status!=='UNACCEPTED'||canonicalJSON(c.target)!==canonicalJSON(input.target)
+      ||original.terminated!==true||original.session!==input.session||original.memberId!==input.target.memberId
+      ||original.role!==input.target.role||original.execution!==input.originalExecution
+      ||original.adapter!==input.target.adapter||typeof original.digest!=='string'
+      ||!Array.isArray(original.files)||!original.files.length)throw Error('role-session:original');
+    // At present only the pinned Codex JSONL session directory is supported for
+    // cross-container restore. Other adapters retain their normal diagnostic
+    // support and explicitly stop rather than inventing a resumable conversation.
+    if(original.adapter!=='codex')throw Object.assign(Error('role-session:resume-unsupported'),{code:'SESSION_RESUME_UNSUPPORTED'});
+    if(!sessionId(original.session))throw Error('role-session:identity');
+    const restored=await restore({...input,original});
+    if(restored.memberId!==original.memberId||restored.session!==original.session
+      ||restored.digest!==original.digest||!hasSessionData(restored.directory,original.session))throw Error('role-session:restore');
+    if(canonicalJSON(await current())!==canonicalJSON(c))throw Error('role-session:changed');
+    const proof={status:'UNACCEPTED',caseId:input.caseId,originalExecution:original.execution,
+      session:original.session,memberId:original.memberId,digest:original.digest,directory:restored.directory};
+    if((await retain(proof))?.outcome!=='retained')throw Error('role-session:retention');
+    return {directory:restored.directory,id:original.session};
+  };
 }

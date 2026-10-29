@@ -1,10 +1,10 @@
-import {hasSessionData} from './role-session.mjs';
+import {hasSessionData,sessionIdFromEvents} from './role-session.mjs';
 import {prepareReadonlyVerification} from './agent-session.mjs';
 import {probeVerificationSupervisor} from './verification-child.mjs';
 // Fixed container entrypoint. No repository code is loaded by this module.
 import {probeGateway,executeSession,codexEvents,capacityError} from './agent-session.mjs';
 import {spawnSync} from 'node:child_process';
-import {readFileSync, readSync, openSync, fstatSync, closeSync, constants} from 'node:fs';
+import {writeFileSync,readFileSync, readSync, openSync, fstatSync, closeSync, constants} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 const env = {HTTP_PROXY:'http://nibfin-egress:8080',HTTPS_PROXY:'http://nibfin-egress:8080',NODE_USE_ENV_PROXY:'1',NO_PROXY:'',PATH:'/usr/local/bin:/usr/bin:/bin', HOME:'/tmp/home', CODEX_HOME:'/tmp/home/.codex'};
 const tool = '/usr/local/bin/codex';
@@ -34,11 +34,22 @@ export function codexInvocation(request) {
     cwd:'/work',timeout:request.timeout,killSignal:'SIGKILL',maxBuffer:1048576}};
 }
 export function executeCodex(request,secrets=[],run=spawnSync,{sessionDirectory='/tmp/home/.codex/sessions'}={}) {
-  return executeSession({request,adapter:'codex',version:'codex-cli 0.163.0',invoke:codexInvocation,run,
+  let last;
+  const observed=(...args)=>{last=run(...args);return last;};
+  const result=executeSession({request,adapter:'codex',version:'codex-cli 0.163.0',invoke:codexInvocation,run:observed,
     persisted:id=>hasSessionData(sessionDirectory,id),
     inspect:r=>{const o=codexEvents(r.stdout??'',secrets);return {...o,capacity:capacityError('codex',o.terminal),
       authentication:['unauthorized','authentication_error'].includes(o.terminal.error?.code)};},
     decode:output=>({...request.context,result:codexEvents(output,secrets).result})});
+  // A failed/interrupted CLI may still have created the original conversation.
+  // Preserve only a unique observed ID with actual session bytes. This is not a
+  // successful result, retry permission or replacement for a missing transcript.
+  if(!result.session&&request.sessionOutput)try {
+    const id=sessionIdFromEvents(last?.stdout??'');
+    if((!request.resume||request.resume.id===id)&&hasSessionData(sessionDirectory,id))
+      result.session={id,adapter:'codex',version:'codex-cli 0.163.0'};
+  }catch{}
+  return result;
 }
 export async function runCodexEntry() {
 try {
@@ -55,7 +66,11 @@ try {
     const auth=JSON.parse(readCodexFile('/tmp/home/.codex/auth.json'));
     const secrets=Object.values(auth.tokens??{}).filter(v=>typeof v==='string'&&v);
     const result=executeCodex(request,secrets);
-    process.stdout.write(JSON.stringify(result.evidence??result));
+    if(request.sessionOutput) {
+      if(request.sessionOutput!=='/verification/role-session.json'||!result.session||!request.context?.memberId)throw Error('Session observation missing');
+      writeFileSync(request.sessionOutput,JSON.stringify({...result.session,execution:request.context.execution.id,memberId:request.context.memberId}),{flag:'wx',mode:0o600});
+    }
+    process.stdout.write(JSON.stringify(result.evidence??{diagnostic:result.diagnostic??'provider-failure'}));
     if(!result.evidence)process.exitCode=1;
   }
 } catch { process.exitCode = 1; }

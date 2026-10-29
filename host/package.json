@@ -11,6 +11,7 @@
     "entry.mjs",
     "configuration.schema.json",
     "configuration.example.json",
-    "registration.schema.json"
+    "registration.schema.json",
+    "templates/nibfin-rescue-wakeups.service"
   ]
 }

@@ -103,6 +103,7 @@ export function planInstallationTransition(input,{maintenance=false}={}){
     const restriction=protectedWorkRestriction(w);
     if(restriction&&!(maintenance&&restriction==='intentional-pause'))return {version:1,status:'blocked',code:restriction};
     if(maintenance&&w.paused!==true)return {version:1,status:'blocked',code:'maintenance-pause-required'};
+    if(maintenance&&w.unknownWrite!==false)return {version:1,status:'blocked',code:'write-reconciliation-required'};
     const changed=!same(input.current,input.next);
     if(changed&&(w.active||!w.terminated||!w.reconciled))return {version:1,status:'blocked',code:'safe-boundary-required'};
     // Runtime/Skill/source pins change as one set. Even a compatible version

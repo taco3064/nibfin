@@ -644,7 +644,7 @@
     },
     {
       "path": "src/installation.mjs",
-      "sha256": "333ddb78d818cca0ea76d43e143bfe460edf2a40fc6fb65c42317d06f84b4345"
+      "sha256": "448fbca3a06a1602f06f7ad655bcf4bfcc0b7db5f0609f382a7cb18769ba573d"
     },
     {
       "path": "src/instructions.mjs",

@@ -792,7 +792,7 @@
     },
     {
       "path": "src/role-host.mjs",
-      "sha256": "f0e4c8ec42ea95b86b997efd5181d69d7bd33678ea7b225892e9cb5555ced827"
+      "sha256": "41b3167e39b01411e474e1a580f0f476bc4d755d155af2e5b19847fc75333567"
     },
     {
       "path": "src/role-session.mjs",

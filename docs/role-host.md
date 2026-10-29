@@ -31,6 +31,17 @@ service/guest context. The default local account/filesystem observer rejects sym
 non-owned roots and GH_TOKEN/GITHUB_TOKEN substitution. Management authentication,
 retention and existing stage-owner inputs stay in trusted Core.
 
+For a native Scope/Shape document, the Shape Author binding selects
+`outputFormat:'shape-author-v1'` and supplies `startCurrent` with independently
+pinned execution, binding and result expectations, without a predicted body hash.
+The selected entrypoint decodes `{body,result}`; only the trusted request supplies
+receipt identity. After confirmed termination, the role host verifies the exact
+Scope bytes, retains the actual body, and exposes `readBody()` and `current()`
+with its final body hash. Collection still validates the complete result against
+the independent success contract. A missing retention reference or changed Scope
+invalidates collection. Validators keep their separate, fully bound output path.
+The host must use these retained values rather than prefill a future Author body.
+
 ## Network migration
 
 Linux backends now require `egress:{image,node}` to become ready. `image` is an

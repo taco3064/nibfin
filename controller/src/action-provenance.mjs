@@ -90,3 +90,12 @@ export function requireDistinctActionRuns(receipts) {
     seen.add(key);
   }
 }
+
+// Owner Issue sessions deliberately group independent Agent stages in one Run.
+// A later dispatched stage must use a new Run, without retrospectively treating
+// those authorized historical groups as invalid per-stage execution.
+export function requireFreshActionRun(history,current,policy) {
+ if(policy.controlMode!=='owner-project')return requireDistinctActionRuns([...history,current]);
+ requireDistinctActionRuns([current]);
+ for(const previous of history)requireDistinctActionRuns([previous,current]);
+}

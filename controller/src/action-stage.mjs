@@ -1,7 +1,7 @@
 import { binding, canonical, digest, plan } from './core.mjs';
 import { childRuntime, issueLeaseId, unitId } from './dynamic.mjs';
 import { Store } from './store.mjs';
-import { requireDistinctActionRuns, verifyActionRun } from './action-provenance.mjs';
+import { requireDistinctActionRuns, requireFreshActionRun, verifyActionRun } from './action-provenance.mjs';
 import { ActionOutbox } from './action-outbox.mjs';
 import { assertRevisionExecution, revisionHash } from './requirement-revision.mjs';
 import { eventSource, hasNativeProof, mutationCutoff, nativeAction, readInbox, verifyInboxSource } from './native-wakeup.mjs';
@@ -169,7 +169,7 @@ export async function executeActionStage(runtime, requestId) {
           code: 'STAGE_DECISION_CHANGED', detail, safeToReconcile: !detail.writeAttempted });
       }
       if (s.pending) s.pending.actionRequestId = requestId;
-      requireDistinctActionRuns([...(s.actionReceipts || []).map(r => r.action), runtime.actionIdentity]);
+      requireFreshActionRun((s.actionReceipts || []).map(r => r.action), runtime.actionIdentity, grant.policy);
       return execute(g, s, snapshot, decision, targetStore);
     };
     try { await child.resume({ maxSteps: 1 }); }

@@ -874,5 +874,31 @@
       "reason": "Experimental host-validation implementation is outside this executable controller transplant."
     }
   ],
-  "operationalDataIncluded": false
+  "operationalDataIncluded": false,
+  "adaptations": [
+    {
+      "path": "src/action-provenance.mjs",
+      "sha256": "dcd08128e22fdecb218b7a8025f216f11fb8c3d4d8216c63bfc030ab925f1d7e",
+      "bytes": 7694,
+      "reason": "Permit signed Owner-session historical Run grouping while requiring a fresh dispatched continuation Run; retain strict per-stage mode."
+    },
+    {
+      "path": "src/action-stage.mjs",
+      "sha256": "9eceaa622d6fa50501eafdf9783dc0bfcc0521c71b267ed56370f908fa0717d6",
+      "bytes": 16469,
+      "reason": "Permit signed Owner-session historical Run grouping while requiring a fresh dispatched continuation Run; retain strict per-stage mode."
+    },
+    {
+      "path": "test/action-provenance.test.mjs",
+      "sha256": "3798c866a2e1d37d49c389b02e8c2c86ebdac50261c163621689c54f98f33179",
+      "bytes": 7578,
+      "reason": "Permit signed Owner-session historical Run grouping while requiring a fresh dispatched continuation Run; retain strict per-stage mode."
+    },
+    {
+      "path": "test/action-integration.test.mjs",
+      "sha256": "59d4fda502a7ec2c056c39d6cecc8cb66fd6af1ed6a731cfcc862bbd9b28997c",
+      "bytes": 48294,
+      "reason": "Exercise the real Runtime and dispatched Accept after an Owner session yields with grouped historical stage receipts."
+    }
+  ]
 }

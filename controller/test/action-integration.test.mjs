@@ -303,6 +303,20 @@ async function ownerWake(f,id,source) {
  try{return await runOwnerIssueSession(run.runtime,grant,issue,source || {kind:'owner-reconcile',runId:run.runtime.actionIdentity.runId});}finally{run.finish();}
 }
 
+test('a fresh dispatched stage continues an Owner session after grouped historical stages',async t=>{
+ const f=await harness(t,{local:true,owner:true}),issue=f.grant.manifest.issues[0];
+ await ownerWake(f,issue.id);
+ const hint=await f.nativeHint(issue.id,'labeled'),run=await f.begin(),grant=await run.runtime.grant();
+ run.runtime.ownerRunBudget={shouldYield:operation=>operation==='accept',deadline:Date.now()+60000};
+ try{const result=await runOwnerIssueSession(run.runtime,grant,issue,hint);assert.equal(result.code,'OWNER_RUN_BUDGET_EXHAUSTED');}finally{run.finish();}
+ const store=new Store(f.config.stateDirectory,unitId(f.grant,issue)),before=await store.read();
+ assert(before.actionReceipts.length>new Set(before.actionReceipts.map(r=>r.action.runId)).size);
+ const next=await f.reconcile(issue.id);assert.equal(next.operation,'accept');
+ const result=await f.execute(next.requestId);assert.equal(result.status,'STAGE_COMPLETE');
+ const after=await store.read(),receipt=after.actionReceipts.at(-1);assert.equal(receipt.operation,'accept');
+ assert(!before.actionReceipts.some(r=>r.action.runId===receipt.action.runId));assert(after.issues[issue.id].accept);
+});
+
 test('authenticated out-of-grant reconciliation is ignored without Agent work',async t=>{
  const f=await harness(t,{local:true,owner:true}),run=await f.begin();
  const result=await runActionLifecycle(run.runtime,{inputs:{issue_id:'I_UNRELATED',issue_ref:'nibfin#229'}});

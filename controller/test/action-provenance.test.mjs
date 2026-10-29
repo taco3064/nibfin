@@ -1,6 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { verifyActionRun, requireDistinctActionRuns } from '../src/action-provenance.mjs';
+import { verifyActionRun, requireDistinctActionRuns, requireFreshActionRun } from '../src/action-provenance.mjs';
+
+test('Owner continuation accepts grouped history but never reuses a current Run or invalid identity',()=>{
+ const identity=runId=>({kind:'github-action-stage',repository:'owner/control',runId,runAttempt:1,identityHash:'verified'}),old=identity('50'),current=identity('60');
+ assert.doesNotThrow(()=>requireFreshActionRun([old,old],current,{controlMode:'owner-project'}));
+ assert.throws(()=>requireFreshActionRun([old,old],current,{}),/share an Actions Run/);
+ for(const history of [[old,current],[old,{...current,runAttempt:2}],[null],[{...old,identityHash:null}]])assert.throws(()=>requireFreshActionRun(history,current,{controlMode:'owner-project'}));
+ assert.throws(()=>requireFreshActionRun([],null,{controlMode:'owner-project'}));
+});
 
 function fixture() {
   const policy = { repository: 'owner/control', repositoryId: '123', workflowPath: '.github/workflows/stage.yml', workflowBlob: 'a'.repeat(40), actorIds: ['7'], runnerIds: [9], runnerName: 'coordinator', jobName: 'execute' };

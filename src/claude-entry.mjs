@@ -2,7 +2,7 @@ import {readonlyMcpServer} from './readonly-tools.mjs';
 import {prepareReadonlyVerification} from './agent-session.mjs';
 import {probeVerificationSupervisor} from './verification-child.mjs';
 // Trusted container entrypoint; never imports checkout modules or configuration.
-import {probeGateway,executeSession,capacityError,rejectSecrets} from './agent-session.mjs';
+import {probeGateway,dependencyProbeEndpoints,executeSession,capacityError,rejectSecrets} from './agent-session.mjs';
 import {spawnSync} from 'node:child_process';
 import {readFileSync, existsSync, openSync, fstatSync, readSync, closeSync, constants} from 'node:fs';
 import {randomUUID} from 'node:crypto';
@@ -97,7 +97,7 @@ export async function runClaudeEntry() {
     if(process.argv[2]==='probe') {
       const p=probeClaude(env), os=readFileSync('/etc/os-release','utf8');
       process.stdout.write(JSON.stringify({...p,node:process.version,platform:process.platform,arch:process.arch,
-        verificationSupervisor:probeVerificationSupervisor(),network:await probeGateway([...["api.anthropic.com"],...(process.env.NIBFIN_NODE_WORKLOAD==='1'?['registry.npmjs.org']:[])]),
+        verificationSupervisor:probeVerificationSupervisor(),network:await probeGateway([...["api.anthropic.com"],...(process.env.NIBFIN_NODE_WORKLOAD==='1'?dependencyProbeEndpoints:[])]),
         guest:/^ID=debian$/m.test(os) && /^VERSION_ID="12"$/m.test(os)}));
     } else {
       const request=prepareReadonlyVerification(JSON.parse(readClaudeFile('/input/request.json')));

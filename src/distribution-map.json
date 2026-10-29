@@ -460,7 +460,7 @@
     },
     {
       "path": "src/agent-session.mjs",
-      "sha256": "102a5d7a04bb3d23eab2018bf00d28d2cd4f805139c55947415caf84f1101ec2"
+      "sha256": "6aa536faec6d46a9f6dad73123e9fb5bf457cd1966cd0ac9301d3e50e4777939"
     },
     {
       "path": "src/archive.mjs",
@@ -496,7 +496,7 @@
     },
     {
       "path": "src/claude-entry.mjs",
-      "sha256": "9bd7b36b1a9d8a63b5e16ba86473e44de6e29328d029d1cee1e2cfc9ef08530d"
+      "sha256": "cb0c3872815cfe704b20023c9e2fd999122a873b4b30baf2dbac941826b4e07d"
     },
     {
       "path": "src/claude.mjs",
@@ -504,7 +504,7 @@
     },
     {
       "path": "src/codex-entry.mjs",
-      "sha256": "9093141bfe070d963c8503b304d235fb4caaf11c972361c22104e54df4d158ab"
+      "sha256": "ca7def64b1bd79a9806a773f53359caa07b8d178c2011f5a5e57b973a5acf05b"
     },
     {
       "path": "src/codex.mjs",
@@ -580,7 +580,7 @@
     },
     {
       "path": "src/egress.mjs",
-      "sha256": "e18f0b85eca9ac1a0532f3e71bd1f109ec580aed0b92cc127f582f91a4986fcc"
+      "sha256": "33e9beb072fc6684b0f9ec925b675189779d3d1b7cb9735c8b2749624e6da81d"
     },
     {
       "path": "src/evidence.mjs",
@@ -596,7 +596,7 @@
     },
     {
       "path": "src/gemini-entry.mjs",
-      "sha256": "59f6735f2d3680eae15c9f90d905e6bc7057a5eba4846a95f505fffcc30e28c8"
+      "sha256": "73e9d60190f123662355b058471508330fe6b5332e58f60cb65678ac184f4fc4"
     },
     {
       "path": "src/gemini.mjs",

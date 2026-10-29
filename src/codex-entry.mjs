@@ -2,7 +2,7 @@ import {hasSessionData,sessionIdFromEvents} from './role-session.mjs';
 import {prepareReadonlyVerification} from './agent-session.mjs';
 import {probeVerificationSupervisor} from './verification-child.mjs';
 // Fixed container entrypoint. No repository code is loaded by this module.
-import {probeGateway,executeSession,codexEvents,capacityError} from './agent-session.mjs';
+import {probeGateway,dependencyProbeEndpoints,executeSession,codexEvents,capacityError} from './agent-session.mjs';
 import {spawnSync} from 'node:child_process';
 import {writeFileSync,readFileSync, readSync, openSync, fstatSync, closeSync, constants} from 'node:fs';
 import {pathToFileURL} from 'node:url';
@@ -59,7 +59,7 @@ try {
     const os = readFileSync('/etc/os-release','utf8');
     console.log(JSON.stringify({node:process.version, platform:process.platform, arch:process.arch,
       guest:/^ID=debian$/m.test(os) && /^VERSION_ID="12"$/m.test(os),
-      verificationSupervisor:probeVerificationSupervisor(),network:await probeGateway([...["chatgpt.com", "auth.openai.com"],...(process.env.NIBFIN_NODE_WORKLOAD==='1'?['registry.npmjs.org']:[])]),
+      verificationSupervisor:probeVerificationSupervisor(),network:await probeGateway([...["chatgpt.com", "auth.openai.com"],...(process.env.NIBFIN_NODE_WORKLOAD==='1'?dependencyProbeEndpoints:[])]),
       version:version.status === 0 ? version.stdout.trim() : null, login:login.status === 0}));
   } else {
     const request = prepareReadonlyVerification(JSON.parse(readCodexFile('/input/request.json')));

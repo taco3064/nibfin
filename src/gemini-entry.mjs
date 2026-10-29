@@ -2,7 +2,7 @@ import {readonlyMcpServer,readonlyToolNames} from './readonly-tools.mjs';
 import {prepareReadonlyVerification} from './agent-session.mjs';
 import {probeVerificationSupervisor} from './verification-child.mjs';
 // Trusted standalone container entrypoint. Never import checkout modules.
-import {probeGateway,executeSession,capacityError,rejectSecrets} from './agent-session.mjs';
+import {probeGateway,dependencyProbeEndpoints,executeSession,capacityError,rejectSecrets} from './agent-session.mjs';
 import {spawnSync} from 'node:child_process';
 import {readFileSync,existsSync,openSync,fstatSync,readSync,closeSync,constants,mkdirSync,writeFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
@@ -105,7 +105,7 @@ export async function runGeminiEntry() {
       writeFileSync('/tmp/probe-settings.json',JSON.stringify(geminiSettings),{flag:'wx',mode:0o400});
       const p=probeGemini(geminiEnvironment(login.api_key,true)),os=readFileSync('/etc/os-release','utf8');
       process.stdout.write(JSON.stringify({...p,node:process.version,platform:process.platform,arch:process.arch,
-        verificationSupervisor:probeVerificationSupervisor(),network:await probeGateway([...["generativelanguage.googleapis.com"],...(process.env.NIBFIN_NODE_WORKLOAD==='1'?['registry.npmjs.org']:[])]),
+        verificationSupervisor:probeVerificationSupervisor(),network:await probeGateway([...["generativelanguage.googleapis.com"],...(process.env.NIBFIN_NODE_WORKLOAD==='1'?dependencyProbeEndpoints:[])]),
         guest:/^ID=debian$/m.test(os) && /^VERSION_ID="12"$/m.test(os)}));
     } else {
       const request=prepareReadonlyVerification(JSON.parse(readGeminiFile('/input/request.json')));

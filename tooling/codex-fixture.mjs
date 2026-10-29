@@ -52,10 +52,10 @@ export function codexFixture(role='shape', custom, agent='codex') {
     if(op==='rm' && gateways.has(args.at(-1))){gateways.delete(args.at(-1));return respond('');}
     if(op==='container' && args.includes('--filter'))return respond([...gateways.keys()].join('\n'));
     if (op === 'version') return respond(JSON.stringify(flags.docker ?? linuxCodexProfile.docker));
-    if (op === 'info') return respond({ServerVersion:linuxCodexProfile.docker,OSType:'linux',Architecture:'x86_64',
+    if (op === 'info') return respond({ServerVersion:flags.serverDocker??linuxCodexProfile.docker,OSType:'linux',Architecture:'x86_64',
       CgroupVersion:'2',CgroupDriver:flags.cgroupDriver??'systemd',MemoryLimit:flags.memory ?? true,PidsLimit:true,CpuCfsQuota:true,CpuCfsPeriod:true,
       SecurityOptions:flags.security ?? ['name=rootless','name=seccomp,profile=builtin']});
-    if (op === 'image') return respond([{Id:flags.image ?? image,Os:'linux',Architecture:'amd64',Config:{Env:['PATH=/usr/local/bin:/usr/bin:/bin']}}]);
+    if (op === 'image') return respond([{Id:flags.image ?? image,Os:'linux',Architecture:'amd64',Config:{Env:flags.imageEnvironment??['PATH=/usr/local/bin:/usr/bin:/bin']}}]);
     if (op === 'create') {
       if (flags.noCreate && args.at(-1)==='execute') return {ok:false,output:''};
       const name=args[args.indexOf('--name')+1], probe=args.at(-1)==='probe';

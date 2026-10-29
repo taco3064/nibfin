@@ -4,7 +4,7 @@ import {recoveryPolicy,rejectSecrets} from './agent-session.mjs';
 import {redactRuntimeText} from './verification.mjs';
 import {createContainerEgress,endpointProfiles} from './egress.mjs';
 import {containerProcess} from './process.mjs';
-import {dockerArguments,assertDockerInfo,assertContainerConfiguration} from './docker-security.mjs';
+import {dockerArguments,assertDockerInfo,assertContainerConfiguration,imageEnvironmentOverrides,imageEnvironmentMatches} from './docker-security.mjs';
 import {randomUUID,createHash} from 'node:crypto';
 import {lstatSync, realpathSync, readdirSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync} from 'node:fs';
 import {resolve, join, dirname, sep} from 'node:path';
@@ -15,6 +15,15 @@ import {skillForRole, outcomesForRole} from './evidence.mjs';
 
 export const linuxCodexProfile = Object.freeze({id:'linux-amd64-codex-v1', docker:'28.5.1',
   codex:'codex-cli 0.163.0', node:'v22.23.3', guest:'debian-12', platform:'linux', arch:'x64'});
+// Reviewed exact tuples, never an arbitrary version bypass. The original profile
+// remains the default for existing callers. Native support is measured separately.
+export const linuxCodexProfiles = Object.freeze({
+  [linuxCodexProfile.id]: linuxCodexProfile,
+  'linux-amd64-codex-docker29-v1': Object.freeze({...linuxCodexProfile,
+    id:'linux-amd64-codex-docker29-v1', docker:'29.9.1'}),
+  'linux-amd64-codex-node22-docker29-v1': Object.freeze({...linuxCodexProfile,
+    id:'linux-amd64-codex-node22-docker29-v1',docker:'29.9.1',imageLayout:'node22-bookworm-v1'})
+});
 const fail = code => { throw new TypeError(`codex:${code}`); };
 const same = (a,b) => canonicalJSON(a) === canonicalJSON(b);
 const within = (a,b) => b.startsWith(a + sep);
@@ -32,10 +41,15 @@ export function createLinuxCodexBackend(config) { return createLinuxBackend(conf
 export function createLinuxBackend(config, profile = null) {
   const agent = profile?.agent ?? 'codex';
   const selectedEntry = profile?.entry ?? entry;
-  const selectedProfile = profile?.identity ?? linuxCodexProfile;
+  const requestedProfile = config.runtimeProfile;
+  if (requestedProfile !== undefined && (profile || typeof requestedProfile !== 'string'
+      || !Object.hasOwn(linuxCodexProfiles,requestedProfile))) fail('runtime-profile');
+  const selectedProfile = profile?.identity ?? linuxCodexProfiles[requestedProfile ?? linuxCodexProfile.id];
+  const imageLayout=selectedProfile.imageLayout??'path-only-v1';
+  const imageEnvironment=imageEnvironmentOverrides(imageLayout);
   const {root, image, socket, environment:original, instanceId, process:run = codexProcess,
     timeout = 300000, task, egress, recovery, githubRead, session: durableSession = null, diagnostic: diagnosticMode = false, deadlineAt = Date.now()+timeout+60000, reserveMs = 30000} = config;
-  if (Object.keys(config).some(k => !['root','image','socket','environment','instanceId','process','timeout','task','egress','recovery','deadlineAt','reserveMs','githubRead','diagnostic','session'].includes(k))) fail('configuration');
+  if (Object.keys(config).some(k => !['root','image','socket','environment','instanceId','process','timeout','task','egress','recovery','deadlineAt','reserveMs','githubRead','diagnostic','session','runtimeProfile'].includes(k))) fail('configuration');
   if(typeof diagnosticMode!=='boolean')fail('diagnostic');
   if (!safePath(root) || !/^sha256:[a-f0-9]{64}$/.test(image) || !safePath(socket)
       || !/^\/run\/user\/[1-9][0-9]*\/docker.sock$/.test(socket)
@@ -73,7 +87,7 @@ export function createLinuxBackend(config, profile = null) {
       return response;
     } catch { return {ok:false,output:''}; }
   }
-  const network = egress ? createContainerEgress({command,image:egress.image,profile:agent,node:egress.node??false}) : null;
+  const network = egress ? createContainerEgress({command,image:egress.image,profile:agent,node:egress.node??false,imageLayout}) : null;
   if(egress && egress.image!==image)fail('egress-image');
   if (egress && Object.keys(egress).some(k=>!['image','node'].includes(k))) fail('egress-configuration');
   async function json(args) {
@@ -152,7 +166,7 @@ export function createLinuxBackend(config, profile = null) {
       '--memory','1g','--cpus','2','--network',network.network,'--dns','127.0.0.1','--dns-search','.','--log-driver','none',
       '--tmpfs','/tmp:rw,nosuid,nodev,size=64m,mode=1777','--workdir','/work',
       '--env','HOME=/tmp/home','--env',`NIBFIN_NODE_WORKLOAD=${egress?.node?'1':'0'}`,...(profile?.agent === 'claude' ? ['--env','CLAUDE_CONFIG_DIR=/tmp/home/.claude'] : profile ? [] : ['--env','CODEX_HOME=/tmp/home/.codex']),
-      '--env','PATH=/usr/local/bin:/usr/bin:/bin',
+      '--env','PATH=/usr/local/bin:/usr/bin:/bin',...imageEnvironment.flatMap(value=>['--env',value]),
       ...Object.entries(network.environment).flatMap(([key,value])=>['--env',`${key}=${value}`]),...brokerMounts(),...mount(auth,profile?.authTarget ?? '/tmp/home/.codex/auth.json'),
       ...(durableSession?mount(durableSession.directory,'/tmp/home/.codex/sessions',true):[]),
       ...mount(selectedEntry,'/entry.mjs'),...mount(fileURLToPath(new URL('./agent-session.mjs',import.meta.url)),'/agent-session.mjs'),
@@ -245,7 +259,7 @@ export function createLinuxBackend(config, profile = null) {
           return readinessResult();
         diagnostic='image-mismatch'; const [im] = await json(['image','inspect',image]);
         if (im.Id !== image || im.Os !== 'linux' || im.Architecture !== 'amd64' || im.Config?.Volumes
-            || !Array.isArray(im.Config?.Env) || im.Config.Env.some(x=>!/^PATH=/.test(x))) return readinessResult();
+            || !imageEnvironmentMatches(im.Config?.Env,imageLayout)) return readinessResult();
         diagnostic='cleanup-unresolved';
         for (const old of containers.values()) {
           if (old.kind === 'probe') { if (!await remove(old)) return readinessResult(); }

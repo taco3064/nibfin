@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {existsSync, readFileSync, writeFileSync, symlinkSync, linkSync, rmSync, mkdirSync, renameSync, chmodSync} from 'node:fs';
 import {createServer} from 'node:net';
 import {join} from 'node:path';
-import {createLinuxCodexBackend, createAgentLifecycle, codexProcess, linuxCodexProfile} from '@nibfin/core';
+import {createLinuxCodexBackend, createAgentLifecycle, codexProcess, linuxCodexProfile, linuxCodexProfiles} from '@nibfin/core';
 import {codexFixture} from '../tooling/codex-fixture.mjs';
 const roles=['shape','shape-validator','shape-diagnosis','shaper-review','deliver','accept'];
 const id=f=>f.input.execution.id;
@@ -352,5 +352,56 @@ test('AC3: decoded nested values and property names are filtered before evidence
       environment:f.environment.id,instance:'instance-0',agent:'codex'});
     assert.equal(collected.status,'complete');assert.equal(collected.evidence,null);
     await f.life.termination(id(f));assert.equal((await f.life.cleanup()).status,'completed');
+  });
+});
+
+
+test('explicit reviewed Docker 29 profile preserves all native security and model checks',async()=>{
+  const profile='linux-amd64-codex-docker29-v1';
+  assert.equal(linuxCodexProfiles[profile].docker,'29.9.1');
+  assert.equal(Object.isFrozen(linuxCodexProfiles[profile]),true);
+  for(const failure of [null,'client','server','rootless','resources','tool']) await fixture(async f=>{
+    f.flags.docker='29.9.1';f.flags.serverDocker='29.9.1';
+    if(failure==='client')f.flags.docker='29.9.2';
+    if(failure==='server')f.flags.serverDocker='28.5.1';
+    if(failure==='rootless')f.flags.security=['name=seccomp,profile=builtin'];
+    if(failure==='resources')f.flags.memory=false;
+    if(failure==='tool')f.flags.tool='codex-cli WRONG';
+    const backend=createLinuxCodexBackend({...f.config,runtimeProfile:profile});
+    const report=await backend.readiness();
+    assert.ok(report.evidence.includes('profile:'+profile));
+    assert.equal(report.isolation,failure?'unsupported':'verified');
+    assert.equal(report.login,failure?'unavailable':'available');
+    assert.equal([...f.containers.values()].some(c=>!c.probe),false);
+  });
+  await fixture(async f=>{
+    for(const runtimeProfile of ['latest','29.9.1','__proto__','linux-amd64-codex-docker30-v1',{},null])
+      assert.throws(()=>createLinuxCodexBackend({...f.config,runtimeProfile}),/runtime-profile/);
+    assert.equal(f.calls.length,0);
+    f.flags.docker='29.9.1';f.flags.serverDocker='29.9.1';
+    assert.equal((await f.backend.readiness()).isolation,'unsupported','default still requires original exact tuple');
+  });
+});
+
+
+test('explicit standard Node image layout admits only its exact public metadata and overrides it on every container',async()=>{
+  const runtimeProfile='linux-amd64-codex-node22-docker29-v1';
+  const expected=['PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin','NODE_VERSION=22.23.3','YARN_VERSION=1.22.22'];
+  for(const fault of [null,'extra','node','path','duplicate'])await fixture(async f=>{
+    f.flags.docker='29.9.1';f.flags.serverDocker='29.9.1';f.flags.imageEnvironment=[...expected];
+    if(fault==='extra')f.flags.imageEnvironment.push('GH_TOKEN=HOST-CREDENTIAL-CANARY');
+    if(fault==='node')f.flags.imageEnvironment[1]='NODE_VERSION=22.0.0';
+    if(fault==='path')f.flags.imageEnvironment[0]='PATH=/untrusted/bin';
+    if(fault==='duplicate')f.flags.imageEnvironment.push('NODE_VERSION=22.23.3');
+    const backend=createLinuxCodexBackend({...f.config,runtimeProfile});
+    const result=await backend.readiness();assert.equal(result.isolation,fault?'unsupported':'verified');
+    assert.ok(result.evidence.includes('profile:'+runtimeProfile));
+    if(fault)assert.equal(f.calls.some(c=>c.args[2]==='create'),false);
+    else for(const c of f.calls.filter(c=>c.args[2]==='create')){
+      const env=c.args.flatMap((value,index)=>value==='--env'?[c.args[index+1]]:[]);
+      assert.ok(env.includes('NODE_VERSION=22.23.3'));assert.ok(env.includes('YARN_VERSION=1.22.22'));
+      assert.ok(env.includes('PATH=/usr/local/bin:/usr/bin:/bin'));
+      assert.ok(!JSON.stringify(c).includes('HOST-CREDENTIAL-CANARY'));
+    }
   });
 });

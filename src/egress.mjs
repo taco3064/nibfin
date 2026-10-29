@@ -1,4 +1,4 @@
-import {assertContainerConfiguration} from './docker-security.mjs';
+import {assertContainerConfiguration,imageEnvironmentOverrides} from './docker-security.mjs';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {randomUUID} from 'node:crypto';
@@ -6,7 +6,8 @@ import {fileURLToPath} from 'node:url';
 import {validateEndpoints} from './egress-gateway.mjs';
 const fail = code => {throw Error(`egress:${code}`);};
 export const endpointProfiles=Object.freeze({
-  'dependency-download':Object.freeze(['registry.npmjs.org']),
+  // Exact Playwright browser CDN plus its Microsoft redirect; no wildcard hosts.
+  'dependency-download':Object.freeze(['registry.npmjs.org','cdn.playwright.dev','playwright.download.prss.microsoft.com']),
   codex:Object.freeze(['chatgpt.com','auth.openai.com']),
   claude:Object.freeze(['api.anthropic.com']),
   gemini:Object.freeze(['generativelanguage.googleapis.com']),
@@ -17,9 +18,10 @@ export const endpointProfiles=Object.freeze({
  * has an external route. The role belongs solely to the owned INTERNAL network.
  * command is the maintained rootless Docker transport, never a model callback.
  */
-export function createContainerEgress({command,image,profile,node=false}={}) {
+export function createContainerEgress({command,image,profile,node=false,imageLayout='path-only-v1'}={}) {
   if(typeof command!=='function'||!/^sha256:[a-f0-9]{64}$/.test(image)
       ||!['codex','claude','gemini','hooks','dependency-download'].includes(profile)||typeof node!=='boolean')fail('configuration');
+  const imageEnvironment=imageEnvironmentOverrides(imageLayout);
   const endpoints=validateEndpoints([...new Set([...endpointProfiles[profile],...(node?endpointProfiles['dependency-download']:[])])]);
   const network='nibfin-net-'+randomUUID(), gateway='nibfin-gateway-'+randomUUID();
   let reserved=false,created=false,ready=false,unresolved=false,closed=false;
@@ -57,7 +59,7 @@ export function createContainerEgress({command,image,profile,node=false}={}) {
         created=true;await checked(['network','create','--internal','--driver','bridge','--ipv6=false','--opt','com.docker.network.bridge.gateway_mode_ipv4=isolated','--label',`nibfin.egress=${network}`,network]);
         gatewayArguments=['create','--name',gateway,'--label',`nibfin.egress=${network}`,'--pull','never','--read-only',
           '--cap-drop','ALL','--security-opt','no-new-privileges','--pids-limit','32','--memory','128m',
-          '--cpus','1','--user','0:0','--network','bridge','--log-driver','none','--env','PATH=/usr/local/bin:/usr/bin:/bin','--env',`NIBFIN_ENDPOINTS=${JSON.stringify(endpoints)}`,
+          '--cpus','1','--user','0:0','--network','bridge','--log-driver','none','--env','PATH=/usr/local/bin:/usr/bin:/bin','--env',`NIBFIN_ENDPOINTS=${JSON.stringify(endpoints)}`,...imageEnvironment.flatMap(value=>['--env',value]),
           '--mount',`type=bind,src=${entry},dst=/gateway.mjs,readonly,bind-recursive=disabled`,
           '--entrypoint','/usr/local/bin/node',image,'/gateway.mjs'];
         await checked(gatewayArguments);

@@ -140,3 +140,35 @@ The local installed `codex-cli 0.163.0 --help`/`exec --help` were inspected with
 login or model invocation. Documentation and help are interface evidence only.
 
 The maintained [protected role host](role-host.md) adds explicit absolute deadlines, bounded capacity recovery, the selected enforced gateway and one custody-backed verification lane with fresh Node preparation. Existing deployments must approve the new sources and add the required egress configuration. Native/model support remains Unverified.
+
+
+## Explicit Docker 29.9.1 tuple
+
+Codex callers may select `runtimeProfile: 'linux-amd64-codex-docker29-v1'`.
+`linuxCodexProfiles` exports this exact tuple and the original default.
+It changes only the required Docker client/Engine version to 29.9.1; Node
+22.23.3, Codex 0.163.0, Debian 12 and every rootless/seccomp/cgroup/resource,
+image, mount, login, supervisor and egress probe remain mandatory. Unknown
+profiles and mismatched client/server versions reject. Other Agent adapters do
+not accept this Codex-only override. Existing callers retain Docker 28.5.1.
+This is an implemented source contract; source fixtures do not certify native,
+model or external platform support.
+
+The existing `egress: {image, node: true}` dependency-download capability also
+allows exact HTTPS destinations `cdn.playwright.dev` and
+`playwright.download.prss.microsoft.com`, alongside npm's registry. These are
+the browser CDN and redirect used by the pinned Playwright dependency. The
+model-only profile does not receive them. DNS/public-address, TLS SNI, port,
+private-network and arbitrary-host restrictions are unchanged.
+
+
+For the standard Node 22.23.3 Bookworm image layout, select
+`linux-amd64-codex-node22-docker29-v1`. Its image metadata must contain exactly
+`PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`,
+`NODE_VERSION=22.23.3` and `YARN_VERSION=1.22.22`. The backend and credential-free
+gateway explicitly fix the non-secret version variables and override PATH at
+launch; their complete environment is still checked against those exact
+arguments. Added, duplicate, altered or credential-bearing image variables
+reject before container creation. The original path-only image profiles remain
+unchanged. This layout selection does not disable any readiness or isolation
+probe, certify an arbitrary image or imply native/model support.

@@ -204,7 +204,7 @@
     },
     {
       "path": "docs/authority.md",
-      "sha256": "d5b1b6c887d52b9aaf3135a3f443dec6b9eae6b6e82dc273f941a8731345b754"
+      "sha256": "38a63c4ea5335e4004b67928dadbdd2a3726a967ff17848ed531f86c1e118670"
     },
     {
       "path": "docs/authorization.md",
@@ -288,7 +288,7 @@
     },
     {
       "path": "docs/package.md",
-      "sha256": "d1c765c2b2f45cf8d99a22b3db40d63923e7c90a7ef25cb7a0bd00fc3684cb5c"
+      "sha256": "746732398e1a423cc03af83a80b410b9f919e15370cc438011733c3cf4ac2f45"
     },
     {
       "path": "docs/protected-host.md",
@@ -468,7 +468,7 @@
     },
     {
       "path": "src/authority.mjs",
-      "sha256": "8f4779934b0e6f92727eb8ea54540a8884c82a9582311ec291f66f087e77ab74"
+      "sha256": "c1e764f4b67d714c4540b3ca96273531d3ba24cbd41461f1eacdb83bd9aac046"
     },
     {
       "path": "src/authorization.mjs",

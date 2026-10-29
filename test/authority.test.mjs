@@ -9,7 +9,7 @@ const clone = v => JSON.parse(JSON.stringify(v));
 const keys = generateKeyPairSync('ed25519');
 const privateKey = keys.privateKey.export({type:'pkcs8',format:'pem'});
 const publicKey = keys.publicKey.export({type:'spki',format:'pem'});
-const source = 'https://app.notion.com/p/40006b644a2080dab1a8c2e562f95373';
+const source = 'https://github.com/example-org/core/issues/101';
 const input = () => ({source, revision:'2026-10-24T13:10:19.626Z', approvalId:'owner-approval-1', cycle:'cycle-1',
   components:[{id:'goal',kind:'section',body:'Hello\n世界',references:['rules']},
     {id:'rules',kind:'section',body:'"quoted"\n魚\r\n',references:['diagram','material']},
@@ -33,7 +33,7 @@ test('AC1: exact complete representation and deterministic round trip, public di
   assert.deepEqual(exportAuthority(input()),v);
   assert.equal(exportAuthority({source,revision:'1',approvalId:'approval-1',cycle:'cycle-1',
     components:[{id:'section',kind:'section',body:'Hello\n世界',references:[]}]}).identity,
-    'ec03bd69708a08d5efc0167b227860a310aee8ab07e85ccaf4c8aa3b5d1477f0');
+    'c427352280c6df8598331b6d7deb265233c9f28430bb5ec20a488c064d1904a4');
   assert.deepEqual(accepted(v,ctx),accepted(importAuthority(JSON.stringify(v)),ctx));
   assert.deepEqual(v.components,input().components);
   assert.equal(v.manifest.components[0].hash,'e25356b0e259cd559cbbe5495f10b8eb613890dd47e20afbb9d2a105c3531bf7');
@@ -47,7 +47,7 @@ test('AC1: exact complete representation and deterministic round trip, public di
 test('AC2: table-driven malformed/tampered/foreign/stale/incomplete rejection', () => {
   const v = exportAuthority(input()), ctx = approve(v);
   const attacks = [
-    ['wrong canonical source', x => x.source = source.replace('4000','5000')],
+    ['wrong canonical source', x => x.source = source.replace('/101','/102')],
     ['unexpected revision', x => x.revision = 'stale'],
     ['approval', x => x.approvalId = 'stale'], ['cycle', x => x.cycle = 'stale'],
     ['missing component', x => x.components.splice(1,1)],
@@ -71,7 +71,7 @@ test('AC2: table-driven malformed/tampered/foreign/stale/incomplete rejection', 
   const recomputed = exportAuthority(truncated);
   assert.equal(verifyAuthority(recomputed,ctx).category,'expectation');
   for (const mutate of [x => x.components.reverse(), x => x.components[0].body += 'changed',
-    x => x.source = source.replace('4000','5000'), x => x.revision = '2',
+    x => x.source = source.replace('/101','/102'), x => x.revision = '2',
     x => x.approvalId = 'other', x => x.cycle = 'other']) {
     const bad = input(); mutate(bad);
     assert.equal(verifyAuthority(exportAuthority(bad),ctx).ok,false);
@@ -124,7 +124,7 @@ test('AC3: pure explicit synchronization, prior-state checks and idempotency', (
     assert.throws(() => synchronizeAuthority(bad),/^TypeError: authority:/);
     assert.deepEqual(active,before);
   }
-  const foreign = exportAuthority({...input(),source:source.replace('4000','5000'),cycle:'cycle-2'});
+  const foreign = exportAuthority({...input(),source:source.replace('/101','/102'),cycle:'cycle-2'});
   assert.throws(() => synchronizeAuthority({...args,replacement:foreign}));
   assert.throws(() => synchronizeAuthority({...args,replacement:foreign,verification:approve(foreign),
     authorization:auth(active,foreign)}),/authority:source/);

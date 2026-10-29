@@ -1,13 +1,29 @@
+import {posix} from 'node:path';
 import {gunzipSync} from 'node:zlib';
 // Read the actual tar payload without extracting attacker-controlled paths.
 export function inspectPackageArchive(archive, permittedPaths) {
-  const tar = gunzipSync(archive);
+  if(!Array.isArray(permittedPaths)||new Set(permittedPaths).size!==permittedPaths.length
+    ||permittedPaths.some(p=>typeof p!=='string'||p.startsWith('/')||p.includes('\\')||p.split('/').some(s=>!s||s==='.'||s==='..')))throw Error('Unsafe permitted archive paths');
+  const tar = gunzipSync(archive,{maxOutputLength:64*1024*1024});
   const files = new Map();
   let offset = 0;
   while (offset + 512 <= tar.length) {
     const header = tar.subarray(offset, offset + 512);
     if (header.every(byte => byte === 0)) {
       if (!tar.subarray(offset).every(byte => byte === 0)) throw new Error('Trailing tar data');
+      // Callers enforce completeness; preserve subset inspection for their
+      // actionable missing-entry errors before following transitive imports.
+      if(permittedPaths.every(path=>files.has(path)))for(const [path,bytes] of files){
+        if(!path.endsWith('.mjs'))continue;
+        const source=bytes.toString('utf8');
+        for(const match of source.matchAll(/(?:from\s*|import\s*\(\s*|import\s*)['"]([^'"\r\n]+)['"]/g)){
+          const specifier=match[1];
+          if(specifier.startsWith('.')){
+            const target=posix.normalize(posix.join(posix.dirname(path),specifier));
+            if(!files.has(target))throw Error('Missing packaged import: '+target);
+          }else if(!specifier.startsWith('node:')&&specifier!=='jose'&&!specifier.startsWith('data:text/javascript;base64,'))throw Error('Unsupported packaged import');
+        }
+      }
       return files;
     }
     const field = (start, length) => header.subarray(start, start + length).toString().replace(/\0.*$/s, '');

@@ -3,7 +3,7 @@ import {resolve,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
 import {packageFiles,verifyArchive,consumeArchive} from './archive.mjs';
-import {releaseHash,releaseVersion,releaseComponents,configuration,verifyRelease} from '../src/release.mjs';
+import {releaseHash,releaseVersion,releaseComponents,releaseDistribution,configuration,verifyRelease} from '../src/release.mjs';
 export function releaseInputs(root=process.cwd()) {
   const maintained=['test','test-sdk','tooling'].flatMap(dir=>readdirSync(join(root,dir)).filter(n=>n.endsWith('.mjs')).map(n=>dir+'/'+n));
   return [...new Set([...packageFiles,...maintained,'package-lock.json','.github/workflows/core-release.yml'])].sort();
@@ -36,7 +36,12 @@ export function initialCompatibility(components,read=path=>readFileSync(path)) {
   const e=entries.at(-1);
   e.evidence=[{type:'source-contract',reference:'test/release.test.mjs',sha256:releaseHash(read('test/release.test.mjs')),
     capability:e.capability,configuration:releaseHash(JSON.stringify(configuration(e)))}];
-  return {format:1,components,entries};
+  for(const [id,path] of [['installation-source-contract','test/installation.test.mjs'],['recovery-source-contract','test/rescue-completion.test.mjs'],['admission-source-contract','test/runner-job-gate.test.mjs']]){
+    add(id,{capability:'source-contract',status:'Supported',limitations:'Credential-free local/installed source fixtures only; provider/model/platform/production support remains Unverified.'});
+    const entry=entries.at(-1);entry.evidence=[{type:'source-contract',reference:path,sha256:releaseHash(read(path)),
+      capability:entry.capability,configuration:releaseHash(JSON.stringify(configuration(entry)))}];
+  }
+  return {format:1,components,distribution:releaseDistribution(components),entries};
 }
 export function prepareRelease({root=process.cwd(),base,mergedCommit=null,pack=true}) {
   const source=sourceBinding({root,base,mergedCommit});

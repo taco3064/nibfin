@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
 import {mkdtempSync, cpSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync} from 'node:fs';
 import {tmpdir} from 'node:os';
@@ -31,7 +32,7 @@ function changeEntry(archive, oldName, newName) {
 test('real archive, rejection policy and website isolation', () => {
   const fixture = mkdtempSync(join(tmpdir(), 'nibfin-producer-'));
   try {
-    for (const path of ['host', 'workflow', '.github', 'package.json', 'package-lock.json', 'README.md', 'docs', 'src', 'skills', 'instructions', 'examples', 'test', 'test-sdk', 'tooling']) {
+    for (const path of ['host', 'workflow', '.github', 'package.json', 'package-lock.json', 'npm-shrinkwrap.json', 'README.md', 'docs', 'src', 'skills', 'instructions', 'examples', 'test', 'test-sdk', 'tooling']) {
       cpSync(resolve(path), join(fixture, path), {recursive: true});
     }
     const env = {...process.env};
@@ -68,7 +69,9 @@ test('real archive, rejection policy and website isolation', () => {
     assert.equal(existsSync(join(fixture, 'website/node_modules')), false);
     // Explicit root discovery executes all real root tests; remove this fixture test only.
     rmSync(join(fixture, 'test/archive.test.mjs'));
-    assert.match(run(['run', 'check']), /fail 0/);
+    const sourceCheck=run(['run','check']);assert.match(sourceCheck,/fail 0/);
+    console.log('Source regression summary:',sourceCheck.slice(sourceCheck.lastIndexOf('1..')));
+    console.log('Installed archive SHA-256:',createHash('sha256').update(archive).digest('hex'));
     // The installed suite already passed for these exact archive bytes above.
     // Repack to test website isolation without executing that same suite twice.
     const withWebsite = readFileSync(packArchive(fixture));

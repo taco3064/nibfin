@@ -1,12 +1,13 @@
 {
   "name": "@nibfin/core",
   "version": "0.1.0",
-  "description": "Nibfin Core package and canonical GitHub identity utilities",
+  "description": "Versioned Nibfin Core, host, workflow and Skill distribution",
   "private": true,
   "type": "module",
   "exports": {
     ".": "./src/index.mjs",
-    "./protected-host": "./host/entry.mjs"
+    "./protected-host": "./host/entry.mjs",
+    "./installation": "./src/installation.mjs"
   },
   "engines": {
     "node": ">=22 <23",
@@ -176,7 +177,14 @@
     "src/runner-job-gate.mjs",
     "host/runner-job-hook.mjs",
     "host/runner-job-hook.sh",
-    "docs/runner-job-admission.md"
+    "docs/runner-job-admission.md",
+    "src/distribution.mjs",
+    "src/distribution-map.json",
+    "src/installation.mjs",
+    "src/owner-hold.mjs",
+    "src/distribution-contract.mjs",
+    "npm-shrinkwrap.json",
+    "src/identity.mjs"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

@@ -1,3 +1,4 @@
+import {protectedWorkRestriction} from './owner-hold.mjs';
 import {assertCapturedCandidate} from './delivery-contract.mjs';
 import {executeDeliveryOperation} from './runtime.mjs';
 import {nextDeliveryStage} from './delivery-planner.mjs';
@@ -175,7 +176,9 @@ export function createCore({current,provider,authorization,dependencies,selector
     completion:createCompletionFlow,fanout:createDownstreamFanout,recovery:createRecoveryFlow,repair:createRepairFlow};
   need(checkpoint===undefined||typeof checkpoint==='function','checkpoint');
   let executing=null,executionSignal,executionDependencies;
-  const checkExecution=async()=>{if(checkpoint) {
+  const checkExecution=async()=>{
+    need(protectedWorkRestriction((await read()).restrictions)===null,'execution-restriction');
+    if(checkpoint) {
     need(!executionSignal?.aborted,'cancelled');
     await checkpoint({signal:executionSignal});
     if(executing) {
@@ -259,6 +262,8 @@ export function createCore({current,provider,authorization,dependencies,selector
     const refuse=(ok,gate,observation=null)=>{
       if(!ok)throw {decision:{...decision,identity:contentIdentity({decision:decision.identity,gate,observation})},gate};
     };
+    refuse(protectedWorkRestriction(p.restrictions)===null,'execution-restriction');
+    refuse(!Object.values(p.receipts).some(e=>e.execution.source?.runId===r.run.id),'historical-run-reuse');
     const options={method:'GET',target:p.target.repositoryId,operation:'core-read',correlation:r.request,signal};
     const root='/repos/'+p.target.repository;
     const repository=await request({...options,endpoint:root});

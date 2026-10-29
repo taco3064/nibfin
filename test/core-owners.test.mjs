@@ -360,3 +360,18 @@ test('Core Deliver captures real Writer edits after termination and hands off on
     }finally{a.close();for(const fixture of fixtures)await fixture.dispose();}
   }
 });
+
+test('grouped approved Owner history permits a fresh dispatched Accept, never reuse of a historical Run',async()=>{
+  const a=await acceptFixture({empty:true,repository:'example-org/core',issueId:'I_101'});
+  try{
+    const f=coreFixture();f.adopt(a.pin);position(f,'accept',a);
+    assert.equal(f.pin.receipts.shape.execution.source.runId,f.pin.receipts['shape-validator'].execution.source.runId);
+    const history=structuredClone(f.pin.receipts);
+    f.pin.invocation.run.id=f.pin.receipts.shape.execution.source.runId;
+    assert.equal((await f.create({accept:a.capabilities}).inspect(f.request())).disposition,'blocked');
+    f.pin.invocation.run.id='999';
+    const result=await run(f,f.create({accept:a.capabilities}));
+    assert.equal(result.disposition,'completed',JSON.stringify(result));assert.equal(result.executed,'accept');
+    assert.deepEqual(f.pin.receipts,history);
+  }finally{a.close();}
+});

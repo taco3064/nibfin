@@ -1,8 +1,8 @@
 # Core package and bootstrap contract
 
 The root `package.json` and `package-lock.json` belong exclusively to Core.
-The local package is `@nibfin/core` version `0.1.0`, ESM only, with one public
-export: `@nibfin/core`. The sole runtime dependency is pinned `jose@6.2.13`. There are no install scripts,
+The local package is `@nibfin/core` version `0.1.0`, ESM only, with public
+exports `@nibfin/core` and `@nibfin/core/protected-host`. The sole runtime dependency is pinned `jose@6.2.13`. There are no install scripts,
 credential reads, network lookups or execution on import. The package is private
 to prevent accidental registry publication; no license grant is asserted.
 
@@ -98,19 +98,20 @@ consumer=$(mktemp -d)
 ## Ownership and downstream handoff
 
 Root tooling does not aggregate a workspace or install/govern website dependencies.
-Future website work owns `website/package.json`, its separate lockfile and local
+The separate website project owns `website/package.json`, its lockfile and local
 configuration. `.github/workflows/core-ci.yml` checks the root package on relevant
 PRs and main pushes using GitHub-hosted runners and read-only contents permission.
-The separately owned `website-ci.yml` handles website checks/deployment; this
-baseline does not create it. Root ignore rules cover only root generated output
+The separately owned `website-ci.yml` handles website checks/deployment. Package
+verification does not certify a website deployment. Root ignore rules cover only root generated output
 and node_modules. The coexistence fixture includes failing website tests and
 uninstallable website dependencies to detect accidental coupling.
 
 Future nibfin-action and gh-nibfin consumers use this reviewed package boundary
 and public entry instead of copying Core or importing checkout-relative modules.
-This Issue writes neither repository. The archive is a local integration contract;
-formal immutable release identities, compatibility metadata, official Action/CLI
-installation, upgrades and publication remain later work. A future consumer must
+This Issue writes neither repository. The archive supplies immutable local source/archive/component identities,
+compatibility metadata and the versioned install/readiness/upgrade APIs described
+below. Downstream Action/CLI integration and public publication remain separately
+owned work. A future consumer must
 verify its approved immutable version/content and compatibility before execution;
 floating latest must not silently replace an authorized runtime. No private donor
 repository is an installation or runtime dependency.
@@ -743,3 +744,153 @@ verification. This is deliberately conservative rather than a promise that every
 PR is small. Main pushes and formal release verification retain the full root,
 SDK and installed-consumer gates. Scoped PR success proves the selected tests for
 that candidate; it does not replace live integration or release evidence.
+
+## Versioned install and readiness interface (#233)
+
+This archive contains one public runtime owner, its host/workflow adapters and
+protected Skills, including unified Rescue and Runner job admission. It excludes
+`controller/`: that maintained development deployment supplies historical source
+and adaptation inputs, not a second installed engine. The exact public hashes and
+one owner per responsibility are in `src/distribution-map.json`, bound by the
+release manifest. See [kairo-reuse.md](kairo-reuse.md) for behavioral provenance.
+Regenerate that tracked map with `node tooling/distribution-map.mjs --write` after
+changing packaged source. Validation compares the map to the actual package bytes.
+
+The package exports `@nibfin/core`, `@nibfin/core/protected-host` and the isolated readiness bootstrap `@nibfin/core/installation`. Existing
+`configure({core, mode, context, deployment})`, `preflightRunner({configuration,
+observe, probe})` and `createLocalRunnerLifecycle(configuration)` signatures remain.
+The new `createInstallation` interface is version 1. Its constructor takes exactly:
+
+```js
+import {createInstallation} from '@nibfin/core/installation';
+const installation = createInstallation({
+  version: 1,
+  expected: {
+    packageVersion: approvedManifest.version,
+    coreSha256: approvedManifest.components.core.sha256
+  },
+  profile: 'member',
+  observeCapability: trustedHost.observeCapability,
+  runner: {
+    configuration: localRunnerConfiguration,
+    observe: trustedHost.observeRunner,
+    probe: trustedHost.probeRunner
+  }
+});
+const readiness = await installation.check();
+```
+
+`approvedManifest` is independently pinned and verified with `verifyRelease`,
+including the exact source/archive/compatibility identities. Reading an installed
+package's self-reported hash is inspection, not approval. A version alone is
+insufficient. `localRunnerConfiguration` uses the existing `runnerConfiguration`
+input schema: `{version:1, platform:'linux'|'wsl', arch:'x64', account:{user,uid,
+githubUserId}, work, scratch, cache, path:'/usr/local/bin:/usr/bin:/bin',
+interpreter:'/usr/local/bin/node'}`. Roots are distinct non-nested private absolute
+paths owned by that account. The existing preflight owns the fixed tool, login,
+image, isolation, dependency/model egress, proxy, DNS and TLS checks.
+
+`profile:'source'` omits `runner` entirely and checks only source-contract
+installation capabilities. Its readiness does not grant member execution or
+certify a deployed host. Action and CLI consume the same contract. No particular
+Issue Grant is needed to construct/check an installation or stand by; execution
+still requires the current authorization, routing and all independent Core gates.
+
+`observeCapability({capability,version,sha256})` is a trusted, read-only host
+capability for `runtime`, `workflow`, `skills`, `source`, `recovery` and `jobAdmission`.
+It must inspect the corresponding installed service/integration and return
+`{status:'verified',version,sha256}` only on an exact match. Runtime capability
+version is **2**; all other capability versions are 1. Missing, unknown, wrong
+versions/hashes and thrown errors block readiness. These callbacks are executable
+trusted configuration outside Issue/event/model input, never JSON-supplied
+predicates. A fabricated callback cannot establish deployment evidence. Process
+transports in `test/installation.test.mjs` are explicitly credential-free doubles.
+
+The readiness result is exactly `{version:1, status:'ready'|'blocked',
+scope:'source-contract'|'member-runtime', identity:null|{packageVersion,coreSha256,
+pins:{runtime,workflow,skills,source,recovery,jobAdmission}}, diagnostics:[{capability,code,
+action}]}`. The actionable diagnostics use fixed strings; provider errors,
+credentials, private admission records and operational paths are omitted.
+Malformed constructor configuration throws `installation:configuration` or a
+version/pin validation error. There is no successful fallback for unknown support.
+
+`await installation.plan({commit,hostRepository,hostCommit,admission})` returns
+`{version:1,status:'planned',readiness,workflow,admission,pins}`, or a blocked result
+with readiness/diagnostics. Both commits are exact immutable Git SHAs; the existing
+workflow plan provides a Map of target workflow paths to content and an exact
+inventory. `admission` is the local `runnerJobPolicy` or version-1 policy set
+specified in [runner-job-admission.md](runner-job-admission.md). The plan includes
+both packaged Hook entries, private installation placement and required service
+environment bindings. The CLI installs these during its ordinary lifecycle;
+no additional user command, manual signing, private checkout or second controller
+is required. Planning/checking never executes the live aborting Hook, installs
+services, registers a Runner or changes protected work. Host repository pins refer
+to the approved public producer; they are not a target-repository allowlist.
+
+## Protected upgrades and rollback
+
+Runtime capability 2 requires `current().restrictions` on every Core checkpoint:
+`{restrictionsChecked:true,hold:null,paused:false,unknownWrite:false}`. The trusted
+host derives this from current authenticated authority, not from an Issue or
+Agent. A hold object, pause, unknown write or unavailable observation blocks the
+actual Core before stage dispatch. Upgrading an older host without this capability
+is an explicit readiness failure. Existing v1 evidence serialization is retained;
+a changed runtime/source/Skill identity requires fresh evidence and reauthorization.
+
+`planInstallationTransition({version:1,current,next,work})` takes current/next
+`{packageVersion,pins:{runtime,workflow,skills,source,recovery,jobAdmission}}` and work
+`{restrictionsChecked,hold,paused,unknownWrite,active,terminated,reconciled,
+conversations,pending,receipts}` from trusted protected storage. Unknown fields or
+pins fail. A changed set requires inactive, terminated, reconciled work with no
+hold/pause/unknown write. A major-version change requires explicit migration and
+reauthorization. A plan never resumes or migrates a conversation, rewrites a
+historical receipt or declares pending work accepted. Changed pins require fresh
+normal execution gates even within a compatible package version.
+
+`applyInstallationTransition({current,next,observe,retain,switchPins})` delegates a
+single local whole-pin-set switch to the trusted host. `observe()` returns
+`{installation,work}`; `retain(intent)` durably preserves the complete plan in the
+existing host custody/intent store and returns `{status:'retained',identity,
+prior:'new'|'unresolved'}`. `switchPins({expected,next,protectedState,intent})` must
+check the expected installation and protected-state digest and switch the complete
+set together. It must not change the protected work. Reads before/after enforce
+state correspondence. Results are `switched`, `unchanged`, `failed`, `blocked` or
+`unknown`; a lost or ambiguous result requires reconciliation and is never blindly
+repeated. The host retains the intent and readback as private operation evidence.
+Rollback is an explicit inverse plan at the same safe boundary, preserving all
+work/history and requiring fresh gates; it does not erase prior external effects.
+
+`compatibility.json` records API versions, immutable component identities and
+explicit runtime/network profiles. Member/platform/model and full product support
+remain **Unverified**; private repositories and unsafe credential-bearing layouts
+are **Unsupported**. Unified Rescue's unavailable neutral final-Run reporting
+remains an explicit blocker, as documented in [rescue.md](rescue.md).
+This is local source/package delivery only. Public release (#203), downstream CLI
+and Action delivery, production cutover, external E2E and Dashboard are separately
+owned and are not certified by source or installed-consumer tests.
+
+The archive contains `npm-shrinkwrap.json`, the npm-supported published lock with
+exact root dependency versions and integrity pins. It matches the development
+`package-lock.json`; neither dependency preparation nor consumer installation
+runs lifecycle scripts. `node tooling/archive.mjs` validates transitive packaged
+imports and every selected file byte before installation in an external consumer.
+
+Use the isolated installation subpath for bootstrap diagnostics: it checks source
+bytes before loading runtime/Skill/recovery/admission owners. Missing or tampered
+components produce structured readiness failures even when the root runtime
+barrel cannot import. The member Runner schema is validated during check, before
+any preflight probe; malformed member configuration blocks readiness.
+
+Readiness bounds each read-only host observation/probe to 30 seconds and passes
+an AbortSignal. Host callbacks must honor cancellation and must not start detached
+work or writes. These timeouts never count as successful prerequisite evidence.
+
+Repository initialization (`profile:'source'`) may call `plan` with only `commit`,
+`hostRepository` and `hostCommit`. It returns the Hook integration inventory with
+`policies:null` and `policyRequiredAt:'runner-registration'`: no Runner ID exists
+at init or local environment creation. Source capability observations verify
+packaged capabilities in that scope; member observations verify the installed
+service/integration. A member plan requires the actual official registration's
+admission policy. This distinction preserves init/create/registration/standby
+boundaries and never grants a Runner permission to execute without admission.
+Invalid plan fields or immutable pins return a structured blocked result.

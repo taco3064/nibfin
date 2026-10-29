@@ -1,3 +1,4 @@
+import {rescueWorkRestriction} from './owner-hold.mjs';
 // Recovery transitions adapted from Kairo PR54 rescue.mjs. Nibfin supplies its
 // existing custody/state, controlled operations, eligibility and normal Core
 // role owners; Rescue never executes a delivery stage or grants permissions.
@@ -27,7 +28,7 @@ export function createRescueController({policy,records,provenance,current,author
     const state=await current(structuredClone(c.target));
     const stable=['repository','repositoryId','issueId','number','cycle','authority','requirements','scopeHash','memberId','sessionMemberId','runnerMemberId','runnerId'];
     need(state&&(verification?stable.every(k=>state.target?.[k]===c.target[k]):same(state.target,c.target)),'state-changed');
-    need(!state.hold&&!state.paused&&!state.conflict&&!state.unknownWrite,'stopped');
+    need(rescueWorkRestriction(state)===null&&!state.conflict,'stopped');
     need(state.authority===p.authority&&state.target.authority===p.authority,'authority-changed');
     const a=await authorize({operation:'rescue',target:structuredClone(c.target)});
     need(a?.ok===true&&a.memberId===c.target.memberId&&a.runnerId===c.target.runnerId

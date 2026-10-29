@@ -24,6 +24,7 @@
     "src/runners.mjs",
     "src/obligations.mjs",
     "src/authority.mjs",
+    "src/issue-authority.mjs",
     "docs/authority.md",
     "src/authorization.mjs",
     "docs/authorization.md",

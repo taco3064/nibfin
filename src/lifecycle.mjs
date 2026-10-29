@@ -101,10 +101,10 @@ export function createAgentLifecycle({environment, instanceId, backend, current,
       if (canonicalJSON(e) !== canonicalJSON(expected.expected.execution)
           || canonicalJSON(v.binding) !== canonicalJSON(expected.expected.binding)) fail('current-identity');
       if(startCurrent) {
-        // Deliver's final Candidate exists only after the Writer has run. Pin the
+        // The final Candidate or Shape document exists only after its author runs. Pin the
         // independent role/authority now; collect still compares the full envelope.
         fields(expected,'expected consumed');fields(expected.expected,'stage execution binding result');
-        if(e.role!=='deliver'||expected.expected.stage!=='deliver'
+        if(!['deliver','shape'].includes(e.role)||expected.expected.stage!==e.role
           ||expected.expected.result.outcome!=='ready'||expected.expected.result.failureClass!=='none'
           ||!Array.isArray(expected.consumed)||expected.consumed.includes(e.result))fail('start-contract');
         expected.consumed.forEach(text);

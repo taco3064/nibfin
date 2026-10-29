@@ -1,5 +1,5 @@
 import {readonlyMcpServer} from './readonly-tools.mjs';
-import {prepareReadonlyVerification} from './agent-session.mjs';
+import {prepareReadonlyVerification,decodeRoleOutput} from './agent-session.mjs';
 import {probeVerificationSupervisor} from './verification-child.mjs';
 // Trusted container entrypoint; never imports checkout modules or configuration.
 import {probeGateway,dependencyProbeEndpoints,executeSession,capacityError,rejectSecrets} from './agent-session.mjs';
@@ -54,7 +54,7 @@ export function claudeResult(output,context,secrets) {
   if(envelope?.type!=='result' || envelope.subtype!=='success' || envelope.is_error!==false
       || !envelope.structured_output || typeof envelope.structured_output!=='object'
       || Array.isArray(envelope.structured_output))throw Error('claude:final-result');
-  return {...context,result:envelope.structured_output};
+  return decodeRoleOutput(context,envelope.structured_output);
 }
 const options=env=>({env,encoding:'utf8',timeout:10000,killSignal:'SIGKILL',maxBuffer:65536});
 export function probeClaude(env,run=spawnSync,unsafe=()=>

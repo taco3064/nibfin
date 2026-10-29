@@ -1,5 +1,5 @@
 import {readonlyMcpServer,readonlyToolNames} from './readonly-tools.mjs';
-import {prepareReadonlyVerification} from './agent-session.mjs';
+import {prepareReadonlyVerification,decodeRoleOutput} from './agent-session.mjs';
 import {probeVerificationSupervisor} from './verification-child.mjs';
 // Trusted standalone container entrypoint. Never import checkout modules.
 import {probeGateway,dependencyProbeEndpoints,executeSession,capacityError,rejectSecrets} from './agent-session.mjs';
@@ -68,7 +68,7 @@ export function geminiResult(output,context,secrets) {
       || typeof envelope.response!=='string' || !envelope.response.trim())throw Error('gemini:final-result');
   const result=JSON.parse(envelope.response);scan(result,secrets);
   if(!result || typeof result!=='object' || Array.isArray(result))throw Error('gemini:result');
-  return {...context,result}; // Core lifecycle independently validates StageResult and current bindings.
+  return decodeRoleOutput(context,result); // Core independently validates StageResult and current bindings.
 }
 const options=env=>({env,cwd:'/tmp',encoding:'utf8',timeout:10000,killSignal:'SIGKILL',maxBuffer:65536});
 export function probeGemini(env,run=spawnSync,unsafe=()=>existsSync('/etc/gemini-cli')) {

@@ -8,6 +8,14 @@ import {connect as netConnect} from 'node:net';
 import {connect as tlsConnect} from 'node:tls';
 import {spawnSync} from 'node:child_process';
 const fail=code=>{throw Error(`agent-session:${code}`);};
+/** Shape's proposed document is output data, never an Agent-selected binding. */
+export function decodeRoleOutput(context,value){
+  if(context.outputFormat===undefined)return {...context,result:value};
+  if(context.outputFormat!=='shape-author-v1'||context.stage!=='shape'||context.execution?.role!=='shape'
+    ||!value||Object.keys(value).sort().join(' ')!=='body result'||typeof value.body!=='string'
+    ||Buffer.byteLength(value.body)>1048576)fail('output-format');
+  const {outputFormat,...binding}=context;return {...binding,shapeBody:value.body,result:value.result};
+}
 export const dependencyProbeEndpoints=Object.freeze(['registry.npmjs.org','cdn.playwright.dev','playwright.download.prss.microsoft.com']);
 export function recoveryPolicy(value,adapter,version) {
   if(value===undefined)return Object.freeze({attempts:1,delayMs:0,model:null,fallbacks:[],models:[]});

@@ -110,6 +110,14 @@ export function codexFixture(role='shape', custom, agent='codex') {
         const request=JSON.parse(readFileSync(join(input,'request.json')));
         output={...request.context,result};
         if (flags.mutate) flags.mutate(output);
+        if(request.context.outputFormat==='shape-author-v1') {
+          // Synthetic provider output still passes the maintained entry decoder.
+          const authored={body:output.shapeBody,result:output.result};
+          if(agent==='codex') {
+            const {decodeRoleOutput}=await import(new URL('agent-session.mjs',import.meta.resolve('@nibfin/core')));
+            output=decodeRoleOutput(request.context,authored);
+          } else output.result=authored;
+        }
         if(agent==='gemini') {
           output={response:JSON.stringify(output.result),session_id:'UNTRUSTED-CLI-SESSION'};
           if(flags.envelope)flags.envelope(output);

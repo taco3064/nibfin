@@ -43,6 +43,46 @@ async function finish(prepared) {
   }throw Error('role did not terminate');
 }
 
+test('Shape returns a late document through each maintained decoder, pins its exact Scope, and retains it before validation',async()=>{
+  for(const agent of ['codex','claude','gemini'])for(const changed of [false,true]) {
+    const f=roleFixture(agent),records=[];
+    try {
+      const fixture=f.fixtures.get('shape'),scope='Owner Scope\r\nKeep this exact.\n';
+      const body=core.formatRequirementsDocument({scope:changed?'Replaced Scope':scope,shape:'Proposed implementation\n'});
+      fixture.flags.mutate=output=>{output.shapeBody=body;};
+      const bind=f.options.bind;
+      const host=core.createProtectedRoleHost({...f.options,retain:async record=>{records.push(record);return 'custody:actual-document';},
+        bind:async task=>{
+          const value=await bind(task);value.inputs={};
+          // Neither a body nor its hash is known at launch. Identity and the
+          // independent success contract are pinned before the model runs.
+          const current=()=>{const v=value.current();delete v.expected.inputs;return v;};
+          const startCurrent=()=>{const v=current();delete v.expected.version;return v;};
+          return {...value,current,startCurrent,outputFormat:'shape-author-v1'};
+        }});
+      const instructions=core.selectInstructions({role:'shape',skill:'shape'});
+      const p=await host.prepareRole({role:'shape',skill:'shape',instructions,task:{original:{body:scope},
+        requirementsDocument:{format:'scope-shape-v1',scope,frame:core.requirementsDocumentFrame(scope)}}});
+      assert.throws(()=>p.readBody(),/shape-unavailable/);
+      assert.equal(Object.hasOwn(p.current().expected,'inputs'),false);
+      assert.equal((await p.lifecycle.start(p.input)).start?.status,'started');
+      const result=await finish(p);
+      if(changed) {
+        assert.notEqual(result.result.status,'valid');assert.equal(records.length,0);
+        assert.throws(()=>p.readBody(),/shape-unavailable/);
+      } else {
+        assert.equal(result.result.status,'valid',JSON.stringify(result));
+        assert.equal(p.readBody(),body);assert.deepEqual(p.current().expected.inputs,{body:core.bodyDigest(body)});
+        assert.equal(records.length,1);assert.equal(records[0].body,body);
+        assert.equal(records[0].kind,'shape-author-body');
+        assert.deepEqual(records[0].execution,p.input.execution);
+        assert.equal(Object.hasOwn(result.result.evidence,'shapeBody'),false);
+      }
+      assert.equal((await p.lifecycle.cleanup()).status,'completed');
+    } finally {await f.close();}
+  }
+});
+
 test('maintained public composition executes every role across all three actual Linux backends with correlated independent results',async()=>{
   for(const agent of ['codex','claude','gemini']) {
     const f=roleFixture(agent);try {

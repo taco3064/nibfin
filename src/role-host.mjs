@@ -9,6 +9,8 @@ import {prepareNodeVerification} from './node-verification.mjs';
 import {contentIdentity} from './evidence.mjs';
 import {canonicalJSON} from './grants.mjs';
 import {skillForRole} from './evidence.mjs';
+import {bodyDigest} from './canonical.mjs';
+import {assertRequirementsScope} from './requirements-document.mjs';
 const fail = code => {throw Error(`role-host:${code}`);};
 const clone = v=>JSON.parse(canonicalJSON(v));
 const roles=['shape','shape-validator','shape-diagnosis','shaper-review','deliver','accept'];
@@ -49,12 +51,21 @@ export function createProtectedRoleHost({configuration,bind,retain,probe,observe
       if(ready.status!=='ready')fail('preflight-blocked');
       const binding=await bind(clone(task));
       const {input,current,startCurrent,resultContext,deadlineAt,reserveMs,prompt,inputs}=binding;
+      const shapeAuthor=binding.outputFormat==='shape-author-v1';
+      if(binding.outputFormat!==undefined&&(!shapeAuthor||task.role!=='shape'||typeof startCurrent!=='function'
+        ||task.task?.requirementsDocument?.format!=='scope-shape-v1'))fail('output-format');
       if(input?.execution?.role!==task.role||input.execution.skill!==task.skill
           ||canonicalJSON(input.instructions)!==canonicalJSON({identity:task.instructions.identity,content:task.instructions.content})
           ||typeof current!=='function'||typeof prompt!=='string'||!inputs||['id','request','result'].some(k=>used.has(input.execution[k])))fail('binding');
       const budget=createRoleBudget({deadlineAt,reserveMs,now});
       const launchInputs=clone(inputs);
-      const taskProvider=()=>({prompt,inputs:clone(launchInputs)});
+      let authored=null;
+      const currentWithOutput=id=>{
+        const value=clone(current(id));
+        if(shapeAuthor&&authored)value.expected.inputs={body:authored.hash};
+        return value;
+      };
+      const taskProvider=()=>({prompt,inputs:clone(launchInputs),...(shapeAuthor?{outputFormat:'shape-author-v1'}:{})});
       const session=sessions?await sessions.prepare({task:clone(task),execution:clone(input.execution),memberId:runner.account.githubUserId}):null;
       if(session&&(profile.os!=='linux'||profile.agent!=='codex'||session.memberId!==runner.account.githubUserId))fail('session-unsupported');
       const backendConfig=profile.os==='linux'?{...profile.backend,...(session?{session}:{}),deadlineAt,reserveMs:budget.deadlineAt-budget.cutoff,task:taskProvider,...(run?{process:run}:{})}:
@@ -84,6 +95,26 @@ export function createProtectedRoleHost({configuration,bind,retain,probe,observe
         return backend.cleanup(query);
       },async collect(query) {
         const value=await backend.collect(query);
+        if(shapeAuthor&&value.status==='complete'&&value.evidence){
+          try{
+            const {shapeBody,...evidence}=value.evidence;
+            if(typeof shapeBody!=='string'||Buffer.byteLength(shapeBody)>1048576
+              ||evidence.stage!=='shape'||canonicalJSON(evidence.execution)!==canonicalJSON(input.execution)
+              ||canonicalJSON(evidence.binding)!==canonicalJSON(input.binding)
+              ||canonicalJSON(evidence.inputs)!==canonicalJSON(launchInputs)
+              ||(await backend.termination(query)).status!=='terminated')fail('shape-output');
+            if(evidence.result?.outcome==='ready')assertRequirementsScope(shapeBody,task.task.original.body);
+            const hash=bodyDigest(shapeBody);
+            if(authored&&authored.hash!==hash)fail('shape-rebinding');
+            if(!authored){
+              const reference=await retain({version:1,kind:'shape-author-body',execution:clone(input.execution),
+                binding:clone(input.binding),body:shapeBody,hash});
+              if(typeof reference!=='string'||!reference)fail('shape-retention');
+              authored={body:shapeBody,hash,reference};
+            }
+            return {...value,evidence:{...evidence,inputs:{body:hash}}};
+          }catch{return {...value,exitCode:1,evidence:null};}
+        }
         if(candidate&&value.status==='complete'&&value.evidence) {
           const evidence=value.evidence;
           if(evidence.stage!=='deliver'||canonicalJSON(evidence.inputs??null)!==canonicalJSON(launchInputs))
@@ -94,9 +125,11 @@ export function createProtectedRoleHost({configuration,bind,retain,probe,observe
       }};
       const descriptor=profile.os==='linux'?profile.backend:profile.backend.linux;
       const lifecycle=createAgentLifecycle({environment:descriptor.environment,instanceId:descriptor.instanceId,
-        backend:collectionBackend,current,startCurrent,resultContext,collectFailures:true});
+        backend:collectionBackend,current:currentWithOutput,startCurrent,resultContext,collectFailures:true});
       for(const key of ['id','request','result'])used.add(input.execution[key]);
       const value=Object.freeze({taskIdentity:contentIdentity(task.task),input:clone(input),lifecycle,lane,budget,
+        current:currentWithOutput,
+        ...(shapeAuthor?{readBody:()=>{if(!authored)fail('shape-unavailable');return authored.body;}}:{}),
         ...(task.role==='deliver'?{bindCandidate:async value=> {
           const terminal=await lifecycle.termination(input.execution.id);
           if(terminal.termination?.status!=='terminated')fail('candidate-before-termination');

@@ -1,5 +1,5 @@
 import {hasSessionData,sessionIdFromEvents} from './role-session.mjs';
-import {prepareReadonlyVerification} from './agent-session.mjs';
+import {prepareReadonlyVerification,decodeRoleOutput} from './agent-session.mjs';
 import {probeVerificationSupervisor} from './verification-child.mjs';
 // Fixed container entrypoint. No repository code is loaded by this module.
 import {probeGateway,dependencyProbeEndpoints,executeSession,codexEvents,capacityError} from './agent-session.mjs';
@@ -40,7 +40,7 @@ export function executeCodex(request,secrets=[],run=spawnSync,{sessionDirectory=
     persisted:id=>hasSessionData(sessionDirectory,id),
     inspect:r=>{const o=codexEvents(r.stdout??'',secrets);return {...o,capacity:capacityError('codex',o.terminal),
       authentication:['unauthorized','authentication_error'].includes(o.terminal.error?.code)};},
-    decode:output=>({...request.context,result:codexEvents(output,secrets).result})});
+    decode:output=>decodeRoleOutput(request.context,codexEvents(output,secrets).result)});
   // A failed/interrupted CLI may still have created the original conversation.
   // Preserve only a unique observed ID with actual session bytes. This is not a
   // successful result, retry permission or replacement for a missing transcript.

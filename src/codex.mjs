@@ -323,12 +323,15 @@ export function createLinuxBackend(config, profile = null) {
       writeFileSync(join(input,'instructions.md'),v.instructions.content,{flag:'wx',mode:0o400});
       const context = JSON.parse(canonicalJSON(task(e)));rejectSecrets({instructions:v.instructions,context},secrets);
       if (typeof context.prompt !== 'string' || !context.prompt.trim() || !context.inputs) fail('task');
+      const shapeAuthor=context.outputFormat==='shape-author-v1';
+      if(context.outputFormat!==undefined&&(!shapeAuthor||e.role!=='shape'||diagnosticMode))fail('output-format');
       const properties = diagnosticMode ? {outcome:{type:'string',enum:['ready','blocked']},failureClass:{type:'string',enum:['implementation_defect','external_failure','authority_gap','shape_defect']},body:{type:'string'},rootCause:{type:'string'},summary:{type:'string'},evidenceReferences:{type:'array',items:{type:'string'}},contractConflicts:{type:'array',maxItems:0,items:{type:'object'}}} : {version:{type:'integer',enum:[1]},outcome:{type:'string',enum:outcomesForRole(e.role)},
         failureClass:{type:'string',enum:['none','implementation_defect','shape_defect','authority_gap','external_failure']},
         summary:{type:'string'},conflicts:{type:'array',items:{type:'object',additionalProperties:false,
           properties:Object.fromEntries(['scopeHash','shapeHash','scopeQuote','shapeQuote','evidenceReference'].map(k=>[k,{type:'string'}])),
           required:['scopeHash','shapeHash','scopeQuote','shapeQuote','evidenceReference']}}};
-      const schema = {type:'object',properties,required:Object.keys(properties),additionalProperties:false};
+      const resultSchema={type:'object',properties,required:Object.keys(properties),additionalProperties:false};
+      const schema=shapeAuthor?{type:'object',properties:{body:{type:'string'},result:resultSchema},required:['body','result'],additionalProperties:false}:resultSchema;
       writeFileSync(join(input,'schema.json'),JSON.stringify(schema),{flag:'wx',mode:0o400});
       if (profile?.prepare) profile.prepare(input,v.instructions.content,schema,v.workspace.access);
       const prompt = context.prompt+'\nRead-only Claude/Gemini roles: call nibfin MCP verify with file, args and cwd for the guarded lane, and github_read with native gh args and explicit --repo for broker reads. verify returns receipts/status; non-passed results are never passes. Verification discipline (all roles/customizations): use node /verification-runner.mjs -- <absolute executable> [arguments] for dependency preparation and regressions. It shares this execution deadline and a single command lane, retaining receipts/logs under /verification/commands. A busy, failed, cancelled, unresolved or budget_exhausted result is never a pass. Before Node regressions prepare a writable exact source copy: node /verification-runner.mjs -- node /verification-prepare.mjs /work /tmp [nested-project]. Reprepare after source changes; do not test stale copies. Preparation alone proves no test result. Independent Acceptance and CI remain required.';
@@ -343,7 +346,8 @@ export function createLinuxBackend(config, profile = null) {
         ...(durableSession?{sessionOutput:'/verification/role-session.json',...(durableSession.id?{resume:{id:durableSession.id,memberId:durableSession.memberId}}:{})}:{}),
         githubRead:readRepositories?{repositories:readRepositories}:null,
         verificationPolicy:{runner:'/verification-runner.mjs',maxConcurrent:1,budget:commandBudget,evidenceDirectory:'/verification/commands'},
-        context:{version:1,stage:e.role,execution:e,binding:v.binding,inputs:context.inputs,...(durableSession?{memberId:durableSession.memberId}:{})}}),{flag:'wx',mode:0o400});
+        context:{version:1,stage:e.role,execution:e,binding:v.binding,inputs:context.inputs,
+          ...(shapeAuthor?{outputFormat:'shape-author-v1'}:{}),...(durableSession?{memberId:durableSession.memberId}:{})}}),{flag:'wx',mode:0o400});
       mkdirSync(verificationRoot,{recursive:true,mode:0o700});
       const verificationStat=lstatSync(verificationRoot);if(!verificationStat.isDirectory()||verificationStat.isSymbolicLink())fail('verification-root');
       verificationPin=`${verificationStat.dev}:${verificationStat.ino}`;

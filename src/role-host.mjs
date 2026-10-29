@@ -68,7 +68,7 @@ export function createProtectedRoleHost({configuration,bind,retain,probe,observe
         if(profile.os!=='linux'||!['accept','shaper-review'].includes(task.role))fail('workspace-transfer-role');
         const descriptor=profile.backend,instance=descriptor.environment.instances.find(i=>i.id===descriptor.instanceId);
         const expected=task.task.expected;
-        if(!expected||canonicalJSON(input.workspace)!==canonicalJSON({path:instance.workspace,access:'read'})
+        if(!expected||(input.workspace!==undefined&&canonicalJSON(input.workspace)!==canonicalJSON({path:instance.workspace,access:'read'}))
           ||canonicalJSON(expected.candidate)!==canonicalJSON(launchInputs.candidate)
           ||expected.binding?.repository!==task.task.repository
           ||['scopeHash','shapeHash','policy'].some(k=>expected.binding[k]!==input.binding[k]))fail('workspace-transfer-binding');

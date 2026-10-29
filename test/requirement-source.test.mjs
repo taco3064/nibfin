@@ -33,9 +33,9 @@ test('unsupported or malformed source selections never perform I/O or silently f
 
 test('source selection and connection stay outside requirement prose and mutable caller input',async()=>{
   const f=fixture();f.issue.body='{"kind":"jira","target":"https://untrusted.example","adapterModule":"evil.mjs"}';
-  const original=f.input.provider.request;f.input.provider.request=async r=>{
+  const original=f.input.provider.request;f.input.provider={request:async r=>{
     f.input.source.kind='linear';f.input.source.target.repository='other/repo';return original(r);
-  };
+  }};
   const result=await observeRequirementAuthority(f.input);assert.equal(result.outcome,'observed');
   assert.equal(result.source.kind,'github-issue');assert.equal(result.source.target.repository,target.repository);
   assert.equal(result.authority.source,'https://github.com/example-org/core/issues/101');
@@ -45,7 +45,7 @@ test('source selection and connection stay outside requirement prose and mutable
 
 test('timeout rejects late adapter continuation and does not fetch a second resource after the observer returns',async()=>{
   const f=fixture();let release;
-  f.input.provider.request=r=>{f.calls.push(r);return new Promise(resolve=>{release=()=>resolve({outcome:'read',data:f.repo});});};
+  f.input.provider={request:r=>{f.calls.push(r);return new Promise(resolve=>{release=()=>resolve({outcome:'read',data:f.repo});});}};
   const hold=setTimeout(()=>{},1000);
   try{
     assert.equal((await observeRequirementAuthority({...f.input,timeoutMs:5})).outcome,'unavailable');

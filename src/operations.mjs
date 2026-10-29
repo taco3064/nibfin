@@ -33,7 +33,8 @@ export function controlledIntent(input) {
   const parts = b.repository.split('/');
   if (parts.length !== 2 || repositoryCoordinates(...parts).key !== b.repository) fail();
   for (const key of ['repositoryId', 'number', 'runId', 'attempt']) githubId(b[key]);
-  for (const key of ['scopeHash', 'shapeHash', 'authorization']) if (!hash(b[key])) fail();
+  for (const key of ['scopeHash', 'authorization']) if (!hash(b[key])) fail();
+  if(!hash(b.shapeHash)&&!(v.kind==='dispatch'&&b.shapeHash===null&&b.candidate===null))fail();
   if (typeof b.issueId !== 'string' || !/^[A-Za-z0-9_=-]{1,256}$/.test(b.issueId)
       || !name(b.cycle) || b.candidate !== null && !hash(b.candidate)
       || b.base !== null && !sha(b.base) || b.head !== null && !sha(b.head)) fail();
@@ -48,13 +49,15 @@ export function controlledIntent(input) {
     if (v.kind === 'merge') githubId(t.number);
   }
   if (v.kind === 'dispatch') {
-    if (t.workflow !== t.id || t.number !== null || !exact(p, 'ref inputs' + (p.refIdentity ? ' refIdentity' : '') + (p.handoff ? ' handoff' : ''))
+    if (t.workflow !== t.id || t.number !== null || !exact(p, 'ref inputs' + (p.refIdentity ? ' refIdentity' : '') + (p.handoff ? ' handoff' : '')+(p.display?' display':''))
         || (p.refIdentity ? !exact(p.refIdentity, 'sha workflowDigest') || !sha(p.refIdentity.sha) || !hash(p.refIdentity.workflowDigest)
           || typeof p.ref !== 'string' || !/^[A-Za-z0-9_][A-Za-z0-9_./-]{0,119}$/.test(p.ref) || sha(p.ref) || p.ref.startsWith('refs/')
           || p.ref.includes('..') || p.ref.includes('//') || /[/.]$/.test(p.ref) || p.ref.split('/').some(s=>s.endsWith('.lock')) : !sha(p.ref))
         || !p.inputs || typeof p.inputs !== 'object' || Array.isArray(p.inputs)
         || Object.values(p.inputs).some(x => typeof x !== 'string')
         || p.inputs.nibfin_correlation !== v.correlation) fail();
+    if(p.display&&(!exact(p.display,'repository issue')||p.display.repository!==b.repository
+      ||p.display.issue!==b.number||p.inputs.nibfin_issue!==b.number))fail();
     if (p.handoff && (!p.refIdentity || !exact(p.handoff, 'source origin target workflow')
         || canonicalJSON(p.handoff).length>8192 || !exact(p.inputs,'nibfin_request nibfin_correlation')
         || p.inputs.nibfin_request!==v.correlation || v.source.request!==v.correlation
@@ -100,12 +103,18 @@ export function controlledIntent(input) {
   return v;
 }
 const requestFor=deliveryWriteRequest;
+function dispatchTitleMatches(title,v) {
+  const prefix=`nibfin-operation:${v.correlation}`;
+  return v.payload.display?typeof title==='string'&&title.startsWith(prefix+' ')
+    &&title.slice(prefix.length+1).toLowerCase()===`${v.payload.display.repository}#${v.payload.display.issue}`
+    :title===prefix;
+}
 
 function custodyBinding(v, phase, source) {
   const b = v.binding;
   return {repository: b.repository, repositoryId: b.repositoryId, issueId: b.issueId, cycle: b.cycle,
     scopeHash: b.scopeHash, shapeHash: b.shapeHash, authorization: b.authorization,
-    runId: source.runId, attempt: source.attempt, stage: 'candidate', result: `${phase}-${contentIdentity(v)}`, candidate: null};
+    runId: source.runId, attempt: source.attempt, stage: b.shapeHash===null?'authorization':'candidate', result: `${phase}-${contentIdentity(v)}`, candidate: null};
 }
 /** Independent GETs only. Acknowledgment is never sufficient. */
 async function observe(provider, v, signal, allowAbsent = false, reconcilePR = false) {
@@ -149,7 +158,7 @@ async function observe(provider, v, signal, allowAbsent = false, reconcilePR = f
         && d.base?.ref === v.payload.base && d.head?.sha === v.binding.head && d.base?.sha === v.binding.base
         && d.base?.repo?.id === v.binding.repositoryId && d.head?.repo?.id === v.binding.repositoryId
       : d.workflow_id === v.target.id && d.event === 'workflow_dispatch' && d.head_sha === (v.payload.refIdentity?.sha ?? v.payload.ref)
-        && d.display_title === `nibfin-operation:${v.correlation}` && d.repository?.id === v.binding.repositoryId;
+        && dispatchTitleMatches(d.display_title,v) && d.repository?.id === v.binding.repositoryId;
     const matches = result.data.filter(matchesEffect);
     if (v.kind === 'pr' && (allowAbsent || reconcilePR)) {
       const related = result.data.filter(d => d.body?.includes(`<!-- nibfin-operation:${v.correlation} -->`)

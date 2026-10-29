@@ -10,7 +10,7 @@ const ctx={github:{repository_id:'42',event:{issue:{number:101}}},inputs:{issue:
 const guard=scope=>nativeConcurrency({repository:'example/core',repositoryId:'42',scope,...(scope==='issue'?{issue:'101'}:{})});
 
 test('real YAML schemas, expressions, outputs, immutable acquisition and native guards',()=>{
-  const docs=workflowYAML();assert.equal(docs.size,6);
+  const docs=workflowYAML();assert.equal(docs.size,7);
   for(const [path,w] of docs) {
     if(path.includes('/action/')) continue;
     assert.deepEqual(w.permissions,{});assert(w.on);assert(!w.on.pull_request && !w.on.pull_request_target);
@@ -48,7 +48,7 @@ test('real YAML schemas, expressions, outputs, immutable acquisition and native 
   assert.equal(callInputs(r,'workflow_call',{nibfin_registration:'req',public_key:'pem'}).level,'repository');
   assert.throws(()=>workflowInput('resolve',{...inputs,issue:'01'}));
   const installation=workflowInstallation({commit:'a'.repeat(40),hostRepository:'example/host',hostCommit:'b'.repeat(40)});
-  assert.equal(installation.files.size,5);
+  assert.equal(installation.files.size,6);
   for(const text of installation.files.values())assert(!text.includes('vars.NIBFIN_'));
   assert(installation.files.get(delivery).includes('ref: '+ 'a'.repeat(40)));assert(installation.inventory.every(v=>/^[a-f0-9]{64}$/.test(v.sha256)));
   for(const p of workflowFiles)assert(installation.inventory.some(v=>v.path===p));

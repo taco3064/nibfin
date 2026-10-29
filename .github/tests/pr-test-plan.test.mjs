@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,mkdirSync,writeFileSync,rmSync,readFileSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,rmSync,readFileSync,readdirSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {execFileSync} from 'node:child_process';
@@ -110,4 +110,18 @@ test('workflow contract retains required checks, main full run, pinned actions a
   const website=readFileSync(new URL('../workflows/website-ci.yml',import.meta.url),'utf8').replaceAll('\r\n','\n');
   assert.match(website,/\n  website:\n/);assert.match(website,/always\(\) && steps.plan.outputs.website == 'true'/);
   for (const text of [core,website]) for (const match of text.matchAll(/uses: (actions\/[^\s]+)/g)) assert.match(match[1],/@[a-f0-9]{40}$/);
+});
+
+test('maintained recovery source changes select their new direct and transitive production tests',()=>{
+  const root=fileURLToPath(new URL('../../',import.meta.url)),files=new Map();
+  // Read-only inventory independent of controller Git metadata.
+  const walk=directory=>{for(const entry of readdirSync(join(root,directory),{withFileTypes:true})) {
+    const path=directory+'/'+entry.name;
+    if(entry.isDirectory())walk(path);else if(path.endsWith('.mjs'))files.set(path,readFileSync(join(root,path),'utf8'));
+  }};
+  for(const directory of ['src','test','tooling'])walk(directory);
+  for(const path of [...files.keys()].filter(p=>/^src\/rescue[^/]*\.mjs$/.test(p))) {
+    const result=plan([path],files);
+    assert.ok(result.tests.some(p=>/^test\/rescue.*\.test\.mjs$/.test(p)),path);
+  }
 });

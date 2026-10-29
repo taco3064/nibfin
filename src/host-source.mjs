@@ -86,12 +86,13 @@ export async function loadProtectedDeployment({source,options,approval,validate,
     need(typeof source==='string' && source.length>0 && source.length<=131072 && typeof options==='string' && options.length<=16384);
     need(hash(source)===approval.sourceSha256 && hash(options)===approval.optionsSha256);
     const configured=JSON.parse(options),member=['execute','compute'].includes(mode);
-    const allowed=member?['execute','compute']:['lookup','resolve','wake','registration'];
+    const allowed=member?['execute','compute']:['lookup','resolve','wake','registration','rescue'];
     need(configured && Object.getPrototypeOf(configured)===Object.prototype && Object.hasOwn(configured,mode));
     const modes=Object.keys(configured);need(modes.length>0 && modes.every(m=>allowed.includes(m)));
     const parsed=Object.fromEntries(modes.map(m=>[m,validate(configured[m],m)]));
     const binding=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
-    need(Object.keys(binding).every(k=>['capabilities','identity','custody','registration','roles'].includes(k)) && binding.capabilities);
+    need(Object.keys(binding).every(k=>['capabilities','identity','custody','registration','roles','recovery'].includes(k)) && binding.capabilities);
+    if(binding.recovery)fields(binding.recovery,modes.filter(m=>['execute','compute'].includes(m)));
     if(binding.roles)fields(binding.roles,modes.filter(m=>['execute','compute'].includes(m)));
     if(binding.identity)fields(binding.identity,modes.filter(m=>parsed[m].authentication==='actions-oidc'));
     fields(binding.capabilities,modes);
@@ -101,6 +102,7 @@ export async function loadProtectedDeployment({source,options,approval,validate,
     if(binding.registration)fields(binding.registration,modes.filter(m=>m==='registration'));
     return {options:parsed[mode],capabilities:binding.capabilities[mode],
       ...(binding.registration?{registration:binding.registration[mode]}:{}),
+      ...(binding.recovery?{recovery:binding.recovery[mode]}:{}),
       ...(binding.custody?{custody:binding.custody[mode]}:{}),
       ...(binding.roles?.[mode]?{roles:binding.roles[mode]}:{}),
       ...(parsed[mode].authentication==='actions-oidc'?{identity:binding.identity?.[mode]}:{})};

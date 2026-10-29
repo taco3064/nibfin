@@ -18,7 +18,9 @@ function selected(skill, repository, shared) {
 }
 
 test('AC1/2 exact snapshots, every Skill/mode, precedence and explicit reset', () => {
-  assert.deepEqual(readdirSync(new URL('../skills/',import.meta.url)).sort(), [...protectedSkills].sort());
+  // Rescue is a packaged diagnostic Skill, not a fourth protected Core role.
+  assert.deepEqual(readdirSync(new URL('../skills/',import.meta.url)).sort(), [...protectedSkills,'rescue'].sort());
+  assert.throws(()=>selected('rescue'),/skill/);
   for (const skill of protectedSkills) {
     const builtin = readFileSync(new URL(`../skills/${skill}/SKILL.md`,import.meta.url),'utf8');
     const base = selected(skill);

@@ -221,3 +221,17 @@ exact unedited body, authorized writer, full correlated collection and detail GE
 Reopen's `open-present` observation alone is noncausal; the recovery flow additionally
 requires original closed lifecycle, submission custody and the new writer-bound
 reopened occurrence. See [Recovery](recovery.md) for ordering and authorization.
+
+Pre-Shape wakeups retain `shapeHash: null` and `candidate: null` rather than
+inventing a Shape or Candidate identity. This is an additive v1 dispatch case;
+all non-dispatch writes and dispatches naming a Candidate still require an actual
+Shape hash. The existing custody owner binds such dispatch records to its `authorization`
+stage (which already supports a null Shape). Rescue is a producer, normal Core
+is the consumer, and source/custody/authorization/readback checks remain unchanged.
+A wakeup never supplies Shape publication or downstream completion evidence.
+
+Dispatch intents may also retain a bounded `display` of the authenticated target
+repository and Issue number. Run readback still requires the exact immutable
+operation marker, pinned workflow/head and repository ID. Only the displayed
+repository spelling is case-normalized; display text cannot select a request or
+grant authority. Older dispatches retain their original exact title contract.

@@ -8,7 +8,7 @@ export function probeVerificationSupervisor() {
     {env:{PATH:'/usr/bin:/bin'},encoding:'utf8',timeout:2000,maxBuffer:4096});
   return r.status===0&&!r.error&&r.stdout.trim()==='nibfin-subreaper-v1';
 }
-export function runVerificationChild(command,{signal:callerSignal,maxBytes=1048576}={}) {
+export function runVerificationChild(command,{signal:callerSignal,maxBytes=1048576,onOutput}={}) {
   if(process.platform!=='linux'||!command||typeof command.file!=='string'||!command.file.startsWith('/')||!Array.isArray(command.args)
       ||command.args.some(v=>typeof v!=='string')||typeof command.cwd!=='string'||!command.cwd.startsWith('/')
       ||!Number.isSafeInteger(command.timeoutMs)||command.timeoutMs<1||!command.env||typeof command.env!=='object'
@@ -34,7 +34,7 @@ export function runVerificationChild(command,{signal:callerSignal,maxBytes=10485
     try {
       child=spawn('/usr/bin/python3',['-I','-S',supervisor,JSON.stringify({file:command.file,args:command.args,timeoutMs:command.timeoutMs,deadlineAt:Date.now()+command.timeoutMs})],
         {cwd:command.cwd,env:command.env,shell:false,stdio:['ignore','pipe','pipe','pipe']});
-      const data=part=>{bytes+=part.length;if(bytes>maxBytes){reason='output-limit';child.kill('SIGTERM');}else parts.push(part);};
+      const data=part=>{if(onOutput)try{onOutput();}catch{reason='output_error';child.kill('SIGTERM');}bytes+=part.length;if(bytes>maxBytes){reason='output-limit';child.kill('SIGTERM');}else parts.push(part);};
       child.stdout.on('data',data);child.stderr.on('data',data);
       child.stdio[3].on('data',part=>{proof+=part.toString('utf8');if(proof.length>4096){proof='invalid';child.kill('SIGTERM');}});
       child.on('error',()=>{reason='failed';});child.on('close',finish);

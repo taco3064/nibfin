@@ -113,6 +113,9 @@
     "registration": {
       "$ref": "#/$defs/lookup"
     },
+    "rescue": {
+      "$ref": "#/$defs/lookup"
+    },
     "environment": {
       "anyOf": [
         {
@@ -131,6 +134,9 @@
             },
             "registration": {
               "$ref": "#/$defs/registration"
+            },
+            "rescue": {
+              "$ref": "#/$defs/rescue"
             }
           }
         },

@@ -34,8 +34,9 @@ export function createLinuxBackend(config, profile = null) {
   const selectedEntry = profile?.entry ?? entry;
   const selectedProfile = profile?.identity ?? linuxCodexProfile;
   const {root, image, socket, environment:original, instanceId, process:run = codexProcess,
-    timeout = 300000, task, egress, recovery, githubRead, deadlineAt = Date.now()+timeout+60000, reserveMs = 30000} = config;
-  if (Object.keys(config).some(k => !['root','image','socket','environment','instanceId','process','timeout','task','egress','recovery','deadlineAt','reserveMs','githubRead'].includes(k))) fail('configuration');
+    timeout = 300000, task, egress, recovery, githubRead, session: durableSession = null, diagnostic: diagnosticMode = false, deadlineAt = Date.now()+timeout+60000, reserveMs = 30000} = config;
+  if (Object.keys(config).some(k => !['root','image','socket','environment','instanceId','process','timeout','task','egress','recovery','deadlineAt','reserveMs','githubRead','diagnostic','session'].includes(k))) fail('configuration');
+  if(typeof diagnosticMode!=='boolean')fail('diagnostic');
   if (!safePath(root) || !/^sha256:[a-f0-9]{64}$/.test(image) || !safePath(socket)
       || !/^\/run\/user\/[1-9][0-9]*\/docker.sock$/.test(socket)
       || typeof task !== 'function' || typeof run !== 'function' || !Number.isInteger(timeout) || timeout < 50 || timeout > 3600000) fail('profile');
@@ -53,6 +54,7 @@ export function createLinuxBackend(config, profile = null) {
   const environment = createAgentEnvironments().describe(original);
   const instance = environment.instances.find(i => i.id === instanceId);
   if (environment.agent !== agent || !instance) fail('environment');
+  if(durableSession&&(agent!=='codex'||Object.keys(durableSession).sort().join(' ')!=='directory id memberId'||!safePath(durableSession.directory)||!within(instance.service,durableSession.directory)||durableSession.id!==null&&!(/^[a-f0-9-]{36}$/i.test(durableSession.id))||!(/^[1-9]\d*$/.test(durableSession.memberId))))fail('session');
   const resources = [instance.workspace,instance.registration,instance.service];
   const all = [environment.loginSpace,...environment.instances.flatMap(i => [i.workspace,i.registration,i.service])];
   if (all.some(p => !safePath(p) || !within(root,p))) fail('resource-root');
@@ -152,6 +154,7 @@ export function createLinuxBackend(config, profile = null) {
       '--env','HOME=/tmp/home','--env',`NIBFIN_NODE_WORKLOAD=${egress?.node?'1':'0'}`,...(profile?.agent === 'claude' ? ['--env','CLAUDE_CONFIG_DIR=/tmp/home/.claude'] : profile ? [] : ['--env','CODEX_HOME=/tmp/home/.codex']),
       '--env','PATH=/usr/local/bin:/usr/bin:/bin',
       ...Object.entries(network.environment).flatMap(([key,value])=>['--env',`${key}=${value}`]),...brokerMounts(),...mount(auth,profile?.authTarget ?? '/tmp/home/.codex/auth.json'),
+      ...(durableSession?mount(durableSession.directory,'/tmp/home/.codex/sessions',true):[]),
       ...mount(selectedEntry,'/entry.mjs'),...mount(fileURLToPath(new URL('./agent-session.mjs',import.meta.url)),'/agent-session.mjs'),
       ...mount(fileURLToPath(new URL('./credential-output.mjs',import.meta.url)),'/credential-output.mjs'),
       ...['readonly-tools.mjs','verification-runner.mjs','verification-prepare.mjs','node-verification.mjs','canonical.mjs','role-session.mjs'].flatMap(name=>mount(fileURLToPath(new URL('./'+name,import.meta.url)),'/'+name)),
@@ -215,7 +218,7 @@ export function createLinuxBackend(config, profile = null) {
         if(!/^[a-f0-9-]{36}\.json$/.test(name))fail('verification-evidence-name');
         const read=name=>{const path=join(directory,name),s=lstatSync(path);if(!s.isFile()||s.isSymbolicLink()||s.nlink!==1||s.size>16777216)fail('verification-evidence-file');return readFileSync(path,'utf8');};
         const record=JSON.parse(read(name));
-        if(!states.has(record.execution)||record.id+'.json'!==name||!['passed','failed','cancelled','budget_exhausted','spawn_failed','output-limit','unresolved'].includes(record.status))fail('verification-evidence-record');
+        if(!states.has(record.execution)||record.id+'.json'!==name||!['passed','failed','cancelled','budget_exhausted','spawn_failed','output-limit','output_error','unresolved'].includes(record.status))fail('verification-evidence-record');
         if(record.execution!==execution)continue;
         const log=read(record.id+'.log');
         if(!record.logDigest)fail('verification-evidence-log');
@@ -296,7 +299,7 @@ export function createLinuxBackend(config, profile = null) {
       await network.ensure();
       const auth = physical(), e = v.executionIdentity, secrets = loginFile(auth);
       if (v.environment !== environment.id || v.instance !== instanceId || v.agent !== agent
-          || e.id !== v.execution || e.request !== v.request || skillForRole(e.role) !== e.skill
+          || e.id !== v.execution || e.request !== v.request || (diagnosticMode ? e.role!=='rescue-diagnosis'||e.skill!=='rescue' : skillForRole(e.role) !== e.skill)
           || !same(v.workspace,{path:instance.workspace,access:e.role === 'deliver'?'write':'read'})
           || !same(v.agentLogin,{owner:environment.id,space:environment.loginSpace}) || !same(v.processEnvironment,{})
           || bodyDigest(v.instructions.content) !== v.instructions.identity || v.binding.instructions !== v.instructions.identity) fail('input');
@@ -306,7 +309,7 @@ export function createLinuxBackend(config, profile = null) {
       writeFileSync(join(input,'instructions.md'),v.instructions.content,{flag:'wx',mode:0o400});
       const context = JSON.parse(canonicalJSON(task(e)));rejectSecrets({instructions:v.instructions,context},secrets);
       if (typeof context.prompt !== 'string' || !context.prompt.trim() || !context.inputs) fail('task');
-      const properties = {version:{type:'integer',enum:[1]},outcome:{type:'string',enum:outcomesForRole(e.role)},
+      const properties = diagnosticMode ? {outcome:{type:'string',enum:['ready','blocked']},failureClass:{type:'string',enum:['implementation_defect','external_failure','authority_gap','shape_defect']},body:{type:'string'},rootCause:{type:'string'},summary:{type:'string'},evidenceReferences:{type:'array',items:{type:'string'}},contractConflicts:{type:'array',maxItems:0,items:{type:'object'}}} : {version:{type:'integer',enum:[1]},outcome:{type:'string',enum:outcomesForRole(e.role)},
         failureClass:{type:'string',enum:['none','implementation_defect','shape_defect','authority_gap','external_failure']},
         summary:{type:'string'},conflicts:{type:'array',items:{type:'object',additionalProperties:false,
           properties:Object.fromEntries(['scopeHash','shapeHash','scopeQuote','shapeQuote','evidenceReference'].map(k=>[k,{type:'string'}])),
@@ -323,9 +326,10 @@ export function createLinuxBackend(config, profile = null) {
       writeFileSync(join(input,'verification-paths.json'),JSON.stringify([{from:instance.workspace,to:'/work'},{from:verificationRoot,to:'/verification'}]),{flag:'wx',mode:0o400});
       writeFileSync(join(input,'request.json'),JSON.stringify({access:v.workspace.access,prompt,timeout:remaining,
         deadlineAt:deadlineAt-reserveMs,...(recovery?{recovery}:{}),
+        ...(durableSession?{sessionOutput:'/verification/role-session.json',...(durableSession.id?{resume:{id:durableSession.id,memberId:durableSession.memberId}}:{})}:{}),
         githubRead:readRepositories?{repositories:readRepositories}:null,
         verificationPolicy:{runner:'/verification-runner.mjs',maxConcurrent:1,budget:commandBudget,evidenceDirectory:'/verification/commands'},
-        context:{version:1,stage:e.role,execution:e,binding:v.binding,inputs:context.inputs}}),{flag:'wx',mode:0o400});
+        context:{version:1,stage:e.role,execution:e,binding:v.binding,inputs:context.inputs,...(durableSession?{memberId:durableSession.memberId}:{})}}),{flag:'wx',mode:0o400});
       mkdirSync(verificationRoot,{recursive:true,mode:0o700});
       const verificationStat=lstatSync(verificationRoot);if(!verificationStat.isDirectory()||verificationStat.isSymbolicLink())fail('verification-root');
       verificationPin=`${verificationStat.dev}:${verificationStat.ino}`;
@@ -367,7 +371,19 @@ export function createLinuxBackend(config, profile = null) {
         }
         evidence=parsed;
       } catch {} }
+      if(evidence&&durableSession) {
+        const session=JSON.parse(readFileSync(join(verificationRoot,'role-session.json'),'utf8'));
+        if(session.execution!==v.execution||session.memberId!==durableSession.memberId||session.adapter!=='codex'||durableSession.id&&session.id!==durableSession.id)fail('session-observation');
+        delete evidence.memberId;
+      }
       return {status:'complete',exitCode:s.failed || !s.output?.ok ? 1 : c.State.ExitCode,evidence};
+    },
+    async sessionEvidence(execution) {
+      const state=states.get(execution);
+      if(!durableSession||!state||state.pending||(await inspect(state)).State.Running)fail('session-unavailable');
+      const value=JSON.parse(readFileSync(join(verificationRoot,'role-session.json'),'utf8'));
+      if(value.execution!==execution||value.memberId!==durableSession.memberId||value.adapter!=='codex')fail('session-observation');
+      return {...value,directory:durableSession.directory};
     },
     assertVerificationInput,
     assertCandidate(execution) {

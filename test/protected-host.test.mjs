@@ -10,6 +10,8 @@ import {configure,validateHostOptions,hostModes} from '../host/entry.mjs';
 import {workflowFixture} from '../tooling/workflow-fixture.mjs';
 import {relayFixture} from '../tooling/relay-fixture.mjs';
 import {registrationFixture,registrationSentinel} from '../tooling/registration-fixture.mjs';
+import {rescueFixture} from '../tooling/rescue-fixture.mjs';
+import {completionFixture} from '../tooling/completion-fixture.mjs';
 
 const producer=dirname(dirname(fileURLToPath(import.meta.resolve('../src/index.mjs'))));
 const digest=v=>createHash('sha256').update(v).digest('hex');
@@ -292,6 +294,39 @@ test('approved checkout workflow CLI loads the maintained host and protected bin
     env.GITHUB_OUTPUT=join(f.root,'blocked');assert.equal(await workflowMain(env),1);
     assert.equal(await readFile(env.GITHUB_OUTPUT,'utf8'),'status=blocked\nselected=false\nreason=host-configuration-unavailable\n');
   } finally {await rm(f.root,{recursive:true,force:true});}
+});
+
+test('approved-source Rescue CLI never exits green for a neutral Check; only independent current completion succeeds',async()=>{
+  for(const resolved of [false,true]) {
+    const f=await sourceFixture();
+    try {
+      await mkdir(join(f.bundle,'node_modules'));
+      await cp(dirname(dirname(dirname(fileURLToPath(import.meta.resolve('jose'))))),join(f.bundle,'node_modules/jose'),{recursive:true});
+      const {workflowMain}=await import(pathToFileURL(join(f.bundle,'src/workflow-entry.mjs')));
+      const recovery=rescueFixture();
+      if(resolved) {
+        const completed=await completionFixture();await completed.fresh().close();const {receipt}=await completed.fresh().complete();
+        const binding=receipt.payload.receipts.publication.binding;
+        Object.assign(recovery.target,{scopeHash:binding.scopeHash,shapeHash:binding.shapeHash});
+        recovery.blocked.target=structuredClone(recovery.target);recovery.setState({...recovery.state(),target:structuredClone(recovery.target)});
+        recovery.flags.final={receipt,expected:Object.fromEntries(Object.entries(receipt.payload.receipts).map(([s,r])=>[s,{expected:r,consumed:[]}])),
+          cycle:recovery.target.cycle,caseId:null,continuation:null};
+      }
+      const id=await recovery.register(),identity={repository:recovery.policy.repository,repositoryId:'42',run:{id:'500',attempt:'1'},visibility:'public',ownership:'organization'};
+      let reported=0;
+      const deployment={options:options(identity,'rescue'),capabilities:{authenticate:async()=>identity,rescue:async()=>({...recovery.options,
+        reporting:{capability:{runId:'500',scope:'reporting-run',neutralCheck:true},report:async()=>{reported++;return {confirmed:true};}}})}};
+      const env={GITHUB_WORKSPACE:f.root,GITHUB_EVENT_PATH:join(f.root,'event.json'),GITHUB_OUTPUT:join(f.root,'output'),
+        GITHUB_REPOSITORY:identity.repository,GITHUB_REPOSITORY_ID:'42',GITHUB_RUN_ID:'500',GITHUB_RUN_ATTEMPT:'1',GITHUB_EVENT_NAME:'workflow_dispatch',
+        NIBFIN_BUNDLE_COMMIT:f.args.bundle.commit,NIBFIN_HOST_COMMIT:f.args.host.commit,NIBFIN_HOST_REPOSITORY:'taco3064/nibfin',NIBFIN_HOST_ROOT:f.host,
+        NIBFIN_MODE:'rescue',NIBFIN_INPUT:JSON.stringify({request_id:id,source_run_id:'100',source_attempt:'1',nibfin_issue:'101',nibfin_correlation:'test-rescue',mode:resolved?'verify':'repair'}),
+        NIBFIN_SOURCE_APPROVALS:JSON.stringify({bundle:f.args.bundle.approval,host:f.args.host.approval})};
+      await writeFile(env.GITHUB_EVENT_PATH,'{}');assert.equal(await workflowMain(env,{deployment}),resolved?0:1);
+      const output=await readFile(env.GITHUB_OUTPUT,'utf8');
+      assert.match(output,resolved?/outcome=RESOLVED\nconclusion=success/:/outcome=PENDING_VERIFICATION\nconclusion=neutral\nreason=reporting-unsupported/);
+      assert.equal(reported,resolved?1:0);assert.equal(recovery.flags.repairs,resolved?0:1);
+    } finally {await rm(f.root,{recursive:true,force:true});}
+  }
 });
 
 test('approved protected binding bytes/options load without calling a capability; mismatch never evaluates',async()=>{

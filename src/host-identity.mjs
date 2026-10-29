@@ -24,7 +24,7 @@ export function hostedGithubTransport({getCredential, repository, repositoryId, 
   need(organization===undefined || organization===repository.split('/')[0]);
   const dispatch = async (request, credential, prepared=false) => {
     try {
-      if(typeof request.endpoint!=='string' || !/^\/[A-Za-z0-9_./?=&-]+$/.test(request.endpoint)
+      if(typeof request.endpoint!=='string' || !/^\/(?:[A-Za-z0-9_./?=&-]|%[0-9A-Fa-f]{2})+$/.test(request.endpoint)
         || new URL(request.endpoint,'https://api.github.com').pathname+new URL(request.endpoint,'https://api.github.com').search!==request.endpoint
         || request.endpoint.includes('//'))return {status:403,body:'{}'};
       const repoPrefix='/repos/'+repository;
@@ -88,7 +88,7 @@ function compose(configuration, testFacility) {
   if(configuration.mode!=='registration')exact(configuration.authorization,['getCheckpoint','maxCheckpointMs']);
   const options=structuredClone(configuration.options),mode=configuration.mode,source={...configuration.source},
     api={...configuration.api,operator:{...configuration.api?.operator}},authorization={...configuration.authorization},now=configuration.now??Date.now;
-  need(typeof now==='function' && ['lookup','resolve','execute','compute','wake','registration'].includes(mode));
+  need(typeof now==='function' && ['lookup','resolve','execute','compute','wake','registration','rescue'].includes(mode));
   exact(options,['version','repository','repositoryId','environment','authentication'],['groupId','routing']);
   need(options.version===1 && options.environment===(isMember(mode)?'nibfin-member':'nibfin-hosted'));
   need(options?.authentication==='actions-oidc' && account(api.operator));

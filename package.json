@@ -184,7 +184,8 @@
     "src/owner-hold.mjs",
     "src/distribution-contract.mjs",
     "npm-shrinkwrap.json",
-    "src/identity.mjs"
+    "src/identity.mjs",
+    "src/execution-pool.mjs"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

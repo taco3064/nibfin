@@ -1,6 +1,7 @@
 import {verifyRepositoryIdentity,validateMemberBinding} from './collaboration.mjs';
 import {githubId, repositoryCoordinates, memberRunnerLabel} from './index.mjs';
 import {publicDiagnostic} from './provider.mjs';
+import {poolTarget} from './execution-pool.mjs';
 
 const platforms = new Set(['linux', 'windows', 'macos']);
 const text = value => typeof value === 'string' && value.length > 0 && value.length <= 256;
@@ -24,17 +25,19 @@ export function observeRunners(provider, input) { return observe(provider, input
 export function observeRunnerBindings(provider, input) { return observe(provider, input, false); }
 async function observe(provider, input, matchJob) {
   const diagnostics = [];
-  let request, target, registration, records, conditions;
+  let request, target, registration, records, conditions, pool;
   try {
     target = input.target;
     const coordinates = repositoryCoordinates(target.owner, target.repository);
     githubId(target.id); githubId(target.ownerId);
     if (!['User', 'Organization'].includes(target.ownerType)) fail('target_schema');
+    if(input.executionPool!==undefined)try{pool=poolTarget(input.executionPool,target);}catch{fail('execution_pool');}
     registration = input.registration;
     if (!['repository', 'organization'].includes(registration.level)) fail('registration_scope');
     if (registration.level === 'repository') {
-      if (registration.id !== target.id) fail('registration_scope');
+      if (registration.id !== (pool?.source.repositoryId??target.id)) fail('registration_scope');
     } else {
+      if(pool)fail('registration_scope');
       const org = repositoryCoordinates(registration.organization, 'unused').owner;
       githubId(registration.id);
       if (org !== coordinates.owner || target.ownerType !== 'Organization' || registration.id !== target.ownerId)
@@ -52,7 +55,7 @@ async function observe(provider, input, matchJob) {
     if (!Array.isArray(records)) fail('records');
     const ids = new Set(), instanceIds = new Set();
     for (const record of records) {
-      try {validateMemberBinding(record,{repositoryId:target.id,registration});}
+      try {validateMemberBinding(record,{repositoryId:target.id,registration,...(pool?{executionPool:pool}:{})});}
       catch {fail('record_scope');}
       if (!text(record.instanceId) || !platforms.has(record.platform)) fail('record_schema');
       if (ids.has(record.runnerId) || instanceIds.has(record.instanceId)) fail('duplicate_record');
@@ -119,6 +122,12 @@ async function observe(provider, input, matchJob) {
       fail('pagination_limit', 'unavailable');
     }
     let prefix = repoPath;
+    if(pool){
+      prefix='/repos/'+pool.source.repository;
+      const source=await provider.request({...request,endpoint:prefix,expectedId:pool.source.repositoryId});
+      if(source.outcome!=='read')throw {code:'execution_source_unavailable',kind:'unavailable',provider:publicDiagnostic(source).diagnostic};
+      try{verifyRepositoryIdentity(source.data,pool.source);}catch{fail('execution_source_identity');}
+    }
     if (registration.level === 'organization') {
       const org = await provider.request({...request, endpoint:`/orgs/${coordinates.owner}`, expectedId:registration.id});
       if (org.outcome !== 'read') throw {code:'organization_unavailable', kind:'unavailable', provider:publicDiagnostic(org).diagnostic};

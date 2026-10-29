@@ -372,7 +372,7 @@
     },
     {
       "path": "host/configuration.schema.json",
-      "sha256": "c1ed4d204d973d9f16bf4a0be2064f05011ed2064d7ae388f4997c4379005e0f"
+      "sha256": "a912cd7598a2e2501d33f11caf858403e5be2e973fb39708fb7a326cf6460642"
     },
     {
       "path": "host/custody.example.mjs",
@@ -380,7 +380,7 @@
     },
     {
       "path": "host/entry.mjs",
-      "sha256": "4458e3be47a83dce69edefb19600db8fe60f603ed7e596ce4c824f7ec5b892c7"
+      "sha256": "ddcebe2f9ea1d146bdf799a7cbbf3dd9b20826846acea2e8cd99ce113c787515"
     },
     {
       "path": "host/package-lock.json",
@@ -424,7 +424,7 @@
     },
     {
       "path": "package.json",
-      "sha256": "a7692aad9e72ca9b835d2aa0835df71097155349ec585eb0e290606af2b209f9"
+      "sha256": "74abc64538282c4e5971686179c5590d6d2a7c7894f9e75077d8269b29444ec1"
     },
     {
       "path": "skills/accept/SKILL.md",
@@ -512,7 +512,7 @@
     },
     {
       "path": "src/collaboration.mjs",
-      "sha256": "c38074706b95438736c5a1f4198c0233feef8783e33498d868b74da7f153c3ad"
+      "sha256": "1eeb53df0f05b4efb39bf1620fd4ae4c79f938d33861478b7a3277f12be87ddf"
     },
     {
       "path": "src/completion.mjs",
@@ -587,6 +587,10 @@
       "sha256": "a298e7a6a2f915c8ec29600d6dd74c5557ad2f2e12c638d6c52a071e6147c2f0"
     },
     {
+      "path": "src/execution-pool.mjs",
+      "sha256": "c403a395b1c64bcf6c961285f3644077bd76f8f8f8836d59d760ce5060823206"
+    },
+    {
       "path": "src/fanout.mjs",
       "sha256": "19a56e203fefb634b0867ad87ff076360d917781eaaa784664807d1b38acc051"
     },
@@ -616,11 +620,11 @@
     },
     {
       "path": "src/host-identity.mjs",
-      "sha256": "1c0896774ab02f259ee63827c4437e2dffea786f0ed420a766d0219193215d19"
+      "sha256": "3391324a63064d0ca78344a77ea285a2c725a35146bbeeae0454cf8acdd6835a"
     },
     {
       "path": "src/host-routing.mjs",
-      "sha256": "3d090c9c7d8bb2cd187f895f1766baac2c664c70ab93ef83dd409691c7ecf254"
+      "sha256": "b4fe017e70adb558f70a379cb90862785ea4791a62fe4e09f5e809f4fe401b96"
     },
     {
       "path": "src/host-source.mjs",
@@ -632,7 +636,7 @@
     },
     {
       "path": "src/index.mjs",
-      "sha256": "35c69df9084f3ceb698487b204b84afdcb242bf55b9d4bf19ac73e090125f859"
+      "sha256": "f104d00c561a044217343bc79b66b300577f61d0bff0f49b9636669e802b598e"
     },
     {
       "path": "src/installation.mjs",
@@ -784,7 +788,7 @@
     },
     {
       "path": "src/runners.mjs",
-      "sha256": "2c5b3b0dd6da54f499f37848dff78d928872de23e3b78eee57025cf557b74605"
+      "sha256": "12c02c98efd0cbf49e641d521ad81790124e810770344a3cb23662f6be33fa59"
     },
     {
       "path": "src/runtime.mjs",

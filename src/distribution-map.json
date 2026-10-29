@@ -332,7 +332,7 @@
     },
     {
       "path": "docs/role-host.md",
-      "sha256": "47fe784a76cef20fd0780f5e45522da5b0374a72c617b846bb105057e7c6827d"
+      "sha256": "c79f1d0f48fbdca31ea254a10211764d829a47852dd1cbbd7e2b2773d5b76351"
     },
     {
       "path": "docs/rootless-hardening.md",

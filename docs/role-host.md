@@ -10,6 +10,16 @@ The reviewed executable deployment module may export `roles` alongside
 Issue text, checkout configuration and model results never select adapters.
 
 A protected configuration has `runner`, `profiles` and `assignments`.
+
+The first-party `createNativeRoleBindings` supplies the role host's `bind` function
+from protected Core tasks. It allocates fresh independent execution/request/result
+identities, retains the request before launch, and fixes the success-result contract
+before the model runs. Shape uses the native document output format; Deliver binds
+its Candidate only after the trusted capture owner has observed termination.
+Acceptance and final-review prompts refer to their already materialized `/work`
+checkout instead of embedding the binary workspace transfer again. The retained
+full task identity still covers that transfer. This metadata/prompt assembler
+does not supply authentication, a model backend, service readiness or write rights.
 `runner` follows `host/runner.schema.json`; the example supplies deployment-owned
 account/paths, not a claim that those resources exist. `supportedRunnerDefaults`
 version 1 fixes tool versions, PATH/interpreter, rootless Docker, acquisition and

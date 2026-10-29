@@ -4,10 +4,11 @@ import {createHash} from 'node:crypto';
 import {randomUUID} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {validateEndpoints} from './egress-gateway.mjs';
+import {dependencyProbeEndpoints} from './agent-session.mjs';
 const fail = code => {throw Error(`egress:${code}`);};
 export const endpointProfiles=Object.freeze({
   // Exact Playwright browser CDN plus its Microsoft redirect; no wildcard hosts.
-  'dependency-download':Object.freeze(['registry.npmjs.org','cdn.playwright.dev','playwright.download.prss.microsoft.com']),
+  'dependency-download':dependencyProbeEndpoints,
   codex:Object.freeze(['chatgpt.com','auth.openai.com']),
   claude:Object.freeze(['api.anthropic.com']),
   gemini:Object.freeze(['generativelanguage.googleapis.com']),

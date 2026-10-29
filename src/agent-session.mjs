@@ -8,6 +8,7 @@ import {connect as netConnect} from 'node:net';
 import {connect as tlsConnect} from 'node:tls';
 import {spawnSync} from 'node:child_process';
 const fail=code=>{throw Error(`agent-session:${code}`);};
+export const dependencyProbeEndpoints=Object.freeze(['registry.npmjs.org','cdn.playwright.dev','playwright.download.prss.microsoft.com']);
 export function recoveryPolicy(value,adapter,version) {
   if(value===undefined)return Object.freeze({attempts:1,delayMs:0,model:null,fallbacks:[],models:[]});
   if(!value||Object.keys(value).sort().join(' ')!=='attempts delayMs fallbacks model models'

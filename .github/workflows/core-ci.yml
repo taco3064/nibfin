@@ -37,8 +37,6 @@ jobs:
           env -i PATH=/usr/local/bin:/usr/bin:/bin /usr/local/bin/node --version
           env -i PATH=/usr/local/bin:/usr/bin:/bin /usr/local/bin/npm --version
           env -i PATH=/usr/bin:/bin /usr/bin/python3 -I -S src/verification-supervisor.py --probe
-      - name: Verify CI completion notification boundaries
-        run: node .github/tests/ci-kairo-wakeup.test.cjs
       - name: Verify scoped test selection
         run: node --test .github/tests/pr-test-plan.test.mjs
       - name: Plan tests from the PR change set

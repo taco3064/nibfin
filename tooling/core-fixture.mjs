@@ -6,7 +6,7 @@ import {selectionFixture} from './selection-fixture.mjs';
 import {shapeFixture} from './shape-fixture.mjs';
 export function coreFixture() {
   const sh=shapeFixture(), sf=selectionFixture(),calls=[];
-  const authority=exportAuthority({source:'https://app.notion.com/p/40006b644a2080dab1a8c2e562f95373',revision:'1',approvalId:'owner-1',cycle:'cycle-1',
+  const authority=exportAuthority({source:'https://github.com/example-org/core/issues/101',revision:'1',approvalId:'owner-1',cycle:'cycle-1',
     components:[{id:'scope',kind:'section',body:sh.pin.original.body,references:[]}]});
   const keys=generateKeyPairSync('ed25519'), payload=sf.payload;
   payload.authority=authoritySnapshot(authority);

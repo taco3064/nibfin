@@ -96,11 +96,12 @@ function compose(configuration, testFacility) {
   exact(options,['version','repository','repositoryId','environment','authentication'],['groupId','routing','executionPool']);
   need(options.version===1 && options.environment===(isMember(mode)?'nibfin-member':'nibfin-hosted'));
   need(options?.authentication==='actions-oidc' && account(api.operator));
-  if(Object.hasOwn(options,'routing'))need(options.routing==='authenticated'&&['resolve','execute','compute'].includes(mode));
+  if(Object.hasOwn(options,'routing'))need(options.routing==='authenticated'
+    &&(['resolve','execute','compute'].includes(mode)||mode==='lookup'&&options.executionPool!==undefined));
   githubId(options.repositoryId);
   need(repositoryCoordinates(...options.repository.split('/')).key===options.repository);
   const pool=options.executionPool===undefined?null:poolLogicalTarget(options.executionPool,options);
-  if(pool)need(options.routing==='authenticated'&&['resolve','execute','compute'].includes(mode)&&options.groupId===undefined);
+  if(pool)need(options.routing==='authenticated'&&['lookup','resolve','execute','compute'].includes(mode)&&options.groupId===undefined);
   exact(source,['policy','getToken','continuation'],['getAssociation','timeoutMs']);
   need(typeof source.getToken==='function' && (source.getAssociation===undefined || typeof source.getAssociation==='function'));
   const timeoutMs=source.timeoutMs??30000;

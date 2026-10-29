@@ -318,3 +318,19 @@ The maintained [role host](role-host.md) can now be supplied through the reviewe
 to authenticated profiles, lifecycle, enforced network transport and bounded
 verification. Existing capability-only composition remains available; it does not
 by itself establish that a deployment supplied the new runtime obligations.
+
+## Shared execution lookup
+
+An approved personal-repository pool may project `lookup` as well as
+`resolve`/`execute`/`compute` onto its fixed logical target. The actual dispatch
+repository and Run remain the authenticated source. The protected options select
+the logical repository; event fields cannot choose a different target, module or
+deployment. Lookup checks the signed Actions source and both public repository
+identities before calling its retained-request lookup capability. Its result must
+still match that logical repository and stable ID.
+
+Lookup does not create member selection, Runner observation or retained Resolve
+state. Those belong to later delivery modes and retain their Grant, assignee,
+actual Runner and dependency checks. Wake, registration and Rescue cannot acquire
+pool routing through this extension. The signed local/provider tests establish
+this composition contract, not live shared-Runner installation or delivery proof.

@@ -292,7 +292,7 @@
     },
     {
       "path": "docs/protected-host.md",
-      "sha256": "78025813e7362707e14a18d40d52d42eda0036135e43b07039f6e3943a55a70d"
+      "sha256": "8bdf55f64e9f0e2146dae8d767cbe8543bcdaeb78ec59af18ac1a37935bcdc5b"
     },
     {
       "path": "docs/publication.md",
@@ -380,7 +380,7 @@
     },
     {
       "path": "host/entry.mjs",
-      "sha256": "0118e58b1330c15e4a0ca81ea60a9c405991b70506037224d585e69346ed33d6"
+      "sha256": "351262633ff2334ec27fcf3ee308086617bdd7b9200e2a060a3284be94f1271c"
     },
     {
       "path": "host/package-lock.json",
@@ -588,7 +588,7 @@
     },
     {
       "path": "src/execution-pool.mjs",
-      "sha256": "4fd19e67c35d453614c765ec435693e4b48e4296151c0019d6379e7bcca57e4c"
+      "sha256": "3b18fcc042aa4f24551ff06470ef895dd8a56a41425cd38b9f0e6d92b9c66418"
     },
     {
       "path": "src/fanout.mjs",
@@ -620,7 +620,7 @@
     },
     {
       "path": "src/host-identity.mjs",
-      "sha256": "3391324a63064d0ca78344a77ea285a2c725a35146bbeeae0454cf8acdd6835a"
+      "sha256": "8a4b96fbca7ae4f67dab6835bd7cf4cf590b996e164f5caee80aaa408dc2e95e"
     },
     {
       "path": "src/host-routing.mjs",

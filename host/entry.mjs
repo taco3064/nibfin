@@ -28,7 +28,7 @@ export function validateHostOptions(options, mode,validatePool) {
   need(options.environment=== (['execute','compute'].includes(mode)?'nibfin-member':'nibfin-hosted'));
   if (Object.hasOwn(options,'authentication')) need(options.authentication==='actions-oidc');
   if (Object.hasOwn(options,'routing')) need(options.routing==='authenticated' && options.authentication==='actions-oidc'
-    && ['resolve','execute','compute'].includes(mode));
+    && (['resolve','execute','compute'].includes(mode)||mode==='lookup'&&options.executionPool!==undefined));
   if (Object.hasOwn(options,'groupId')) need(['resolve','execute','compute'].includes(mode) && id(options.groupId));
   // The approved Core supplies this pure validator. Keep this bootstrap entry
   // dependency-free so its verified bytes can still be loaded as one data URL.
@@ -36,7 +36,7 @@ export function validateHostOptions(options, mode,validatePool) {
   if(options.executionPool!==undefined){
     need(typeof validatePool==='function');pool=validatePool(options.executionPool);
     need(pool.targets.some(t=>t.repository===options.repository&&t.repositoryId===options.repositoryId)
-      &&options.routing==='authenticated'&&['resolve','execute','compute'].includes(mode)&&options.groupId===undefined);
+      &&options.routing==='authenticated'&&['lookup','resolve','execute','compute'].includes(mode)&&options.groupId===undefined);
   }
   return Object.freeze({...options,...(pool?{executionPool:pool}:{})});
 }
@@ -130,7 +130,7 @@ export function configure({core,mode,context,deployment}={}) {
       if (name==='registration') need(['new','resolved','unresolved'].includes(result?.prior));
       return result;
     };
-    if(routed&&mode!=='resolve') {
+    if(routed&&['execute','compute'].includes(mode)) {
       host.bindResolution=value=>routing.bindResolution(value);
       host.runnerObservation=()=>routing.observation();
     }

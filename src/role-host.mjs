@@ -53,6 +53,8 @@ export function createProtectedRoleHost({configuration,bind,retain,probe,observe
       const binding=await bind(clone(task));
       const {input,current,startCurrent,resultContext,deadlineAt,reserveMs,prompt,inputs}=binding;
       const shapeAuthor=binding.outputFormat==='shape-author-v1';
+      const capturedDeliver=binding.captureCandidate===true;
+      if(binding.captureCandidate!==undefined&&(!capturedDeliver||task.role!=='deliver'||typeof startCurrent!=='function'))fail('candidate-format');
       if(binding.outputFormat!==undefined&&(!shapeAuthor||task.role!=='shape'||typeof startCurrent!=='function'
         ||task.task?.requirementsDocument?.format!=='scope-shape-v1'))fail('output-format');
       if(input?.execution?.role!==task.role||input.execution.skill!==task.skill
@@ -79,10 +81,11 @@ export function createProtectedRoleHost({configuration,bind,retain,probe,observe
         if(typeof reference!=='string'||!reference)fail('workspace-retention');
         workspaceReceipt={...materialized,reference};
       }
-      let authored=null;
+      let authored=null,candidate=null;
       const currentWithOutput=id=>{
         const value=clone(current(id));
         if(shapeAuthor&&authored)value.expected.inputs={body:authored.hash};
+        if(capturedDeliver&&candidate)value.expected.inputs={...clone(launchInputs),candidate:clone(candidate)};
         return value;
       };
       const taskProvider=()=>({prompt,inputs:clone(launchInputs),...(shapeAuthor?{outputFormat:'shape-author-v1'}:{})});
@@ -99,7 +102,6 @@ export function createProtectedRoleHost({configuration,bind,retain,probe,observe
       // Only Core's post-termination workspace owner supplies this handoff. First
       // check the complete returned launch context; never repair model-selected
       // inputs, authority, execution, publication or terminal result fields.
-      let candidate=null;
       const collectionBackend={...backend,async cleanup(query) {
         try {
           if(session) {

@@ -144,6 +144,24 @@ test('maintained public composition executes every role across all three actual 
   }
 });
 
+test('first-party Deliver binds the post-termination Candidate into independent current expectations',async()=>{
+ const f=roleFixture();try{
+  const selected=f.fixtures.get('deliver');f.select('deliver');selected.expected.result.summary=core.nativeRoleSuccessSummary;
+  const instructions=core.selectInstructions({role:'deliver',skill:'deliver'}),scopeBody='Scope',shapeBody='Shape';
+  const binding={...selected.input.binding,scopeHash:core.bodyDigest(scopeBody),shapeHash:core.bodyDigest(shapeBody),instructions:instructions.identity};
+  const native=core.createNativeRoleBindings({ownership:'personal',retain:async()=> 'custody:request'});
+  const host=core.createProtectedRoleHost({...f.options,bind:task=>native.bind(task)});
+  const p=await host.prepareRole({role:'deliver',skill:'deliver',instructions,task:{binding,scopeBody,shapeBody,publication:{verified:'publication'}}});
+  assert.equal(p.current().expected.inputs.candidate,undefined);assert.equal((await p.lifecycle.start(p.input)).start.status,'started');
+  for(let n=0;n<300;n++){if((await p.lifecycle.termination(p.input.execution.id)).termination.status==='terminated')break;await new Promise(r=>setTimeout(r,5));}
+  await p.bindCandidate(selected.expected.inputs.candidate);
+  assert.deepEqual(p.current().expected.inputs.candidate,selected.expected.inputs.candidate);
+  const result=await finish(p);assert.equal(result.result.status,'valid',JSON.stringify(result));
+  assert.deepEqual(result.result.evidence.inputs.candidate,selected.expected.inputs.candidate);
+  assert.equal((await p.lifecycle.cleanup()).status,'completed');
+ }finally{await f.close();}
+});
+
 test('protected-host delivery path installs maintained prepareRole into the existing Core owners, preserving selector and approval behavior',async()=>{
   const f=roleFixture();try {
     const context={repository:'example-org/core',repositoryId:'42',run:{id:'10',attempt:'1'}};

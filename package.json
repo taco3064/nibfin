@@ -190,7 +190,8 @@
     "src/distribution-contract.mjs",
     "npm-shrinkwrap.json",
     "src/identity.mjs",
-    "src/execution-pool.mjs"
+    "src/execution-pool.mjs",
+    "src/requirements-document.mjs"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

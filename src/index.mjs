@@ -14,6 +14,7 @@ export {exportAuthority, importAuthority, authoritySnapshot, verifyAuthority, sy
 export {observeIssueAuthority} from './issue-authority.mjs';
 export {observeRequirementAuthority} from './requirement-source.mjs';
 export {supportedRequirementSources} from './requirement-sources/index.mjs';
+export {formatRequirementsDocument,parseRequirementsDocument,assertRequirementsScope,requirementsDocumentFrame} from './requirements-document.mjs';
 export {createAuthorizationBoundary} from './authorization.mjs';
 
 export {createAgentEnvironments, createAgentLifecycle} from './lifecycle.mjs';

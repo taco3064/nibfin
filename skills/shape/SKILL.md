@@ -46,6 +46,15 @@ Author readiness is a proposal, never publication or self-approval. Return the
 assigned versioned result and concrete evidence for independent validation.
 Only authorized Core publishes and reads back Shape Body, identity and shaped.
 
+When the trusted task supplies `requirementsDocument`, the full returned body must
+be `frame.prefix + exact supplied scope + frame.separator + your Shape plan +
+frame.suffix`. Copy the supplied Scope bytes without edits. The complete framed
+body is the Author output and must be independently validated before publication;
+do not ask Core to wrap or alter an already signed result afterward. Candidate
+inventory and applicability explanations belong to the Shape plan section. Scope
+examples do not become executable plan obligations. Keep the framing markers;
+the Owner may edit Scope text later without recomputing framing metadata.
+
 ## Independent Validator
 
 Act as shape-validator only when independently assigned. Compare proposed Shape

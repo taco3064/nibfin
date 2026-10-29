@@ -6,6 +6,22 @@ serializable, pure interfaces. They perform no Notion reads, provider mutations,
 automatic approval, refresh, signing, persistence or restart. Local tests establish
 these bounded contracts, not live provider or complete product delivery support.
 
+`observeIssueAuthority` is a separate read-only provider adapter for an installed
+GitHub Issue target. Native canonical `https://github.com/owner/repo/issues/number`
+sources are supported alongside historical Notion exports. The protected caller
+supplies the exact repository ID, Issue database/node IDs, number, cycle and
+approval identity. Each call freshly reads the public repository and Issue,
+checks those independent identities and retains the full current body as one
+Scope component with a content-derived revision. No source URL or module is
+selected from Issue text. Cancellation, missing/changed identities, empty or
+oversized bodies and unavailable reads return a sanitized unavailable result.
+
+The adapter performs no persistence, approval, signing, label changes or stage
+execution. Reading a body does not approve it or overwrite original pending
+work. The host must still supply its independently authorized Owner policy and
+the existing signed-Grant/current-context checks, and re-observe before effects.
+Old exports and receipts do not become current simply because the URL is valid.
+
 ## Representation and identities
 
 `exportAuthority(input)` takes exactly:

@@ -8,7 +8,7 @@ export const distributionOwners=Object.freeze([
   {responsibility:'planning',owner:'src/delivery-planner.mjs',input:'src/core.mjs',disposition:'adapted'},
   {responsibility:'configuration',owner:'src/runner.mjs',input:'src/runtime-configuration.mjs',disposition:'adapted'},
   {responsibility:'schema',owner:'src/evidence.mjs',input:'src/schema.mjs',disposition:'retained'},
-  {responsibility:'authority',owner:'src/authority.mjs',input:'src/authority.mjs',disposition:'retained'},
+  {responsibility:'authority',owner:'src/authority.mjs',input:'src/authority.mjs',disposition:'adapted'},
   {responsibility:'skills',owner:'src/instructions.mjs',input:'src/skills.mjs',disposition:'adapted'},
   {responsibility:'hold-pause',owner:'src/owner-hold.mjs',input:'src/owner-hold.mjs',disposition:'adapted'},
   {responsibility:'isolation-preflight',owner:'src/runner.mjs',input:'docs/rootless-hardening.md',disposition:'adapted'},

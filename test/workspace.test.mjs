@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
-import {mkdtempSync,writeFileSync,readFileSync,rmSync,chmodSync,symlinkSync,mkdirSync,existsSync} from 'node:fs';
+import {mkdtempSync,writeFileSync,readFileSync,rmSync,chmodSync,symlinkSync,mkdirSync,existsSync,readdirSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {captureWorkspace,exportWorkspace,importWorkspace,verifyWorkspace,bodyDigest,contentIdentity,byteDigest,createEvidence} from '../src/index.mjs';
+import {captureWorkspace,exportWorkspace,importWorkspace,verifyWorkspace,materializeWorkspace,bodyDigest,contentIdentity,byteDigest,createEvidence} from '../src/index.mjs';
 
 const binary=Buffer.from([0,255,128,1,0,10]);
 const empty={artifacts:[],hooks:[]};
@@ -33,6 +33,41 @@ const inv={artifacts:[{path:'ignored',purpose:'Mandatory binary'}],hooks:[
 const wire=c=>JSON.parse(exportWorkspace(c));
 const canonical=v=>v===null||typeof v!=='object'?JSON.stringify(v):Array.isArray(v)?'['+v.map(canonical).join(',')+']':'{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonical(v[k])).join(',')+'}';
 const pack=v=>Buffer.from(canonical(v));
+
+test('native materialization restores exact binary/modes/ignored sources into an independent role without modifying the original',()=>{
+  const f=fixture(inv),parent=mkdtempSync(join(tmpdir(),'nibfin-role-materialize-'));
+  try{
+    const original=captureWorkspace(f.input),sourceIndex=readFileSync(join(f.root,'.git/index'));
+    const transferred=importWorkspace(exportWorkspace(original),{expected:original.expected}),root=join(parent,'review');
+    mkdirSync(root,{mode:0o700});
+    const output=materializeWorkspace(transferred,{expected:original.expected,root});
+    assert.equal(output.status,'materialized');assert.deepEqual(output.workspace,original.expected);
+    assert.deepEqual(readFileSync(join(root,'ignored')),binary);
+    const observed=captureWorkspace({...f.input,root});
+    assert.deepEqual(observed.expected,original.expected);
+    assert.deepEqual(exportWorkspace(observed),exportWorkspace(original));
+    assert.deepEqual(readFileSync(join(f.root,'.git/index')),sourceIndex);
+    const before=readFileSync(join(root,'tracked'));
+    assert.throws(()=>materializeWorkspace(transferred,{expected:original.expected,root}),/materialize-existing-work/);
+    assert.deepEqual(readFileSync(join(root,'tracked')),before);
+    assert.equal(readdirSync(parent).some(name=>name.startsWith('.nibfin-materialize-')),false);
+  }finally{f.close();rmSync(parent,{recursive:true,force:true});}
+});
+
+test('native materialization rejects foreign expectations, links and nonempty destinations without leaving staging resources',()=>{
+  const f=fixture(),parent=mkdtempSync(join(tmpdir(),'nibfin-role-materialize-'));
+  try{
+    const value=captureWorkspace(f.input),root=join(parent,'review');
+    const foreign={...value.expected,identity:'f'.repeat(64)};
+    assert.throws(()=>materializeWorkspace(value,{expected:foreign,root}),/mismatch/);assert.equal(existsSync(root),false);
+    symlinkSync(f.root,root);
+    assert.throws(()=>materializeWorkspace(value,{expected:value.expected,root}),/materialize-existing-work/);
+    rmSync(root);mkdirSync(root,{mode:0o700});writeFileSync(join(root,'original'),'keep');
+    assert.throws(()=>materializeWorkspace(value,{expected:value.expected,root}),/materialize-existing-work/);
+    assert.equal(readFileSync(join(root,'original'),'utf8'),'keep');
+    assert.equal(readdirSync(parent).some(name=>name.startsWith('.nibfin-materialize-')),false);
+  }finally{f.close();rmSync(parent,{recursive:true,force:true});}
+});
 
 test('real Git fidelity, declared ignored bytes, source order, immutable round trip',()=>{
   const f=fixture(inv);

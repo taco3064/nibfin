@@ -1,7 +1,8 @@
 import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
-import {constants, lstatSync, openSync, closeSync, fstatSync, readSync, mkdtempSync, rmSync} from 'node:fs';
-import {resolve, join, parse} from 'node:path';
+import {constants, lstatSync, openSync, closeSync, fstatSync, readSync, mkdtempSync, rmSync,
+  existsSync,readdirSync,mkdirSync,writeFileSync,renameSync,readFileSync,chmodSync} from 'node:fs';
+import {resolve, join, parse,dirname} from 'node:path';
 import {tmpdir} from 'node:os';
 import {canonicalJSON, bodyDigest} from './grants.mjs';
 import {byteDigest, contentIdentity} from './evidence.mjs';
@@ -342,4 +343,50 @@ export function importWorkspace(input,{expected,limits:bounds}={}) {
   const diff=decode(wire.diff);
   if(!computeDiff(objects,m.baseTree,m.tree,l).equals(diff)) fail('diff');
   const handle=retain(m,objects,diff,sources);verifyWorkspace(handle,expected);return handle;
+}
+
+/** Materialize an independently verified transfer into a new private role
+ * checkout. No fetch, checkout filters, repository scripts or hooks execute.
+ * Existing work is never overwritten. A private staging tree is fully built
+ * before its atomic publication at the selected empty/nonexistent destination.
+ * This is a filesystem transfer receipt, never an Acceptance verdict. */
+export function materializeWorkspace(capture,{expected,root}={}) {
+  verifyWorkspace(capture,expected);const data=captures.get(capture),l=workspaceLimits;
+  if(process.platform!=='linux'||typeof root!=='string'||resolve(root)!==root||root==='/'
+    ||root.split('/').some(p=>p.toLowerCase()==='.git')||/[\x00-\x20]/.test(root))fail('materialize-root');
+  for(let cursor=dirname(root);;cursor=dirname(cursor)){
+    const s=lstatSync(cursor);if(!s.isDirectory()||s.isSymbolicLink())fail('materialize-parent');
+    if(cursor===dirname(root)&&(s.uid!==process.getuid()||(s.mode&0o077)))fail('materialize-parent');
+    if(cursor==='/')break;
+  }
+  const emptyDestination=()=>{
+    let s;try{s=lstatSync(root);}catch(error){if(error.code==='ENOENT')return;throw error;}
+    if(s.isSymbolicLink()||!s.isDirectory()||s.uid!==process.getuid()
+      ||(s.mode&0o077)||readdirSync(root).length)fail('materialize-existing-work');
+  };
+  emptyDestination();
+  let staging=mkdtempSync(join(dirname(root),'.nibfin-materialize-'));
+  try{
+    git(staging,['init','--template=','--object-format=sha1','.'],l.serializedBytes);
+    for(const object of data.objects.values()){
+      if(git(staging,['hash-object','-w','-t',object.type,'--stdin'],l.serializedBytes,object.bytes).toString().trim()!==object.oid)fail('materialize-object');
+    }
+    writeFileSync(join(staging,'.git/shallow'),data.m.base+'\n',{flag:'wx',mode:0o600});
+    git(staging,['update-ref','HEAD',data.m.base],l.serializedBytes);
+    git(staging,['read-tree',data.m.tree],l.serializedBytes);
+    const files=flatten(data.m.tree,data.objects,data.m.permittedPaths);
+    const put=(name,mode,bytes)=>{
+      const target=join(staging,name);mkdirSync(dirname(target),{recursive:true,mode:0o700});
+      if(existsSync(target)){
+        const s=lstatSync(target);if(!s.isFile()||s.isSymbolicLink()||!readFileSync(target).equals(bytes)
+          ||(s.mode&0o777)!==(mode==='100755'?0o755:0o644))fail('materialize-source-conflict');
+      }else {writeFileSync(target,bytes,{flag:'wx',mode:mode==='100755'?0o755:0o644});chmodSync(target,mode==='100755'?0o755:0o644);}
+    };
+    for(const file of files)put(file.path,file.mode,data.objects.get(file.oid).bytes);
+    for(const source of data.sources)put(source.path,source.mode,source.bytes);
+    if(git(staging,['rev-parse','HEAD'],l.serializedBytes).toString().trim()!==data.m.base
+      ||git(staging,['write-tree'],l.serializedBytes).toString().trim()!==data.m.tree)fail('materialize-git');
+    emptyDestination();renameSync(staging,root);staging=null;
+    return Object.freeze({version:1,status:'materialized',root,workspace:clone(expected)});
+  }finally{if(staging)rmSync(staging,{recursive:true,force:true});}
 }

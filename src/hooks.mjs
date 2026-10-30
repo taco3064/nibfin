@@ -8,7 +8,7 @@ import {randomUUID} from 'node:crypto';
 import {verifyWorkspace} from './workspace.mjs';
 import {canonicalJSON} from './grants.mjs';
 import {byteDigest, contentIdentity, compareEvidence} from './evidence.mjs';
-import {linuxCodexProfile} from './codex.mjs';
+import {linuxCodexProfile,linuxCodexProfiles} from './codex.mjs';
 import {validateHookObservation} from './obligations.mjs';
 
 const fail = code => {throw new TypeError(`hooks:${code}`);};
@@ -92,7 +92,8 @@ function context(input) {
   if(!['pre-accept','pre-commit'].includes(phase) || !Buffer.isBuffer(message)
       || message.length>1048576 || typeof executionId!=='string' || !executionId.trim()) fail('phase-input');
   if(!input.profile || !/^sha256:[a-f0-9]{64}$/.test(input.profile.image)) fail('backend-binding');
-  same(input.profile,{id:'linux-amd64-rootless-hooks-v1',image:input.profile.image,docker:linuxCodexProfile.docker});
+  if(!Object.values(linuxCodexProfiles).some(p=>p.docker===input.profile.docker))fail('backend-binding');
+  same(input.profile,{id:'linux-amd64-rootless-hooks-v1',image:input.profile.image,docker:input.profile.docker});
   const validation=validateHookObservation(observation);
   if(!validation.ok) fail('configuration-prerequisite');
   same(validation.hooks,workspace.metadata.inventory.hooks);
@@ -133,7 +134,9 @@ export function verifyHookReceipt(receipt,input,current) {
   return copy(receipt);
 }
 /** Trusted Core config; uses the existing Linux rootless Docker transport, no Agent mounts. */
-export function createHookRunner({image,socket,process:run=hookProcess,timeout=30000}) {
+export function createHookRunner({image,socket,process:run=hookProcess,timeout=30000,runtimeProfile=linuxCodexProfile.id}) {
+  if(!Object.hasOwn(linuxCodexProfiles,runtimeProfile))fail('profile');
+  const selected=linuxCodexProfiles[runtimeProfile];
   if(!/^sha256:[a-f0-9]{64}$/.test(image) || !/^\/run\/user\/[1-9][0-9]*\/docker.sock$/.test(socket)
       || typeof run!=='function' || !Number.isInteger(timeout) || timeout<50 || timeout>3600000) fail('backend');
   async function command(args,ms=timeout,output=false) {
@@ -144,7 +147,7 @@ export function createHookRunner({image,socket,process:run=hookProcess,timeout=3
       return ['success','nonzero','timeout','unknown','missing-tool'].includes(result?.outcome)?result.outcome:'unknown';
     } catch {return output?null:'unknown';}
   }
-  const profile=Object.freeze({id:'linux-amd64-rootless-hooks-v1',image,docker:linuxCodexProfile.docker});
+  const profile=Object.freeze({id:'linux-amd64-rootless-hooks-v1',image,docker:selected.docker});
   let unresolved=false;const ownedArguments=new Map();
   async function removeOwned(name) {
     try {

@@ -542,7 +542,7 @@
     },
     {
       "path": "src/core.mjs",
-      "sha256": "c14213c45f7667941773e150b67c8535b93733956c6d2ece925ce73586bf3909"
+      "sha256": "0cda825214e9da68f0b6ebacbca3614acebb2d03fc406fb832050e848e57d3e2"
     },
     {
       "path": "src/credential-output.mjs",

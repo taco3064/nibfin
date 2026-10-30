@@ -10,7 +10,7 @@ import time
 def main():
     # A kernel child-subreaper adopts orphaned descendants even after setsid(),
     # double-fork or unref. Process-group enumeration cannot provide this property.
-    if sys.platform != 'linux' or sys.version_info[:2] != (3, 11):
+    if sys.platform != 'linux' or sys.version_info[:2] not in ((3, 11), (3, 12)):
         return 125
     libc = ctypes.CDLL(None, use_errno=True)
     if libc.prctl(36, 1, 0, 0, 0) != 0:  # PR_SET_CHILD_SUBREAPER

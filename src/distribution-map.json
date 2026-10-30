@@ -828,7 +828,7 @@
     },
     {
       "path": "src/runner-pool-host.mjs",
-      "sha256": "ed24a51a7b2bf0b5032e04116aa7a4534bc317bac29d43bbfffbbd9055e71965"
+      "sha256": "9978bc97931f330eed687741261b20a04247e928fb41777ca46a1c136c78a0d0"
     },
     {
       "path": "src/runner.mjs",

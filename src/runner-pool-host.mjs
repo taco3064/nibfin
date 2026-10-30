@@ -106,7 +106,7 @@ export function createRunnerPoolHost({configuration,memberId,capacity,records,so
      await fresh();remote=await api('GET',root+'/actions/runners/'+record.runnerId);
      need(remote.outcome==='failed'&&remote.diagnostic?.status===404,'removal-readback');
     }
-    record=await save(record,{phase:'removed'});
+    record=await save(record,{phase:'removed'});providerFailure=undefined;
    }
    if(record.phase==='removed'){
     const cleaned=await runtime.cleanup(record,{signal});need(cleaned?.status==='completed'&&cleaned.lease===record.lease.identity,'cleanup-unconfirmed');

@@ -129,3 +129,5 @@ export {createNativeRoleBindings,nativeRoleSuccessSummary} from './native-role-b
 export {initialRunnerPoolCapacity,createRunnerPoolCapacity} from './runner-pool-capacity.mjs';
 export {createRunnerPoolHost} from './runner-pool-host.mjs';
 export {actionRunName,actionLogLine} from './action-display.mjs';
+
+export {nextDeliveryStage} from './delivery-planner.mjs';

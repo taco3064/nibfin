@@ -11,7 +11,8 @@
     "source": 1,
     "recovery": 1,
     "jobAdmission": 1,
-    "evidence": 1
+    "evidence": 1,
+    "nativeHost": 1
   },
   "owners": [
     {
@@ -576,7 +577,7 @@
     },
     {
       "path": "src/distribution-contract.mjs",
-      "sha256": "cbb1915d9efca4c5ce6ecf3795ed81dff3d6880ff46a17da383942a5eb1c76a9"
+      "sha256": "7bcef09a1bfb0ffd4624441942f827a91b1dd72ad9ac420e2d1fd13a3c6e6e3c"
     },
     {
       "path": "src/distribution.mjs",
@@ -652,7 +653,7 @@
     },
     {
       "path": "src/index.mjs",
-      "sha256": "6b13889ab303dd1ba9d53d0fd031d388befffcfc8d38c665f09a95052fc7ee99"
+      "sha256": "f26d0ca9b13425de8472ce6b1acf020ac75bf1643d27ddd26be024bdaa6937a4"
     },
     {
       "path": "src/installation.mjs",

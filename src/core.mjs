@@ -176,7 +176,7 @@ export function createCore({current,provider,authorization,dependencies,selector
     completion:createCompletionFlow,fanout:createDownstreamFanout,recovery:createRecoveryFlow,repair:createRepairFlow};
   need(checkpoint===undefined||typeof checkpoint==='function','checkpoint');
   need(onDiagnostic===undefined||typeof onDiagnostic==='function','diagnostic');
-  let executing=null,executionSignal,executionDependencies;
+  let executing=null,executionSignal,executionDependencies,confirmedClose=false;
   const checkExecution=async()=>{
     need(protectedWorkRestriction((await read()).restrictions)===null,'execution-restriction');
     if(checkpoint) {
@@ -192,7 +192,8 @@ export function createCore({current,provider,authorization,dependencies,selector
       const issue=await request({method:'GET',endpoint:'/repos/'+target.repository+'/issues/'+target.number,
         target:target.repositoryId,operation:'core-read',correlation:executing.invocation.request,signal:executionSignal});
       need(issue.outcome==='read'&&issue.data?.id===target.databaseId&&issue.data.node_id===target.issueId
-        &&(issue.data.state==='open'||Boolean(executing.receipts.closure)||executing.transition==='recovery')
+        &&(issue.data.state==='open'||Boolean(executing.receipts.closure)||executing.transition==='recovery'
+          ||stage==='closure'&&confirmedClose&&issue.data.state==='closed'&&issue.data.state_reason==='completed')
         &&(issue.data.body===(executing.receipts.publication?executing.shapeBody:executing.scopeBody)
           ||stage==='publication'&&issue.data.body===executing.shapeBody),'checkpoint-scope');
     }
@@ -202,12 +203,20 @@ export function createCore({current,provider,authorization,dependencies,selector
     const config={...owners[name]},ownerCurrent=config.current;
     if(checkpoint && typeof config.operations==='function') {
       const operations=config.operations;
-      config.operations=options=>{
+      config.operations=async options=>{
         const before=options.beforeSubmit;
-        return operations({...options,beforeSubmit:async(...args)=>{
+        const ownedOperations=await operations({...options,beforeSubmit:async(...args)=>{
           if(before)await before(...args);
           await checkExecution();
         }});
+        return {...ownedOperations,execute:async(...args)=>{
+          const result=await ownedOperations.execute(...args),intent=args[0];
+          if(executing&&plan(executing).stage==='closure'&&ownedOperations.causalClose===true
+            &&intent.kind==='close'&&intent.binding.repositoryId===executing.target.repositoryId
+            &&intent.binding.issueId===executing.target.issueId&&intent.binding.cycle===executing.cycle
+            &&intent.binding.authorization===executing.binding.grant&&result.outcome==='confirmed-success'&&result.continuation===true)confirmedClose=true;
+          return result;
+        }};
       };
     }
     if(typeof ownerCurrent==='function')config.current=async(...args)=>{
@@ -357,7 +366,7 @@ export function createCore({current,provider,authorization,dependencies,selector
           code:typeof e?.message==='string'&&/^(?:core|shape|operations|runtime|evidence|authority|lifecycle):[a-z-]{1,100}$/.test(e.message)?e.message:'core:unavailable'});}catch{/* Diagnostics never change the disposition. */}
         return r?result(r,e?.decision??d,launched?'unresolved':'blocked',e?.decision?e.gate:'invalid-or-unavailable',launched?d.stage:null)
         :{version:1,disposition:'rejected',reason:'invalid-request'};}
-      finally{if(acquired){executing=null;executionSignal=undefined;executionDependencies=undefined;busy=false;}}
+      finally{if(acquired){executing=null;executionSignal=undefined;executionDependencies=undefined;confirmedClose=false;busy=false;}}
     }
   });
 }

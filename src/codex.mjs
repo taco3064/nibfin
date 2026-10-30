@@ -248,6 +248,11 @@ export function createLinuxBackend(config, profile = null) {
   return Object.freeze({
     diagnostic:()=>diagnostic,
     async readiness() {
+      for(const s of states.values())if(s.credentialOwner&&!s.credentialsSettled&&!s.pending){
+        try{if(!(await inspect(s)).State.Running){const settled=await s.credentialOwner.settle({successful:!s.failed&&s.output?.ok});
+          s.secrets=[...new Set([...s.secrets,...settled.secrets])];s.credentialsSettled=settled.status==='completed';
+          if(!s.credentialsSettled){diagnostic='login-reconciliation-required';return readinessResult();}}}catch{/* The existing probe still observes unavailable resources. */}
+      }
       ready = false;workPhase=true;
       try {
         if (retired || process.platform !== 'linux' || process.arch !== 'x64') { diagnostic='unsupported-host'; return readinessResult(); }
@@ -315,7 +320,7 @@ export function createLinuxBackend(config, profile = null) {
       if (!ready || retired || states.has(v.execution)) fail('not-ready');
       ready = false;
       await network.ensure();
-      const auth = physical(), e = v.executionIdentity, secrets = loginFile(auth);
+      const auth = physical(), e = v.executionIdentity, secrets = [...loginFile(auth)];
       if (v.environment !== environment.id || v.instance !== instanceId || v.agent !== agent
           || e.id !== v.execution || e.request !== v.request || (diagnosticMode ? e.role!=='rescue-diagnosis'||e.skill!=='rescue' : skillForRole(e.role) !== e.skill)
           || !same(v.workspace,{path:instance.workspace,access:e.role === 'deliver'?'write':'read'})
@@ -356,7 +361,8 @@ export function createLinuxBackend(config, profile = null) {
       const verificationStat=lstatSync(verificationRoot);if(!verificationStat.isDirectory()||verificationStat.isSymbolicLink())fail('verification-root');
       verificationPin=`${verificationStat.dev}:${verificationStat.ino}`;
       if(!profile){const credentialRoot=join(dir,'credentials');mkdirSync(credentialRoot,{mode:0o700});
-        credentialOwner=await prepareCodexCredentials({login:auth,root:credentialRoot,execution:e.id,deadlineAt});}
+        credentialOwner=await prepareCodexCredentials({login:auth,root:credentialRoot,execution:e.id,deadlineAt});
+        secrets.push(...loginFile(credentialOwner.source));rejectSecrets({instructions:v.instructions,context},secrets);}
       const s = await reserve(name=>[...base(name,credentialOwner?.source??auth,credentialOwner?.output),...mount(verificationRoot,'/verification',true),...mount(instance.workspace,'/work',e.role === 'deliver'),
         ...mount(input,'/input'),image,'/entry.mjs','execute'],'role',s=>{
           Object.assign(s,{request:v.request,dir,secrets,credentialOwner}); states.set(v.execution,s); });
@@ -382,6 +388,7 @@ export function createLinuxBackend(config, profile = null) {
       if(s.credentialOwner){
         const authResult=await s.credentialOwner.settle({successful:!s.failed&&s.output?.ok&&c.State.ExitCode===0});
         s.secrets=[...new Set([...s.secrets,...authResult.secrets])];
+        s.credentialsSettled=authResult.status==='completed';
         if(authResult.status!=='completed'){diagnostic='login-reconciliation-required';return{status:'complete',exitCode:1,evidence:null};}
       }
       let evidence = null;
@@ -479,10 +486,12 @@ export function createLinuxBackend(config, profile = null) {
     },
     async cleanup(v) {
       if (!same(v.resources,resources) || v.environment !== environment.id || v.instance !== instanceId) fail('cleanup');
-      for(const s of states.values())if(s.credentialOwner){
+      try{
+      for(const s of states.values())if(s.credentialOwner&&!s.credentialsSettled){
         if(s.pending)return{status:'unresolved',residuals:resources};
-        try{if((await inspect(s)).State.Running)return{status:'unresolved',residuals:resources};}catch{return{status:'unresolved',residuals:resources};}
+        if(s.launched)try{if((await inspect(s)).State.Running)return{status:'unresolved',residuals:resources};}catch{if(!await missing(s))return{status:'unresolved',residuals:resources};}
         const authResult=await s.credentialOwner.settle({successful:!s.failed&&s.output?.ok});
+        s.credentialsSettled=authResult.status==='completed';
         if(authResult.status!=='completed')return{status:'unresolved',residuals:resources};
       }
       try {for(const execution of states.keys())if(verificationEvidence(execution).length)return {status:'unresolved',residuals:resources};}catch{return {status:'unresolved',residuals:resources};}
@@ -495,6 +504,7 @@ export function createLinuxBackend(config, profile = null) {
         if (residuals.length) return {status:'failed',residuals};
         retired=true;return {status:'completed',residuals:[]};
       } catch { return {status:'failed',residuals:resources.filter(existsSync)}; }
+      }finally{for(const s of states.values())await s.credentialOwner?.releaseLease();}
     }
   });
 }

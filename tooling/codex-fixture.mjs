@@ -172,6 +172,8 @@ export function codexFixture(role='shape', custom, agent='codex') {
     for(let n=0;n<300;n++) {const s=await life.collect(execution.id);if(s.result.status!=='pending')return s;await wait();}
     throw Error('Fixture did not finish');
   }
-  async function dispose() {for(const child of children)child.kill('SIGKILL');while(children.size)await wait();rmSync(root,{recursive:true,force:true});}
+  async function dispose() {for(const child of children)child.kill('SIGKILL');while(children.size)await wait();
+    try{await backend.cleanup({environment:environment.id,instance:environment.instances[0].id,resources:['workspace','registration','service'].map(k=>environment.instances[0][k])});}
+    finally{rmSync(root,{recursive:true,force:true});}}
   return {root,environment,expected,current,input,config,backend,life,calls,flags,containers,collect,wait,dispose};
 }

@@ -508,7 +508,7 @@
     },
     {
       "path": "src/codex-credentials.mjs",
-      "sha256": "ac8d643e2bea4f5a208a57c26cb2eafa73a9d470bdc72c37b63d6f8d3c5ad296"
+      "sha256": "08fcb5b49ce39b2472c3954053fd5850e555da5d1b7007120cd9c060ca9de630"
     },
     {
       "path": "src/codex-entry.mjs",
@@ -516,7 +516,7 @@
     },
     {
       "path": "src/codex.mjs",
-      "sha256": "9c3cac9af4bcbf4c856850c2c8ea0f497786e60dec6ea6ff7a0bfa0a5ed7d175"
+      "sha256": "a97d5e32ca186845485c21c7bc0b1052c205c625432cab8568414faf8f6e4234"
     },
     {
       "path": "src/collaboration.mjs",

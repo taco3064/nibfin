@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "producer": "a79b532b3920d0ca40fdeeeea183eabe0433ef89",
+  "package": {
+    "packageVersion": "0.1.0",
+    "coreSha256": "7adb2ef9c50ff295c86338963fadc8d37e5899a11dc9a1cb1859908be624312a"
+  },
+  "pins": {
+    "runtime": "7adb2ef9c50ff295c86338963fadc8d37e5899a11dc9a1cb1859908be624312a",
+    "workflow": "5fe7586433b5d2817d7c90d4676f1389ec9b7393f8d39ebe4e09ea8ae7ce99da",
+    "skills": "e256f4f4da556f8a8c66e6764ff83f1b7dd347967de4814bc865fcf453ec1b96",
+    "source": "7adb2ef9c50ff295c86338963fadc8d37e5899a11dc9a1cb1859908be624312a",
+    "recovery": "2b62f144bb1ee3626959db47946b11c3393c3aebd1af1c49f67139175a20cb86",
+    "jobAdmission": "dec2ff8b63a71766f30f79dcf4a0634fdc1b992c96627a8b153ce086def3f2d3"
+  },
+  "automaticRegistration": false,
+  "allowedActorIds": [
+    "127829492"
+  ],
+  "executionPool": {
+    "version": 2,
+    "id": "member-default",
+    "capacity": 2,
+    "targets": [
+      {
+        "version": 1,
+        "repository": "taco3064/gh-nibfin",
+        "repositoryId": "1428544414",
+        "ownerId": "127829492",
+        "ownerType": "User"
+      },
+      {
+        "version": 1,
+        "repository": "taco3064/nibfin",
+        "repositoryId": "1427838662",
+        "ownerId": "127829492",
+        "ownerType": "User"
+      },
+      {
+        "version": 1,
+        "repository": "taco3064/nibfin-action",
+        "repositoryId": "1428543343",
+        "ownerId": "127829492",
+        "ownerType": "User"
+      }
+    ]
+  }
+}

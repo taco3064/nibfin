@@ -126,3 +126,4 @@ export {protectedWorkRestriction} from './owner-hold.mjs';
 export {applyInstallationTransition} from './installation.mjs';
 export {createNativeRoleBindings,nativeRoleSuccessSummary} from './native-role-bindings.mjs';
 export {initialRunnerPoolCapacity,createRunnerPoolCapacity} from './runner-pool-capacity.mjs';
+export {createRunnerPoolHost} from './runner-pool-host.mjs';

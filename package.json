@@ -15,6 +15,7 @@
   },
   "packageManager": "npm@10.9.9",
   "files": [
+    "src/runner-pool-host.mjs",
     "src/action-display.mjs",
     "docs/runner-pools.md",
     "src/runner-pool-capacity.mjs",

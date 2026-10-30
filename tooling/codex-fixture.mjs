@@ -12,7 +12,7 @@ export function codexFixture(role='shape', custom, agent='codex') {
   const environment={id:'member',agent,loginSpace:join(root,'login'),instances:[0,1].map(n=>({id:'instance-'+n,
     workspace:join(root,'work'+n),registration:join(root,'registration'+n),service:join(root,'service'+n)}))};
   for (const p of [environment.loginSpace,...environment.instances.flatMap(i=>[i.workspace,i.registration,i.service])]) mkdirSync(p);
-  writeFileSync(join(environment.loginSpace,agent==='gemini'?'gemini-api-key.json':agent==='claude'?'anthropic-api-key.json':'auth.json'),JSON.stringify(agent==='gemini'?{auth_mode:'gemini-api-key',api_key:'LOGIN-SENTINEL'}:agent==='claude'?{auth_mode:'anthropic-api-key',api_key:'LOGIN-SENTINEL'}:{auth_mode:'chatgpt',tokens:{access_token:'LOGIN-SENTINEL'}}));
+  writeFileSync(join(environment.loginSpace,agent==='gemini'?'gemini-api-key.json':agent==='claude'?'anthropic-api-key.json':'auth.json'),JSON.stringify(agent==='gemini'?{auth_mode:'gemini-api-key',api_key:'LOGIN-SENTINEL'}:agent==='claude'?{auth_mode:'anthropic-api-key',api_key:'LOGIN-SENTINEL'}:{auth_mode:'chatgpt',tokens:{access_token:'fixture.'+Buffer.from(JSON.stringify({exp:Math.floor(Date.now()/1000)+86400})).toString('base64url')+'.fixture',id_token:'LOGIN-SENTINEL'}}),{mode:0o600});
   const skill=skillForRole(role), repository=custom?{[skill]:{mode:'override',content:custom}}:{};
   const approvals=custom?{repository:{[skill]:{configurationIdentity:bodyDigest(JSON.stringify(repository[skill]))}}}:{};
   const instructions=selectInstructions({role,skill,repository,approvals});

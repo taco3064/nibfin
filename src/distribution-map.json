@@ -428,7 +428,7 @@
     },
     {
       "path": "package.json",
-      "sha256": "fae18313e1edc9d606fa3eb3fd2c8f2d3af77fbdc4fb95f9bfcd575e1ec69530"
+      "sha256": "25bb95ebd72bb74856209c53bc987b13aed6ac34efc72252e0d49ce6d20aa31e"
     },
     {
       "path": "skills/accept/SKILL.md",
@@ -507,12 +507,16 @@
       "sha256": "4de78db46f707e994b5b57a0ef4c1502fb2d1b59b039036a237f0fbe4a534833"
     },
     {
+      "path": "src/codex-credentials.mjs",
+      "sha256": "ac8d643e2bea4f5a208a57c26cb2eafa73a9d470bdc72c37b63d6f8d3c5ad296"
+    },
+    {
       "path": "src/codex-entry.mjs",
-      "sha256": "ad15deaa7b809eb563968a72acba315e7e4e15615252eaa444a7ab4c146617b5"
+      "sha256": "1824136e601671076e57c71cafb13df2e42f201d2f8285f64ebb276993955c2b"
     },
     {
       "path": "src/codex.mjs",
-      "sha256": "b2d457c827e382cd216d0acfdd4c4e7cada471f99b40d1589ee1f93c3d755c66"
+      "sha256": "9c3cac9af4bcbf4c856850c2c8ea0f497786e60dec6ea6ff7a0bfa0a5ed7d175"
     },
     {
       "path": "src/collaboration.mjs",

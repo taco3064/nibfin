@@ -51,7 +51,7 @@ test('AC2: six roles, selected instructions, exact production args/mounts/env; o
     assert.equal(create.args[create.args.indexOf('--pull')+1],'never');
     assert.deepEqual(create.args.slice(-3),[f.config.image,'/entry.mjs','execute']);
     const mounts=create.args.flatMap((v,i)=>v==='--mount'?[create.args[i+1]]:[]);
-    assert.equal(mounts.length,15);
+    assert.equal(mounts.length,17);
     const sessions=mounts.filter(m=>m.includes('dst=/role-session.mjs,'));
     assert.equal(sessions.length,1);
     assert.match(sessions[0],/src=[^,]+\/src\/role-session\.mjs,dst=\/role-session\.mjs,/);
@@ -59,7 +59,8 @@ test('AC2: six roles, selected instructions, exact production args/mounts/env; o
     const workspace=mounts.find(m=>m.includes('dst=/work,'));
     assert.equal(workspace.endsWith(',readonly'),role!=='deliver');
     assert.ok(workspace.includes('bind-recursive=disabled'));assert.ok(workspace.includes('bind-propagation=rprivate'));
-    assert.ok(mounts.find(m=>m.includes('dst=/tmp/home/.codex/auth.json,')).endsWith(',readonly'));
+    assert.ok(mounts.find(m=>m.includes('dst=/auth/auth.json,')).endsWith(',readonly'));
+    assert.ok(!mounts.find(m=>m.includes('dst=/credential-update,')).endsWith(',readonly'));
     const source=mounts.find(m=>m.includes('dst=/input,')).match(/src=([^,]+)/)[1];
     assert.equal(readFileSync(join(source,'instructions.md'),'utf8'),f.input.instructions.content);
     const request=JSON.parse(readFileSync(join(source,'request.json')));

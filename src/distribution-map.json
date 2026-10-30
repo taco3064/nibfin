@@ -388,7 +388,7 @@
     },
     {
       "path": "host/entry.mjs",
-      "sha256": "3864db36a6f3769fe1d89a965dfd61c7c8e3efc155c85d8b997d7e018f4343d4"
+      "sha256": "18fd24f1e5a1ea87bc79cbab779cc8eb8d17736d6129d23b6b62ea0883235be3"
     },
     {
       "path": "host/package-lock.json",
@@ -432,7 +432,7 @@
     },
     {
       "path": "package.json",
-      "sha256": "2e8dc53d3b7982c795fe987b5e61834edc9255b6d6603315c02926c4c6cc8ab8"
+      "sha256": "f4fe5c7737f0675422538de71687fe1d199d2b7c42f95161f6dfca5818b01b96"
     },
     {
       "path": "skills/accept/SKILL.md",
@@ -640,11 +640,11 @@
     },
     {
       "path": "src/host-routing.mjs",
-      "sha256": "bb11f76d68347cd6b3317b21ff6f5610e152dc5fc185cfc71a0079fb33dc05c5"
+      "sha256": "b4cedde7b700a0f9172c99a77501c8f0661b1154ef5fa4b2b9d5be58d863175e"
     },
     {
       "path": "src/host-source.mjs",
-      "sha256": "30aa523782a1c0609b93b732ef6ca17b5cc844781eef3020dad8677e1c58a3a8"
+      "sha256": "0bceba12f58c66216e8b82c0661224fd298147224f7e74191bd61424cb72bbb4"
     },
     {
       "path": "src/identity.mjs",
@@ -652,7 +652,7 @@
     },
     {
       "path": "src/index.mjs",
-      "sha256": "299c7e36bb05822d644022b34a29ef49339209c5df3c6e6f5465880707eb44ce"
+      "sha256": "30bb46191336026f8fa857e376c50501cad91eec84335edb3f3f92d555caf27e"
     },
     {
       "path": "src/installation.mjs",
@@ -831,6 +831,10 @@
       "sha256": "91d1563ba59650f3df465313147122b96862adc7344f3b5650824d0e27740291"
     },
     {
+      "path": "src/runner-work-custody.mjs",
+      "sha256": "8cf19395e4d79d9ecce5e6c7958848c119cd8d7c120d6ff8c72d6912fcb9e754"
+    },
+    {
       "path": "src/runner.mjs",
       "sha256": "d5da221a5c97f56d80a646545972e540f9974f824322637c4991b7d4ef139a5e"
     },
@@ -844,7 +848,7 @@
     },
     {
       "path": "src/selection.mjs",
-      "sha256": "56b89285174bbfad31a5e43c68d86754289046926828e933b5063a08434a5d20"
+      "sha256": "468e03afc4e933bbfda903f95f763b23b6bd8d84ad23bd1e3123966a7ec02cf9"
     },
     {
       "path": "src/shape.mjs",

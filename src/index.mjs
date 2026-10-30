@@ -1,4 +1,5 @@
 export {githubId,repositoryCoordinates,memberRunnerLabel} from './identity.mjs';
+export {createRunnerWorkCustody} from './runner-work-custody.mjs';
 export {validateExecutionPool,projectExecutionContext,validatePoolDispatch} from './execution-pool.mjs';
 
 export {canonicalJSON, bodyDigest, prepareGrant, signGrant, verifyGrant} from './grants.mjs';

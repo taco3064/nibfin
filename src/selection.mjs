@@ -1,5 +1,8 @@
 import {githubId, repositoryCoordinates, memberRunnerLabel} from './index.mjs';
 import {observeRunnerBindings} from './runners.mjs';
+import {validateExecutionPool} from './execution-pool.mjs';
+import {contentIdentity} from './evidence.mjs';
+import {canonicalJSON} from './canonical.mjs';
 
 const login = value => typeof value === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9-]{0,38}$/.test(value);
 const sameUser = (a,b) => a?.id === b.id && login(a.login) && a.login.toLowerCase() === b.login.toLowerCase();
@@ -7,10 +10,14 @@ const stop = code => {throw code;};
 const codes = new Set(['input','stale','cancelled','provider','issue','permission','authorization','runners']);
 
 /** Inert construction. All capabilities and execution assertions belong to trusted Core. */
-export function createAssigneeSelector({provider, authorizationFor, now = Date.now, maxCheckpointMs} = {}) {
+export function createAssigneeSelector({provider, authorizationFor, now = Date.now, maxCheckpointMs,
+ executionPool,poolReadiness} = {}) {
   if (typeof provider?.request !== 'function' || typeof authorizationFor !== 'function'
       || typeof now !== 'function' || !Number.isSafeInteger(maxCheckpointMs) || maxCheckpointMs <= 0)
     throw Error('Invalid selection configuration');
+  const pool=executionPool===undefined?null:validateExecutionPool(executionPool);
+  if((poolReadiness!==undefined)!==(pool!==null)||pool&&(pool.version!==2||typeof poolReadiness!=='function'))
+    throw Error('Invalid protected pool selection configuration');
   return Object.freeze({select: async (input, {signal, memberId} = {}) => {
     let observation;
     const result = (outcome, reason, extra = {}) => ({outcome, reason, ...(observation ? {observation} : {}), ...extra});
@@ -82,6 +89,28 @@ export function createAssigneeSelector({provider, authorizationFor, now = Date.n
         if (eligible?.ok !== true || a?.repositoryId !== target.id || a.issueId !== issueId
             || a.memberId !== member.id || a.operation !== operation) stop('authorization');
         fresh(a.observedAt);
+        if(pool){
+          // Resolve may select an authenticated prepared member before a Job
+          // exists. Allocation/JIT registration still waits for that actual Job;
+          // no online Runner or inventory observation is fabricated here.
+          if(canonicalJSON(c.executionPool)!==canonicalJSON(pool)
+            ||!pool.targets.some(t=>t.repository===key&&t.repositoryId===target.id&&t.ownerId===target.ownerId&&t.ownerType===target.ownerType)
+            ||c.registration?.level!=='repository'||c.registration.id!==target.id||conditions.groupId!==undefined)stop('input');
+          const requestLabels=conditions.labels.filter(l=>l.startsWith('nibfin-request-'));
+          if(requestLabels.length!==1||!/^nibfin-request-[a-z0-9_-]{1,80}$/.test(requestLabels[0]))stop('input');
+          const readiness=await poolReadiness({memberId:member.id,target:structuredClone(target),operation,
+            pool:contentIdentity(pool),signal});
+          if(readiness?.memberId!==member.id||readiness.pool!==contentIdentity(pool)
+            ||!['ready','unavailable'].includes(readiness.status))stop('runners');
+          fresh(readiness.observedAt);
+          if(readiness.status==='ready'){
+            observation.observedAt=latest;
+            return result('selected','prepared_member',{memberId:member.id,routing:{runnerLabel:memberRunnerLabel(member.id),
+              platform:conditions.platform,labels:[...new Set(['self-hosted',conditions.platform,
+                ...conditions.labels.map(l=>l.toLowerCase()),memberRunnerLabel(member.id)])]}});
+          }
+          reasons.push({memberId:member.id,reason:'prepared_pool_unavailable'});continue;
+        }
         // Preserve every registration's identity checks, including nonmatching platforms.
         const records = c.records.filter(r=>r.memberId === member.id);
         const r = await observeRunnerBindings({request:async options => {

@@ -40,7 +40,7 @@ export function createRunnerPoolCapacity({configuration,records,observeRelease}=
   async reserve(value){
    const r=request(value);let result;
    await records.update(s=>{
-    state(s);if(s.completed[r.id]){result={status:'completed',identity:s.completed[r.id]};return null;}
+    state(s);if(s.completed[r.id]){need(s.completed[r.id]===contentIdentity(r),'request-reuse');result={status:'completed',identity:s.completed[r.id]};return null;}
     const existing=s.leases[r.id];
     if(existing){need(same(existing.request,r),'request-reuse');result={status:'retained',lease:structuredClone(existing)};return null;}
     const used=new Set(Object.values(s.leases).map(l=>l.slot));let slot=1;while(used.has(slot))slot++;
@@ -57,7 +57,7 @@ export function createRunnerPoolCapacity({configuration,records,observeRelease}=
    // consuming the original slot. It is never treated as free after a timeout.
    if(proof?.lease!==lease.identity||proof.processTerminated!==true||proof.registrationRemoved!==true||proof.cleanupConfirmed!==true)
     return {status:'retained',reason:'release-unconfirmed',lease};
-   await records.update(s=>{state(s);need(same(s.leases[r.id],lease),'lease-changed');delete s.leases[r.id];s.completed[r.id]=lease.identity;return state(s);});
+   await records.update(s=>{state(s);need(same(s.leases[r.id],lease),'lease-changed');delete s.leases[r.id];s.completed[r.id]=contentIdentity(r);return state(s);});
    return {status:'released',slot:lease.slot};
   }
  });

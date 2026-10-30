@@ -21,6 +21,7 @@ test('ten repositories share six physical slots; concurrent reservations cannot 
  assert.equal((await f.capacity.release(request(0))).status,'retained');assert.equal((await f.capacity.reserve(request(6))).status,'waiting');
  f.proof({processTerminated:true,registrationRemoved:true,cleanupConfirmed:true});assert.equal((await f.capacity.release(request(0))).status,'released');
  assert.equal((await f.capacity.reserve(request(0))).status,'completed');
+  await assert.rejects(f.capacity.reserve({...request(0),jobId:'9999'}),/request-reuse/);
  assert.equal((await f.capacity.reserve(request(6))).lease.slot,1);assert.equal(Object.keys(f.state().leases).length,6);
  await assert.rejects(f.capacity.reserve({...request(9),repository:'outside/project'}),/repository/);
 });

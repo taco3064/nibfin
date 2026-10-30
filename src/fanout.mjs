@@ -29,9 +29,10 @@ const safe = e => ['identity','completion','source-changed','target-changed','un
   'membership','discovery','pagination','limit','timeout','cancelled','read','request'].includes(e?.reason) ? e.reason : 'unavailable';
 
 /** Core-owned capabilities only. operations must install beforeSubmit at its mutation guard. */
-export function createDownstreamFanout({provider, currentSource, retrieveReceipt, currentTarget, operations,
+export function createDownstreamFanout({provider, currentSource, retrieveReceipt, currentTarget, operations, notifyTarget,
   maxPages=10, maxTargets=100, maxReads=500, timeoutMs=30000} = {}) {
   need([provider?.request,provider?.collection,currentSource,retrieveReceipt,currentTarget,operations].every(f=>typeof f==='function'),'request');
+  need(notifyTarget===undefined||typeof notifyTarget==='function','request');
   need([maxPages,maxTargets,maxReads,timeoutMs].every(v=>Number.isSafeInteger(v)&&v>0)
     && maxPages<=1000 && maxTargets<=10000 && maxReads<=100000 && timeoutMs<=86400000,'limit');
   const request=provider.request.bind(provider), collection=provider.collection.bind(provider);
@@ -109,6 +110,9 @@ export function createDownstreamFanout({provider, currentSource, retrieveReceipt
             const o=options(target);
             need(publicRepo(await read({...o,endpoint:'/repos/'+target.repository}),target),'repository');
             need(matches(await read({...o,endpoint:path(target)}),target),'identity');
+            const native=notifyTarget!==undefined&&t.wakeup?.kind==='native-core-wakeup'
+              &&/^[a-f0-9]{64}$/.test(t.wakeup.identity)&&t.workflow===undefined;
+            if(!native){
             need(t.workflow && /^[A-Za-z0-9_][A-Za-z0-9_./-]{0,119}$/.test(t.workflow.ref)
               &&!t.workflow.ref.startsWith('refs/')&&!/^[a-f0-9]{40}$/.test(t.workflow.ref)
               && /^\.github\/workflows\/[A-Za-z0-9_-]+\.ya?ml$/.test(t.workflow.path),'request');
@@ -121,6 +125,7 @@ export function createDownstreamFanout({provider, currentSource, retrieveReceipt
             const file=await read({...o,endpoint:root+'/contents/'+t.workflow.path+'?ref='+encodeURIComponent(t.workflow.sha)});
             need(file.type==='file'&&file.path===t.workflow.path&&file.encoding==='base64'
               && typeof file.content==='string'&&byteDigest(Buffer.from(file.content,'base64'))===t.workflow.digest,'target-changed');
+            }
             const parents=await list(target,'blocked_by');
             const seenParents=new Set(),parentDB=new Set(),parentPaths=new Set();
             for(const d of parents) {
@@ -134,6 +139,18 @@ export function createDownstreamFanout({provider, currentSource, retrieveReceipt
             return t;
           };
           const t=await check();
+          if(notifyTarget!==undefined&&t.wakeup?.kind==='native-core-wakeup'){
+            // An authenticated local notification wakes Core's normal planner.
+            // It is not a workflow dispatch, a stage decision or permission to
+            // launch a role. The destination must re-evaluate live authority.
+            const seed={source,origin,target,binding:t.binding,wakeup:t.wakeup};
+            const retained={id:'native-fanout-'+contentIdentity(seed),...seed};requestId=retained.id;
+            const beforeSubmit=async()=>{need(same(await check(),t),'target-changed');};
+            await beforeSubmit();executing=true;
+            const result=await call(()=>notifyTarget(copy(retained),{signal,beforeSubmit}));
+            need(result?.outcome==='retained'&&result.identity===contentIdentity(retained),'notification-unconfirmed');
+            outcomes.push({target:copy(target),request:retained.id,outcome:'woken',notification:result});continue;
+          }
           // Pin and provenance are part of the retained intent identity, never HTTP inputs.
           const seed={source,origin,target,binding:t.binding,workflow:t.workflow};
           const id='fanout-'+contentIdentity(seed);

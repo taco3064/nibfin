@@ -6,9 +6,23 @@ import {execFileSync} from 'node:child_process';
 import assert from 'node:assert/strict';
 import {fanoutFixture} from '../tooling/fanout-fixture.mjs';
 import {completionFixture} from '../tooling/completion-fixture.mjs';
-import {controlledIntent,canonicalJSON,resolveFanoutWakeup} from '../src/index.mjs';
+import {controlledIntent,canonicalJSON,resolveFanoutWakeup,contentIdentity} from '../src/index.mjs';
 const wake=f=>f.fresh().wake(f.input);
 const success=r=>assert.deepEqual(r.outcomes.map(o=>o.outcome),['confirmed-success','confirmed-success']);
+
+test('native notifications retain verified completion and dependency provenance without inventing a resolve Action or stage',async()=>{
+ const f=fanoutFixture(),retained=[];
+ const currentTarget=async target=>{const original=await f.options.currentTarget(target);delete original.workflow;
+  return{...original,wakeup:{kind:'native-core-wakeup',identity:contentIdentity(target)}};};
+ const native=f.fresh({currentTarget,operations:async()=>assert.fail('native hints are not workflow dispatches'),
+  notifyTarget:async(value,{beforeSubmit})=>{await beforeSubmit();retained.push(value);return{outcome:'retained',identity:contentIdentity(value)};}});
+ const result=await native.wake(f.input);assert.deepEqual(result.outcomes.map(o=>o.outcome),['woken','woken']);
+ assert.equal(retained.length,2);assert.equal(f.writes().length,0);assert.ok(f.calls.every(r=>r.method==='GET'));
+ for(const value of retained){assert.equal(value.origin.identity,f.completions.get(f.b.issueId).identity);assert.equal(value.wakeup.kind,'native-core-wakeup');
+  assert.equal(value.intent,undefined);assert.equal(value.stage,undefined);}
+ f.state.denied.add(f.c.issueId);const blocked=await native.wake(f.input);assert.equal(blocked.outcomes[0].outcome,'blocked');
+ assert.equal(blocked.outcomes[1].outcome,'woken');
+});
 
 test('AC1 first producer completion/readback and recovered receipt feed fanout',async()=>{
   const producer=await completionFixture();

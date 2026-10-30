@@ -66,16 +66,16 @@ export function createInstallation(configuration){
   }
   return Object.freeze({check,async plan(input={}){
     try{fields(input,'commit hostRepository hostCommit'+(Object.hasOwn(input,'admission')?' admission':'')
-      +(Object.hasOwn(input,'executionPool')?' executionPool':''));}
+      +(Object.hasOwn(input,'executionPool')?' executionPool':'')+(Object.hasOwn(input,'repository')?' repository':''));}
     catch{return {version:1,status:'blocked',diagnostics:[diagnostic('source','invalid-installation-plan')]};}
-    const {commit,hostRepository,hostCommit,admission,executionPool}=input;
+    const {commit,hostRepository,hostCommit,admission,executionPool,repository}=input;
     const readiness=await check();if(readiness.status!=='ready')return {version:1,status:'blocked',readiness};
     // Never execute the live aborting hook here, including init --check.
     let policies=null;try{
       if(profile==='member'||Object.hasOwn(input,'admission')){const {runnerJobPolicies}=await import('./runner-job-gate.mjs');policies=runnerJobPolicies(admission);}
     }catch{return {version:1,status:'blocked',readiness,
       diagnostics:[diagnostic('jobAdmission','invalid-policy')]};}
-    let workflow;try{workflow=workflowInstallation({commit,hostRepository,hostCommit,...(executionPool===undefined?{}:{executionPool})});}
+    let workflow;try{workflow=workflowInstallation({commit,hostRepository,hostCommit,...(executionPool===undefined?{}:{executionPool,repository})});}
     catch{return {version:1,status:'blocked',readiness,diagnostics:[diagnostic('source','invalid-installation-pin')]};}
     return {version:1,status:'planned',readiness,workflow,
       admission:{version:1,entry:'host/runner-job-hook.sh',nodeEntry:'host/runner-job-hook.mjs',

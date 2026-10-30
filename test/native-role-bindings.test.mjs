@@ -35,3 +35,14 @@ test('missing retention and ambiguous Shape author format cannot create an execu
  const shape=request('shape',{original:{kind:'raw-scope',body:'Scope'},authority:binding(r.instructions)});
  await assert.rejects(host.bind(shape),/scope/);
 });
+
+
+test('native role attribution is pinned by the protected host before launch and cannot be chosen by task data',async()=>{
+ const source={repositoryId:'42',workflow:'a'.repeat(64),runId:'100',attempt:'1'};
+ const host=createNativeRoleBindings({ownership:'personal',source,retain:async()=> 'custody:native-role'});
+ source.runId='999';const instructions=selectInstructions({role:'shape-validator',skill:'shape'});
+ const task=request('shape-validator',{authority:binding(instructions),proposedBody:'Actual Shape',author:'prior-author',source:{runId:'999'}});
+ const value=await host.bind(task);assert.equal(value.input.execution.source.runId,'100');
+ assert.equal(value.current().expected.execution.source.repositoryId,'42');
+ assert.throws(()=>createNativeRoleBindings({ownership:'personal',retain:async()=> 'custody',source:{...source,token:'no'}}),/source/);
+});

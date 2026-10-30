@@ -8,7 +8,7 @@ import {linuxGeminiProfile} from './gemini.mjs';
 const fail = code => {throw Error(`runner:${code}`);};
 const freeze = v => {if(v && typeof v==='object'){Object.values(v).forEach(freeze);Object.freeze(v);}return v;};
 export const supportedRunnerDefaults=freeze({version:1,platform:'linux',arch:'x64',isolation:'rootless-docker',
-  node:linuxCodexProfile.node,docker:linuxCodexProfile.docker,npm:'10.9.9',verificationSupervisor:{interpreter:'/usr/bin/python3',version:'3.11',kernel:'child-subreaper'},
+  node:linuxCodexProfile.node,docker:linuxCodexProfile.docker,npm:'10.9.9',verificationSupervisor:{interpreter:'/usr/bin/python3',version:'3.11',versions:['3.11','3.12'],kernel:'child-subreaper'},
   tools:{codex:linuxCodexProfile.codex,claude:linuxClaudeProfile.claude,gemini:linuxGeminiProfile.gemini},
   path:'/usr/local/bin:/usr/bin:/bin',interpreter:'/usr/local/bin/node',
   acquisition:{dependencies:'dependency-download',images:'preprovisioned-pinned',lifecycleScripts:false},

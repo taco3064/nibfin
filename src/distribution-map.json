@@ -812,7 +812,7 @@
     },
     {
       "path": "src/runner.mjs",
-      "sha256": "34372a0f2fa7f14c71e37cadda881c3569cad67dd667cfedf72c15fa40a88ed9"
+      "sha256": "d5da221a5c97f56d80a646545972e540f9974f824322637c4991b7d4ef139a5e"
     },
     {
       "path": "src/runners.mjs",
@@ -844,7 +844,7 @@
     },
     {
       "path": "src/verification-supervisor.py",
-      "sha256": "2328e01eacde76973bc83c791a5942ed18ab6a67bfbc464047f88cd41bb48a38"
+      "sha256": "06a9fb0b4c1e47a58aee10bd054cd95b45a549d80bf4c5cd82711a27aec01d7c"
     },
     {
       "path": "src/verification.mjs",

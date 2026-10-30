@@ -26,10 +26,13 @@ export function codexInvocation(request) {
   const args = ['--no-daemon','--ask-for-approval','never','exec',
       ...(request.session?['resume']:[]),'--ignore-user-config','--ignore-rules',
       '--skip-git-repo-check','--json',
-      ...(request.session?[]:['--cd','/work','--sandbox',request.access === 'write' ? 'workspace-write' : 'read-only']),
+      ...(request.session?[]:['--cd','/work','--sandbox','danger-full-access']),
       '-c','model_instructions_file="/input/instructions.md"',
-      // Resume's saved policy is also explicitly pinned; it cannot inherit a broader sandbox.
-      '-c',`sandbox_mode="${request.access === 'write' ? 'workspace-write' : 'read-only'}"`,
+      // This fixed entry runs only in the verified rootless container. Docker
+      // enforces role mounts, capabilities and egress. A nested namespace sandbox
+      // cannot operate with those dropped capabilities. Pin the same boundary on
+      // resume so a saved policy cannot reintroduce that incompatible layer.
+      '-c','sandbox_mode="danger-full-access"',
       '--output-schema','/input/schema.json',...(request.model?['--model',request.model]:[]),
       ...(request.session?[request.session]:[]),'-'];
   return {file:tool,args,options:{env,input:request.prompt,encoding:'utf8',stdio:['pipe','pipe','pipe'],

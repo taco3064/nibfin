@@ -248,8 +248,8 @@ test('AC2/5: fixed Codex invocation and adapter attach timeout preserve separate
     const c=codexInvocation({access,prompt:'$(touch /escape)',timeout:50});
     assert.equal(c.file,'/usr/local/bin/codex');
     assert.deepEqual(c.args,['--no-daemon','--ask-for-approval','never','exec','--ignore-user-config','--ignore-rules',
-      '--skip-git-repo-check','--json','--cd','/work','--sandbox',access==='write'?'workspace-write':'read-only',
-      '-c','model_instructions_file="/input/instructions.md"','-c',`sandbox_mode="${access==='write'?'workspace-write':'read-only'}"`,
+      '--skip-git-repo-check','--json','--cd','/work','--sandbox','danger-full-access',
+      '-c','model_instructions_file="/input/instructions.md"','-c','sandbox_mode="danger-full-access"',
       '--output-schema','/input/schema.json','-']);
     assert.equal(c.options.input,'$(touch /escape)');assert.equal(c.options.killSignal,'SIGKILL');
     assert.deepEqual(c.options.env,{HTTP_PROXY:'http://nibfin-egress:8080',HTTPS_PROXY:'http://nibfin-egress:8080',NODE_USE_ENV_PROXY:'1',NO_PROXY:'',PATH:'/usr/local/bin:/usr/bin:/bin',HOME:'/tmp/home',CODEX_HOME:'/tmp/home/.codex'});

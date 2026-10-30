@@ -797,7 +797,7 @@
     },
     {
       "path": "src/rescue-session.mjs",
-      "sha256": "294ae53d0ec804d4e16303fe4ad8e892e8e3259dec0d05ae7138faf902348c18"
+      "sha256": "149affe05c84a6acbec701b371144b469bb0629a265ca9518402fdc5b65c5cf8"
     },
     {
       "path": "src/rescue-wakeup.mjs",

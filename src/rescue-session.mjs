@@ -3,7 +3,7 @@ import {resolve,join,dirname} from 'node:path';
 import {byteDigest,contentIdentity} from './evidence.mjs';
 import {hasSessionData,sessionId} from './role-session.mjs';
 import {rescueNeed as need} from './rescue-policy.mjs';
-const roles=['shape','shape-validator','deliver','accept','shaper-review'];
+const roles=['shape','shape-validator','shape-diagnosis','deliver','accept','shaper-review'];
 function directory(path) {
   need(typeof path==='string'&&resolve(path)===path&&realpathSync(path)===path,'session-directory');
   let p=path;while(p!=='/'){need(!lstatSync(p).isSymbolicLink(),'session-symlink');p=dirname(p);}

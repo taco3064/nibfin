@@ -241,3 +241,23 @@ test('result retention failure preserves the original reconciliation request aft
   assert.deepEqual(await f.execute(out.resolution),{status:'unresolved',request:f.input.nibfin_request,reason:'result-reconciliation-required'});
   assert.equal(f.sh.records.length,1);assert.notEqual((await f.execute(out.resolution)).status,'completed');assert.equal(f.sh.records.length,1);
 });
+
+
+test('repository-local physical pools queue a native member Job before any Runner registration exists',()=>{
+ const targets=Array.from({length:10},(_,i)=>({version:1,repository:'example/project-'+i,repositoryId:String(100+i),ownerId:'7',ownerType:'User'}));
+ const pool={version:2,id:'member-default',capacity:6,targets};
+ for(const target of targets){
+  const plan=workflowInstallation({commit:'a'.repeat(40),hostRepository:'taco3064/nibfin',hostCommit:'b'.repeat(40),executionPool:pool,repository:target.repository});
+  const caller=parse(plan.files.get('.github/workflows/nibfin-stage.yml')),member=parse(plan.files.get(delivery));
+  assert.deepEqual(Object.keys(caller.jobs),['stage']);assert.equal(caller.jobs.stage.uses,'./'+delivery);
+  assert.equal(caller.jobs.stage.with.nibfin_member,'${{ inputs.nibfin_member }}');
+  assert.equal(caller['run-name'],"#${{ inputs.nibfin_issue }} | ${{ inputs.nibfin_stage }} | op:${{ inputs.nibfin_correlation }}");
+  assert.deepEqual(Object.keys(member.jobs),['execute']);assert.deepEqual(member.permissions,{});
+  const job=member.jobs.execute;assert.deepEqual(job.permissions,{});
+  assert.deepEqual(job['runs-on'],['self-hosted','linux','x64','nibfin-user-${{ inputs.nibfin_member }}','nibfin-request-${{ inputs.nibfin_request }}']);
+  assert.equal(job.steps.length,1);assert.equal(job.steps[0].run,'/usr/local/bin/node "$HOME/.local/share/nibfin/control/runtime/client/native-stage-main.mjs"');
+  assert.equal(job.steps[0].env.NIBFIN_REPOSITORY,'${{ github.repository }}');
+  assert.equal(member.concurrency['cancel-in-progress'],false);assert.equal(member.concurrency.queue,'max');
+  assert.equal(JSON.stringify(member).includes('secrets.'),false);assert.equal(JSON.stringify(caller).includes('ubuntu-latest'),false);
+ }
+});

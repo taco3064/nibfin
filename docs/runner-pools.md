@@ -37,7 +37,13 @@ records. Preserve pending candidates, conversations, grants and unknown writes.
 
 Current source provides version 2 configuration, repository-local workflow plans,
 context checks and a capacity allocator. These do not constitute the live
-registration/dispatch adapter. Native service assembly, actual Job admission,
+registration/dispatch adapter. The protected `createRunnerPoolHost` owner now
+retains preparation, JIT registration, admission, launch and cleanup intents. It
+registers in the authenticated Job's project, reconciles a lost launch reply
+against the existing process, and retains the original Job result before cleanup.
+An unknown registration result keeps the slot; it never authorizes a second POST.
+Its blocked-event notification is not an AI diagnosis or a repair verdict.
+Native service assembly, actual Job admission,
 registration cleanup, recovery notifications and original-work reconciliation
 must be integrated and verified before activation. No six-slot/ten-project live
 execution or completed takeover is claimed by source fixtures.

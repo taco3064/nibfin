@@ -43,6 +43,9 @@ registers in the authenticated Job's project, reconciles a lost launch reply
 against the existing process, and retains the original Job result before cleanup.
 An unknown registration result keeps the slot; it never authorizes a second POST.
 Its blocked-event notification is not an AI diagnosis or a repair verdict.
+Current Issue eligibility authorizes launch, not cleanup. A closed or revised
+Issue stops new registration/start; independently authenticated completed Jobs
+can still retain their outcome, remove their registration and release the slot.
 Native service assembly, actual Job admission,
 registration cleanup, recovery notifications and original-work reconciliation
 must be integrated and verified before activation. No six-slot/ten-project live

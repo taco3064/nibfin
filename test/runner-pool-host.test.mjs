@@ -13,7 +13,7 @@ function fixture(capacity=2){
  }},observeRelease:async lease=>({lease:lease.identity,processTerminated:!flags.running,registrationRemoved:!runners.has(lease.request.id),cleanupConfirmed:flags.cleanup})});
  const request=i=>({id:'request-'+i,repository:'example/project-'+i,repositoryId:String(100+i),jobId:String(200+i),runId:String(300+i),attempt:'1'});
  const source={inspect:async id=>{const i=Number(id.slice(8)),r=request(i);return {authorized:!flags.denied,request:r,
-  identity:core.contentIdentity({r,revision:flags.changed?'changed':'original'}),memberId:'7',issue:'55',stage:'deliver',status:'queued'};},
+  identity:core.contentIdentity({r,revision:flags.changed?'changed':'original'}),memberId:'7',issue:'55',stage:'deliver',status:'queued',launchAuthorized:!flags.launchDenied};},
   blocked:async value=>{blocks.push(value);return{status:'retained'};}};
  const provider=core.createGithubProvider({attempts:1,authorize:r=>r.operation==='runner-pool'&&['POST','DELETE'].includes(r.method),transport:async r=>{
   calls.push(r);const match=r.endpoint.match(/project-([0-9]+)/),id='request-'+match[1];
@@ -57,6 +57,15 @@ test('blocked notifications preserve the attributable HTTP cause without raw pro
  assert.equal(f.blocks[0].provider.diagnostic.status,403);assert.equal(f.blocks[0].provider.diagnostic.kind,'denied');
  assert.ok(!JSON.stringify(f.blocks).includes('PRIVATE-PROVIDER-DETAIL'));assert.equal(f.flags.starts,undefined);
  assert.equal(Object.keys(f.allocation().leases).length,1);assert.equal(result.diagnosis,undefined);
+});
+
+test('closed or revised Issues stop new work but cannot prevent verified termination and capacity cleanup',async()=>{
+ const denied=fixture();denied.flags.launchDenied=true;
+ assert.equal((await denied.make().advance('request-0')).status,'unresolved');assert.equal(denied.calls.length,0);
+ assert.equal(Object.keys(denied.allocation().leases).length,0);
+ const completed=fixture();await completed.make().advance('request-0');completed.flags.launchDenied=true;completed.flags.running=false;
+ assert.equal((await completed.make().advance('request-0')).status,'released');
+ assert.equal(completed.flags.starts,1);assert.equal(completed.retained.length,1);assert.equal(Object.keys(completed.allocation().leases).length,0);
 });
 
 test('lost launch acknowledgement adopts the actual running process instead of launching a duplicate',async()=>{

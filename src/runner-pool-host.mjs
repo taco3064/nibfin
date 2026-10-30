@@ -43,16 +43,20 @@ export function createRunnerPoolHost({configuration,memberId,capacity,records,so
   try{
    const approved=await source.inspect(id,{signal});
    need(approved?.authorized===true&&hash(approved.identity)&&approved.memberId===memberId&&validDisplayStage(approved.stage)
+    &&(approved.launchAuthorized===undefined||typeof approved.launchAuthorized==='boolean')
     &&/^[1-9][0-9]*$/.test(approved.issue),'source');
    const request=approved.request;need(request.id===id&&pool.targets.some(t=>t.repository===request.repository&&t.repositoryId===request.repositoryId),'target');
-   const fresh=async()=>{need(!signal?.aborted,'cancelled');const current=await source.inspect(id,{signal});
+   const fresh=async({launch=false}={})=>{need(!signal?.aborted,'cancelled');const current=await source.inspect(id,{signal});
     need(current.authorized===true&&current.identity===approved.identity&&current.memberId===memberId&&same(current.request,request)
-     &&current.issue===approved.issue&&current.stage===approved.stage,'source-changed');return current;};
+     &&(current.launchAuthorized===undefined||typeof current.launchAuthorized==='boolean')
+     &&current.issue===approved.issue&&current.stage===approved.stage,'source-changed');
+    if(launch)need(current.launchAuthorized!==false,'launch-no-longer-authorized');return current;};
    record=await records.read(id);
    if(record){validate(record,request);need(record.sourceIdentity===approved.identity,'source-changed');
     if(record.phase==='released')return {status:'released',slot:record.lease.slot};}
    else{
-    need(approved.status==='queued','not-queued');const reserved=await capacity.reserve(request);
+    need(approved.status==='queued','not-queued');need(approved.launchAuthorized!==false,'launch-no-longer-authorized');
+    const reserved=await capacity.reserve(request);
     if(reserved.status==='waiting')return reserved;
     need(['reserved','retained'].includes(reserved.status),'allocation');
     record={version:1,request,memberId,lease:reserved.lease,runnerName:'nibfin-'+reserved.lease.identity.slice(0,40),
@@ -69,7 +73,7 @@ export function createRunnerPoolHost({configuration,memberId,capacity,records,so
    };
    const root='/repos/'+request.repository;
    if(record.phase==='prepared'){
-    await fresh();record=await save(record,{phase:'registration-intent'});
+    await fresh({launch:true});record=await save(record,{phase:'registration-intent'});
     const response=await api('POST',root+'/actions/runners/generate-jitconfig',{name:record.runnerName,runner_group_id:1,
      labels:['self-hosted','linux','x64',memberRunnerLabel(memberId),'nibfin-request-'+id],work_folder:'_work'});
     need(response.outcome==='submitted','registration-unconfirmed');const r=response.data?.runner;
@@ -80,11 +84,11 @@ export function createRunnerPoolHost({configuration,memberId,capacity,records,so
     record=await save(record,{phase:'issued',runnerId:r.id,configuration:stored.identity});
    }
    if(record.phase==='issued'){
-    await fresh();const checked=await runtime.installAdmission(record,{signal});need(checked?.status==='installed'&&hash(checked.identity),'admission');
+    await fresh({launch:true});const checked=await runtime.installAdmission(record,{signal});need(checked?.status==='installed'&&hash(checked.identity),'admission');
     record=await save(record,{phase:'admitted',admission:checked.identity});
    }
    if(record.phase==='admitted'){
-    await fresh();record=await save(record,{phase:'launch-intent'});
+    await fresh({launch:true});record=await save(record,{phase:'launch-intent'});
     const started=await runtime.start(record,{signal});need(started?.status==='started'&&started.lease===record.lease.identity,'launch-unconfirmed');
     record=await save(record,{phase:'active'});
    }

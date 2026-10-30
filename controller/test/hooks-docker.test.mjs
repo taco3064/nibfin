@@ -10,7 +10,7 @@ import {digest} from '../src/core.mjs';
 
 // Explicit local Docker verification; ordinary CI does not assume Docker or
 // silently download an unpinned execution image.
-const image=process.env.KAIRO_HOOK_TEST_IMAGE;
+const image=process.env.UPSTREAM_HOOK_TEST_IMAGE;
 for(const [name,event,script,expected] of [
   ['index-only mutation','pre-commit','git update-index --force-remove extra.txt\n','failed'],
   ['message-only mutation','commit-msg','printf "rewritten\\n" > "$1"\n','failed'],
@@ -18,7 +18,7 @@ for(const [name,event,script,expected] of [
   ['unchanged hook','pre-commit','git diff --cached --name-only | grep -qx extra.txt\n','passed'],
   ['incorrect staged inventory','pre-commit','exit 0\n','failed'],
 ]) test(`real Git/Docker hook fidelity: ${name}`,{skip:!image},async t=>{
-  const root=await mkdtemp(join(tmpdir(),'kairo-hook-fidelity-'));
+  const root=await mkdtemp(join(tmpdir(),'nibfin-hook-fidelity-'));
   t.after(()=>rm(root,{recursive:true,force:true}));
   const seed=join(root,'seed');await mkdir(seed);
   const git=async args=>(await command('git',args,{cwd:seed})).stdout.trim();

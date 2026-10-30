@@ -1,4 +1,4 @@
-// Adapted from Kairo d1b47d5e073cf15bdcdc1fbbec098401649878d9. No deployed repository allowlist.
+// Adapted from upstream d1b47d5e073cf15bdcdc1fbbec098401649878d9. No deployed repository allowlist.
 // Trusted host service: arguments, never participant shell/environment/credentials.
 import http from 'node:http';
 import {chmod, lstat} from 'node:fs/promises';

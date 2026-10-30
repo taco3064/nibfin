@@ -1,6 +1,6 @@
 ---
 name: rescue
-description: Diagnose a stopped Kairo Issue execution and propose a bounded repair through its original role using preserved work and fault evidence. This role does not modify the host, publish changes or approve delivery.
+description: Diagnose a stopped upstream Issue execution and propose a bounded repair through its original role using preserved work and fault evidence. This role does not modify the host, publish changes or approve delivery.
 ---
 
 # Diagnose and recover a stopped execution

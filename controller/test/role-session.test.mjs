@@ -8,7 +8,7 @@ import {CodexAgent} from '../src/agent.mjs';
 const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222222222';
 const ctx={issue:{id:'I_A',repository:'owner/repo',scopeHash:'scope'},binding:{policyHash:'approved'}};
 test('Shaper resumes for review; original Deliver resumes through CI and base repairs; role and Issue stores are isolated',async t=>{
- const root=await mkdtemp(join(tmpdir(),'kairo-sessions-'));t.after(()=>rm(root,{recursive:true}));
+ const root=await mkdtemp(join(tmpdir(),'nibfin-sessions-'));t.after(()=>rm(root,{recursive:true}));
  const first=async (stage,id)=>withRoleSession(root,stage,ctx,async s=>{assert.equal(s.id,null);await writeFile(join(s.directory,'rollout-'+id+'.jsonl'),'session');return {session:{id},executionId:stage};});
  await first('shape',A);await first('deliver',B);
  for(const stage of ['shaper-review','deliver','deliver'])await withRoleSession(root,stage,ctx,async s=>{assert.equal(s.id,stage==='deliver'?B:A);return {session:{id:s.id},executionId:stage};});
@@ -16,7 +16,7 @@ test('Shaper resumes for review; original Deliver resumes through CI and base re
  await withRoleSession(root,'accept',ctx,async s=>{assert.equal(s,null)});
 });
 test('failed or missing session cannot silently start another conversation',async t=>{
- const root=await mkdtemp(join(tmpdir(),'kairo-session-fail-'));t.after(()=>rm(root,{recursive:true}));
+ const root=await mkdtemp(join(tmpdir(),'nibfin-session-fail-'));t.after(()=>rm(root,{recursive:true}));
  await assert.rejects(withRoleSession(root,'deliver',ctx,async()=>{throw Error('uncertain')}),/uncertain/);
  await assert.rejects(withRoleSession(root,'deliver',ctx,()=>assert.fail()),/recovery/);
  assert.equal(sessionIdFromEvents(JSON.stringify({type:'thread.started',thread_id:A})),A);

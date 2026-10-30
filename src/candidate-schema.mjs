@@ -1,5 +1,5 @@
-// Adapted from taco3064/kairo@d1b47d5e073cf15bdcdc1fbbec098401649878d9.
-// See docs/kairo-reuse.md for ownership, adapters and deviations.
+// Adapted from retired-private-source@d1b47d5e073cf15bdcdc1fbbec098401649878d9.
+// See docs/nibfin-reuse.md for ownership, adapters and deviations.
 // Strict validation for the JSON Schema vocabulary used by stage results.
 // Reject unsupported keywords rather than silently ignoring new constraints.
 export function validateSchema(value, schema, path = '$') {

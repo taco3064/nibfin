@@ -7,7 +7,7 @@ import { runHooks } from '../src/hooks.mjs';
 import { fixture, shape, deliver, NOW } from './fixtures.mjs';
 import { plan, digest } from '../src/core.mjs';
 
-const block = value => '```kairo-candidate\n' + JSON.stringify(value) + '\n```\n';
+const block = value => '```nibfin-candidate\n' + JSON.stringify(value) + '\n```\n';
 test('Controller validates the entire nested stage result schema without relying on the Agent', () => {
   const good = {outcome:'changes_required',body:'',summary:'conflict',rootCause:'scope',failureClass:'shape_defect',evidenceReferences:['observed'],blockingFindings:['conflict'],contractConflicts:[{scopeHash:'s',shapeHash:'h',scopeQuote:'a',shapeQuote:'b',explanation:'conflict',evidenceReference:'observed'}]};
   assert.equal(validateSchema(good,resultSchema),good);
@@ -47,7 +47,7 @@ test('Hook sandbox mounts no credentials or controller metadata and confirms tim
   const reviewerEvidence=JSON.parse(JSON.stringify(result));
   assert.equal(reviewerEvidence.commitMessage,gitState.commitMessage);
   assert.equal(reviewerEvidence.messageHash,digest(reviewerEvidence.commitMessage));
-  assert.ok(args.includes('KAIRO_COMMIT_MESSAGE='+reviewerEvidence.commitMessage));
+  assert.ok(args.includes('UPSTREAM_COMMIT_MESSAGE='+reviewerEvidence.commitMessage));
   assert.deepEqual(reviewerEvidence.stagedPaths,gitState.paths);
   assert.equal(reviewerEvidence.stagedPathsVerified,true);
   assert.equal(reviewerEvidence.execution.exitCode,0);

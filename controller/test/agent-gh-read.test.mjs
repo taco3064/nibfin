@@ -32,10 +32,10 @@ test('writes, arbitrary GraphQL, host execution, cross-repo access and traversal
  for(const args of [
   ['issue','edit','190'],['issue','comment','190'],['pr','merge','221'],['pr','checkout','221'],['run','rerun','1'],['workflow','run','core-release.yml'],
   ['auth','token'],['extension','exec','x'],['repo','delete'],['run','download','1'],['release','download','v0.1.0'],
-  ['issue','view','1','--repo','taco3064/kairo'],['issue','view','1','--web'],['issue','view','1','--search','repo:private'],
+  ['issue','view','1','--repo','retired-private-source'],['issue','view','1','--web'],['issue','view','1','--search','repo:private'],
   ['issue','view','1','--json','projectItems'],['issue','view','https://github.com/private/repo/issues/1'],['pr','view'],
-  ['api','graphql'],['api','repos/taco3064/kairo/issues'],['api','repos/taco3064/nibfin/issues','-X','POST'],
-  ['api','repos/taco3064/nibfin/../../kairo/issues'],['api','repos/taco3064/nibfin/contents/%2e%2e'],
+  ['api','graphql'],['api','repos/retired-private-source/issues'],['api','repos/taco3064/nibfin/issues','-X','POST'],
+  ['api','repos/taco3064/nibfin/../../nibfin/issues'],['api','repos/taco3064/nibfin/contents/%2e%2e'],
   ['api','repos/taco3064/nibfin/actions/secrets'],['api','repos/taco3064/nibfin/issues','--header','Authorization: bad'],
   ['issue','list','--limit','999'],['issue','view','1','--json','title\n--web'],
   ['api','repos/taco3064/nibfin','--jq','env'],['issue','view','1','--jq','include "file"; .'],

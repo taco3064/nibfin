@@ -4,7 +4,7 @@ import {chmod, lstat} from 'node:fs/promises';
 import {pathToFileURL} from 'node:url';
 import {command} from './process.mjs';
 import {ghEnvironment} from './gh-cli.mjs';
-export const githubReadDirectory='/run/kairo-github-read';
+export const githubReadDirectory='/run/nibfin-github-read';
 export const githubReadRepositories=['taco3064/nibfin','taco3064/gh-nibfin','taco3064/nibfin-action'];
 const fields={
  'issue view':'number,title,body,state,stateReason,url,author,labels,assignees,milestone,comments,createdAt,updatedAt,closedAt,id',
@@ -61,7 +61,7 @@ export function createGithubReadService(run=command){
   try{
    let size=0,parts=[];for await(const part of req){size+=part.length;if(size>16384)throw Error('gh-read: request too large');parts.push(part);}
    const request=githubReadRequest(JSON.parse(Buffer.concat(parts))),host=ghEnvironment();
-   const env={PATH:host.PATH,HOME:host.HOME,GH_HOST:'github.com',GH_PROMPT_DISABLED:'1',GH_PAGER:'cat',GH_NO_UPDATE_NOTIFIER:'1',XDG_CACHE_HOME:'/tmp/kairo-gh-read-cache'};
+   const env={PATH:host.PATH,HOME:host.HOME,GH_HOST:'github.com',GH_PROMPT_DISABLED:'1',GH_PAGER:'cat',GH_NO_UPDATE_NOTIFIER:'1',XDG_CACHE_HOME:'/tmp/nibfin-gh-read-cache'};
    const settings={env,cwd:'/',timeout:30000,limit:16*1024*1024};
    if(request.repository){const observed=JSON.parse((await run('gh',['api','repos/'+request.repository,'--jq','{full_name,private}'],settings)).stdout);if(observed.private!==false||observed.full_name!==request.repository)throw Error('gh-read: repository must remain the exact approved public repository');}
    const result=await run('gh',request.args,settings);send(200,{stdout:result.stdout,stderr:'',exitCode:0});

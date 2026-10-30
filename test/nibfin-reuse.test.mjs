@@ -13,7 +13,7 @@ import {candidateCheckpoint} from '../src/runtime.mjs';
 import {nextDeliveryStage} from '../src/delivery-planner.mjs';
 import {createGithubProvider,captureWorkspace} from '../src/index.mjs';
 const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222222222';
-const block=value=>'```kairo-candidate\n'+JSON.stringify(value)+'\n```\n';
+const block=value=>'```nibfin-candidate\n'+JSON.stringify(value)+'\n```\n';
 test('upstream candidate schema rejects omitted/extra inventory, unsupported events and unsafe paths',()=>{
   const valid={artifacts:[{path:'out/report.json',purpose:'AC1'}],hooks:[{path:'.githooks/pre-commit',event:'pre-commit'}]};
   assert.deepEqual(candidateContract(block(valid)),valid);

@@ -123,9 +123,9 @@ Scope. Do not repair portfolio design under Shape authority.
 
 ## Required Candidate inventory
 
-Every ready Shape body contains exactly one fenced `kairo-candidate` JSON block:
+Every ready Shape body contains exactly one fenced `nibfin-candidate` JSON block:
 
-```kairo-candidate
+```nibfin-candidate
 {"artifacts":[],"hooks":[]}
 ```
 
@@ -180,7 +180,7 @@ head, authority or Scope makes old conclusions insufficient.
 
 When `repositoryControls.ciMode` is `github-repository`, pending, absent or
 incomplete CI does not block Review. GitHub settings enforce required CI at merge.
-Never claim CI passed without evidence. Where Kairo owns that gate, use its
+Never claim CI passed without evidence. Where upstream owns that gate, use its
 supplied exact-head checks and policy. Do not poll CI or impose a stronger gate
 than the trusted runtime specifies.
 

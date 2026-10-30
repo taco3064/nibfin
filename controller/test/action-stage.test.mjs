@@ -37,7 +37,7 @@ test('Issue mutation boundaries wait for native event unless an exact fallback c
 });
 
 test('independent action capacity is bounded and never retries a nested partial execution', async t => {
-  const root = await mkdtemp(join(tmpdir(), 'kairo-capacity-')); t.after(() => rm(root, { recursive: true }));
+  const root = await mkdtemp(join(tmpdir(), 'nibfin-capacity-')); t.after(() => rm(root, { recursive: true }));
   const grant = { policy: { grantId: 'g1', maxParallel: 2 } };
   let releaseA, releaseB;
   const a = withActionCapacity(root, grant, () => new Promise(resolve => releaseA = resolve));

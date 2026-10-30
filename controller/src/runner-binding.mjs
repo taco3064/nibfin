@@ -1,7 +1,7 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { readFile, writeFile, rename, open, unlink } from 'node:fs/promises';
 import { canonical } from './core.mjs';
-import { verifyKairoOwner } from './owner-identity.mjs';
+import { verifyupstreamOwner } from './owner-identity.mjs';
 
 const fail = message => { throw new Error(`Runner binding: ${message}`); };
 export const rootIdentity = root => createHash('sha256').update(root).digest('hex');
@@ -9,10 +9,10 @@ export function validateBinding(b) {
   if (!b || Object.keys(b).sort().join(',') !== 'bindingId,ownerId,repository,repositoryId,runnerId,workflowBlob,workflowPath' ||
       !/^[\w.-]+\/[\w.-]+$/.test(b.repository) || !/^[a-zA-Z0-9_-]{16,80}$/.test(b.bindingId) ||
       !/^[\w.-]{1,80}$/.test(b.runnerId) || !/^[1-9]\d*$/.test(b.repositoryId) || !/^[1-9]\d*$/.test(b.ownerId) ||
-      b.workflowPath !== '.github/workflows/kairo.yml' || !/^[a-f0-9]{40}$/.test(b.workflowBlob)) fail('invalid descriptor');
+      b.workflowPath !== '.github/workflows/nibfin.yml' || !/^[a-f0-9]{40}$/.test(b.workflowBlob)) fail('invalid descriptor');
   return b;
 }
-export const bindingSecret = (root, b) => createHmac('sha256', root).update(`kairo-binding-v1\n${canonical(validateBinding(b))}`).digest('hex');
+export const bindingSecret = (root, b) => createHmac('sha256', root).update(`nibfin-binding-v1\n${canonical(validateBinding(b))}`).digest('hex');
 export async function createRoot(path) {
   const root = randomBytes(32);
   await writeFile(path, root.toString('hex'), { flag: 'wx', mode: 0o600 });
@@ -20,7 +20,7 @@ export async function createRoot(path) {
 }
 export async function readBindings(config, policy) {
   if (!config.publicRunner || !policy.publicRunner) fail('explicit public execution policy required');
-  if (!config.kairoOwnerGitHubUserId || config.kairoOwnerGitHubUserId !== policy.kairoOwnerGitHubUserId) fail('Kairo Owner policy mismatch');
+  if (!config.nibfinOwnerGitHubUserId || config.nibfinOwnerGitHubUserId !== policy.nibfinOwnerGitHubUserId) fail('upstream Owner policy mismatch');
   const raw = (await readFile(config.publicRunner.rootKeyPath, 'utf8')).trim();
   if (!/^[a-f0-9]{64}$/.test(raw)) fail('invalid local root key');
   const root = Buffer.from(raw, 'hex');
@@ -30,21 +30,21 @@ export async function readBindings(config, policy) {
   const bindings = {};
   for (const [repository, approved] of Object.entries(policy.publicRunner.bindings || {})) {
     validateBinding(approved);
-    if (approved.ownerId !== config.kairoOwnerGitHubUserId) fail('binding does not belong to Kairo Owner');
+    if (approved.ownerId !== config.nibfinOwnerGitHubUserId) fail('binding does not belong to upstream Owner');
     const matches = registry.bindings.filter(r => r.binding?.repository === repository && r.active === true);
     if (matches.length !== 1 || canonical(matches[0].binding) !== canonical(approved) || approved.runnerId !== config.runnerId || approved.repository !== repository) fail('revoked, rotated or mismatched repository binding');
-    bindings[repository] = { binding: approved, secret: bindingSecret(root, approved), kairoOwnerGitHubUserId: config.kairoOwnerGitHubUserId };
+    bindings[repository] = { binding: approved, secret: bindingSecret(root, approved), nibfinOwnerGitHubUserId: config.nibfinOwnerGitHubUserId };
   }
   return bindings;
 }
 export function validatePublicPolicy(policy) {
   if (!policy.publicRunner) return;
   const p = policy.publicRunner;
-  if (typeof policy.kairoOwnerGitHubUserId !== 'string' || !/^[1-9]\d*$/.test(policy.kairoOwnerGitHubUserId)) fail('signed Kairo Owner identity required');
+  if (typeof policy.nibfinOwnerGitHubUserId !== 'string' || !/^[1-9]\d*$/.test(policy.nibfinOwnerGitHubUserId)) fail('signed upstream Owner identity required');
   if (!/^[a-f0-9]{64}$/.test(p.rootId) || !p.bindings || !Object.keys(p.bindings).length) fail('invalid public policy');
   for (const [repository, b] of Object.entries(p.bindings)) {
     validateBinding(b);
-    if (b.repository !== repository || b.runnerId !== policy.runnerId || !policy.repositories?.[repository] || b.ownerId !== policy.kairoOwnerGitHubUserId) fail('binding outside grant or Kairo Owner');
+    if (b.repository !== repository || b.runnerId !== policy.runnerId || !policy.repositories?.[repository] || b.ownerId !== policy.nibfinOwnerGitHubUserId) fail('binding outside grant or upstream Owner');
   }
 }
 async function registryLock(config, work) {
@@ -57,11 +57,11 @@ export function enrollBinding(config, github, repository, secretOutput, expected
   return registryLock(config, () => enrollBindingUnlocked(config, github, repository, secretOutput, expectedWorkflow));
 }
 async function enrollBindingUnlocked(config, github, repository, secretOutput, expectedWorkflow) {
-  const ownerId = await verifyKairoOwner(github, config);
+  const ownerId = await verifyupstreamOwner(github, config);
   const repo = await github.repository(repository);
   const owner = await github.api('/user');
-  if (repo.private || repo.owner?.type !== 'User' || owner.type !== 'User' || String(repo.owner?.id) !== ownerId || String(owner.id) !== ownerId || !repo.permissions?.admin) fail('public Kairo Owner-admin repository required');
-  const workflowPath = '.github/workflows/kairo.yml';
+  if (repo.private || repo.owner?.type !== 'User' || owner.type !== 'User' || String(repo.owner?.id) !== ownerId || String(owner.id) !== ownerId || !repo.permissions?.admin) fail('public upstream Owner-admin repository required');
+  const workflowPath = '.github/workflows/nibfin.yml';
   const file = await github.api(`/repos/${repository}/contents/${workflowPath}?ref=${encodeURIComponent(repo.default_branch)}`);
   if (!expectedWorkflow || file.encoding !== 'base64' || Buffer.from(file.content, 'base64').toString('utf8') !== expectedWorkflow) fail('install the exact hosted caller template before binding');
   const b = validateBinding({ runnerId: config.runnerId, repository, repositoryId: String(repo.id), ownerId: String(owner.id), bindingId: randomBytes(16).toString('hex'), workflowPath, workflowBlob: file.sha });

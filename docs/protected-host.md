@@ -7,7 +7,7 @@ the onboarding design. Version 2 native registration/host assembly remains pendi
 The maintained entry is `host/entry.mjs` in `taco3064/nibfin`. It has a separate,
 dependency-free package and lock. Install that directory with `npm ci
 --ignore-scripts --no-audit --no-fund`. It is also shipped in the Core package;
-no private Kairo runtime or fourth official repository is involved. Installed
+no private upstream runtime or fourth official repository is involved. Installed
 consumers import `configure`, `validateHostOptions` and `hostModes` from
 `@nibfin/core/protected-host`.
 

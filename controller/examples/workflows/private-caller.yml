@@ -1,9 +1,9 @@
-name: Kairo
+name: upstream
 on:
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  kairo:
+  nibfin:
     # Replace CORE_COMMIT_SHA during enrollment with an approved full commit SHA.
-    uses: taco3064/kairo/.github/workflows/kairo.yml@CORE_COMMIT_SHA
+    uses: retired-private-source/.github/workflows/nibfin.yml@CORE_COMMIT_SHA

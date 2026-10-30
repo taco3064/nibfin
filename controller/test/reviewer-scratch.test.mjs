@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { CodexAgent } from '../src/agent.mjs';
 
 test('reviewers can execute disposable test fixtures while the candidate stays read-only',()=>{
-  const agent=new CodexAgent({image:'sha256:'+'a'.repeat(64),network:'kairo-agent-private',user:'1000:1000',authDirectory:'/operator/auth'},'/core','/state');
+  const agent=new CodexAgent({image:'sha256:'+'a'.repeat(64),network:'nibfin-agent-private',user:'1000:1000',authDirectory:'/operator/auth'},'/core','/state');
   const args=agent.args('/candidate','/io',false),scratch=args[args.indexOf('--tmpfs')+1],options=scratch.split(':')[1].split(',');
   assert.equal(scratch.split(':')[0],'/tmp');
   for(const option of ['rw','exec','nosuid','nodev','size=512m'])assert.ok(options.includes(option));

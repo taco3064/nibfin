@@ -2,7 +2,7 @@ import {digest,canonical} from './core.mjs';
 import {createPublicKey,verify} from 'node:crypto';
 import {dockerSecurity} from './docker-security.mjs';
 
-export const runtimeConfigurationHash = config => digest({ runnerId: config.runnerId, agent: config.agent, grantSource: config.grantSource, proposalSource: config.proposalSource || null, credentialFile: config.credentialFile || null, allowedActors: config.allowedActors || [], allowedWorkflowPaths: config.allowedWorkflowPaths || [], ...(config.repairGrantSources ? { repairGrantSources: config.repairGrantSources } : {}), ...(config.controlMode ? {controlMode:config.controlMode} : {}), ...(config.actionExecution ? { actionExecution: config.actionExecution } : {}), ...(config.publicRunner ? { publicRunner: config.publicRunner, kairoOwnerGitHubUserId: config.kairoOwnerGitHubUserId ?? null } : {}) });
+export const runtimeConfigurationHash = config => digest({ runnerId: config.runnerId, agent: config.agent, grantSource: config.grantSource, proposalSource: config.proposalSource || null, credentialFile: config.credentialFile || null, allowedActors: config.allowedActors || [], allowedWorkflowPaths: config.allowedWorkflowPaths || [], ...(config.repairGrantSources ? { repairGrantSources: config.repairGrantSources } : {}), ...(config.controlMode ? {controlMode:config.controlMode} : {}), ...(config.actionExecution ? { actionExecution: config.actionExecution } : {}), ...(config.publicRunner ? { publicRunner: config.publicRunner, nibfinOwnerGitHubUserId: config.nibfinOwnerGitHubUserId ?? null } : {}) });
 
 // A separately signed runtime transition preserves the original Issue/grant identity.
 // Only the daemon socket and its mapped UID may change; all other settings stay pinned.

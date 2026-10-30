@@ -10,8 +10,8 @@ export function safeCandidatePath(path) {
   return typeof path === 'string' && /^[A-Za-z0-9_.-][A-Za-z0-9_./-]*$/.test(path) && path.split('/').every(p => p && !['.', '..', '.git'].includes(p.toLowerCase()));
 }
 export function candidateContract(body) {
-  const blocks = [...(body || '').matchAll(/^```kairo-candidate\r?\n([\s\S]*?)^```\s*$/gm)];
-  if (blocks.length !== 1) throw new Error('Shape must contain exactly one kairo-candidate obligations block');
+  const blocks = [...(body || '').matchAll(/^```nibfin-candidate\r?\n([\s\S]*?)^```\s*$/gm)];
+  if (blocks.length !== 1) throw new Error('Shape must contain exactly one nibfin-candidate obligations block');
   const contract = validateSchema(JSON.parse(blocks[0][1]), candidateContractSchema);
   for (const kind of ['artifacts', 'hooks']) {
     if (new Set(contract[kind].map(x => x.path)).size !== contract[kind].length) throw new Error('Duplicate candidate obligation');

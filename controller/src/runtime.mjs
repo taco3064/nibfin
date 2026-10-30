@@ -22,7 +22,7 @@ import { readBindings } from './runner-binding.mjs';
 import {verifyRescueInvocation} from './rescue-policy.mjs';
 import { verifyOrigin, dispatchGrantIdentity } from './dispatch.mjs';
 import { resumeDynamic, dynamicDoctor } from './dynamic.mjs';
-import { verifyKairoOwner } from './owner-identity.mjs';
+import { verifyupstreamOwner } from './owner-identity.mjs';
 import { verifyActionRun, requireDistinctActionRuns } from './action-provenance.mjs';
 import {runtimeConfigurationHash,verifyRuntimeHardening} from './runtime-configuration.mjs';
 export {runtimeConfigurationHash} from './runtime-configuration.mjs';
@@ -151,18 +151,18 @@ export class Runtime {
       this.executionContext = { kind: 'github-actions', repository: env.GITHUB_REPOSITORY, runId: String(env.GITHUB_RUN_ID), runAttempt: run.run_attempt, jobId: String(job.id), runnerId: job.runner_id, runnerName: job.runner_name, head: run.head_sha, workflowPath: run.path, callerWorkflowBlob: caller.sha, actor: run.actor.login, triggeringActor: run.triggering_actor.login };
     }
     if (grant.policy.publicRunner) {
-      await verifyKairoOwner(this.github, this.config, grant.policy, grant.actor);
+      await verifyupstreamOwner(this.github, this.config, grant.policy, grant.actor);
       const entries = await readBindings(this.config, grant.policy);
       this.publicBindings = entries;
       for (const [repository, entry] of Object.entries(entries)) {
         const live = await this.github.repository(repository);
-        if (live.private || live.owner?.type !== 'User' || String(live.owner.id) !== this.config.kairoOwnerGitHubUserId || String(live.id) !== entry.binding.repositoryId) throw new Error('Public repository is not owned by the anchored Kairo Owner');
+        if (live.private || live.owner?.type !== 'User' || String(live.owner.id) !== this.config.nibfinOwnerGitHubUserId || String(live.id) !== entry.binding.repositoryId) throw new Error('Public repository is not owned by the anchored upstream Owner');
         const file = await this.github.api(`${repoPath(repository)}/contents/${entry.binding.workflowPath}?ref=${encodeURIComponent(live.default_branch)}`);
         if (file.sha !== entry.binding.workflowBlob) throw new Error('Public workflow pin changed');
       }
       if (this.publicDispatch?.kind === 'action-stage') {
         if (grant.policy.executionMode !== 'actions-v1' || !this.actionIdentity) throw new Error('Unverified Actions execution context');
-        this.executionContext = { kind: 'public-runner-dispatch', kairoOwnerGitHubUserId: this.config.kairoOwnerGitHubUserId, runnerName: this.config.runnerId, rootId: grant.policy.publicRunner.rootId, action: this.actionIdentity };
+        this.executionContext = { kind: 'public-runner-dispatch', nibfinOwnerGitHubUserId: this.config.nibfinOwnerGitHubUserId, runnerName: this.config.runnerId, rootId: grant.policy.publicRunner.rootId, action: this.actionIdentity };
       } else if (this.publicDispatch) {
         if (env.GITHUB_REPOSITORY || this.publicDispatch.grantHash !== dispatchGrantIdentity(grant)) throw new Error('Invalid public dispatch execution context');
         const dispatches = [];
@@ -170,7 +170,7 @@ export class Runtime {
           const p = await verifyOrigin(this.github, entry, this.publicDispatch.envelopes?.[repository]);
           dispatches.push({ repository, bindingId: p.bindingId, runId: p.runId, nonce: p.nonce });
         }
-        this.executionContext = { kind: 'public-runner-dispatch', kairoOwnerGitHubUserId: this.config.kairoOwnerGitHubUserId, runnerName: this.config.runnerId, rootId: grant.policy.publicRunner.rootId, dispatches };
+        this.executionContext = { kind: 'public-runner-dispatch', nibfinOwnerGitHubUserId: this.config.nibfinOwnerGitHubUserId, runnerName: this.config.runnerId, rootId: grant.policy.publicRunner.rootId, dispatches };
       }
     }
     if(this.coreUpgrade)this.executionContext.coreUpgrade=this.coreUpgrade;
@@ -239,7 +239,7 @@ export class Runtime {
         console.error(JSON.stringify({kind:'scope-issue-mismatch',repository:issue.repository,number:issue.number,expectedId:issue.id,actualId:remote.node_id,labels:remote.labels.map(l=>l.name)}));
         throw Object.assign(new Error('Original Scope Issue identity or scope label differs'),{code:'SCOPE_ISSUE_CHANGED'});
       }
-      if (!repositories[issue.repository].repository.private && (remote.user?.type !== 'User' || String(remote.user?.id) !== this.config.kairoOwnerGitHubUserId)) throw new Error('Public Scope Issue must be created by the bound owner');
+      if (!repositories[issue.repository].repository.private && (remote.user?.type !== 'User' || String(remote.user?.id) !== this.config.nibfinOwnerGitHubUserId)) throw new Error('Public Scope Issue must be created by the bound owner');
       const dependencies = grant.policy.controlMode === 'owner-project' && stored.merge?.verified ? [] : (await this.github.dependencies(issue)).map(i => i.node_id).sort();
       if (this.dynamicUnit && this.dynamicObservation && canonical(dependencies) !== canonical([...this.dynamicObservation.dependencies].sort())) throw Object.assign(new Error('Native dependencies changed during observation; re-evaluate before execution'), { code: 'DEPENDENCY_CHANGED' });
       if (!this.dynamicUnit && canonical(dependencies) !== canonical([...issue.dependencies].sort())) throw new Error(`Native dependencies changed: ${issue.id}`);
@@ -576,7 +576,7 @@ export class Runtime {
         version: failure.version, commit: failure.commit, prNumber: stored.prNumber, runId: failure.runId, runAttempt: failure.runAttempt,
         jobId: log.jobId, logUrl: log.logUrl, observation: 'The required deployment health/function job failed for this exact recorded version.',
         attribution: 'Provider deployment identity, merge authorization and failed pinned workflow identify this original Issue.', failureProofHash: failure.failureProofHash }, [this.github.token]);
-      const intended = body + `\n<!-- kairo-recovery:${state.pending.decisionId} -->\n`;
+      const intended = body + `\n<!-- nibfin-recovery:${state.pending.decisionId} -->\n`;
       const comments = await this.github.list(`${repoPath(issue.repository)}/issues/${issue.number}/comments`);
       let comment = comments.find(c => c.body === intended);
       if (!comment) {
@@ -586,7 +586,7 @@ export class Runtime {
         comment = await this.github.api(`${repoPath(issue.repository)}/issues/${issue.number}/comments`, 'POST', { body: intended });
       }
       const actual = await this.github.api(`${repoPath(issue.repository)}/issues/comments/${comment.id}`);
-      const writers = grant.policy.actionWriterIds || [grant.policy.kairoOwnerGitHubUserId];
+      const writers = grant.policy.actionWriterIds || [grant.policy.nibfinOwnerGitHubUserId];
       if (actual.body !== intended || !writers.map(String).includes(String(actual.user?.id))) throw new Error('Recovery comment body or event-producing writer readback failed');
       stored.recoveryComment = { commentId: String(actual.id), commentHash: digest(actual.body), createdAt: actual.created_at,
         previousCompletionHash: state.completion.completionHash, previousGrantId: grant.policy.grantId, failureProofHash: failure.failureProofHash,
@@ -597,13 +597,13 @@ export class Runtime {
       if (remote.state === 'closed') await this.github.updateIssue(issue, { state: 'open', state_reason: 'reopened' });
       remote = await this.github.issue(issue);
       const events = await this.github.list(`${repoPath(issue.repository)}/issues/${issue.number}/events`);
-      const writers = grant.policy.actionWriterIds || [grant.policy.kairoOwnerGitHubUserId];
+      const writers = grant.policy.actionWriterIds || [grant.policy.nibfinOwnerGitHubUserId];
       const reopened = events.findLast(e => e.event === 'reopened' && writers.map(String).includes(String(e.actor?.id)) && Date.parse(e.created_at) >= Date.parse(stored.recoveryComment.createdAt));
       if (remote.state !== 'open' || !reopened) throw new Error('Reopen lacks actual Issue event and enrolled event-producing writer readback');
       stored.reopenedReceipt = { eventId: String(reopened.id), actorId: String(reopened.actor.id), at: reopened.created_at, commentHash: stored.recoveryComment.commentHash, action: structuredClone(this.actionIdentity) };
     } else if (operation === 'verify-recovery') {
       const source = await verifyRecoverySource(this.github, issue, stored.recoveryComment, {
-        writerIds: grant.policy.actionWriterIds || [grant.policy.kairoOwnerGitHubUserId], workflow: policy.deployment.workflow,
+        writerIds: grant.policy.actionWriterIds || [grant.policy.nibfinOwnerGitHubUserId], workflow: policy.deployment.workflow,
       });
       stored.recoverySource = { ...source, log: { sha256: source.log.sha256, size: source.log.size }, action: structuredClone(this.actionIdentity) };
     } else if (operation === 'post-merge-repair') {

@@ -26,8 +26,8 @@ async function handoff(hints,attempt='1'){
 }
 
 test('local handoff uses the logged-in gh for private and participant dispatches',async()=>{
- const hints=[{repository:'taco3064/kairo',workflow:'action-stage.yml',ref:'main',requestId:'a'.repeat(64),issueRef:'nibfin#229'},
-  {repository:'taco3064/nibfin',workflow:'kairo.yml',ref:'main',requestId:'b'.repeat(64),issueId:'I_example'}];
+ const hints=[{repository:'retired-private-source',workflow:'action-stage.yml',ref:'main',requestId:'a'.repeat(64),issueRef:'nibfin#229'},
+  {repository:'taco3064/nibfin',workflow:'nibfin.yml',ref:'main',requestId:'b'.repeat(64),issueId:'I_example'}];
  const result=await handoff(hints);assert.deepEqual(result.errors,[]);assert.equal(result.calls.length,2);
  for(let n=0;n<hints.length;n++){
   const call=result.calls[n],hint=hints[n];assert.equal(call.command,'gh');
@@ -37,8 +37,8 @@ test('local handoff uses the logged-in gh for private and participant dispatches
 });
 
 test('local handoff rejects foreign targets and never repeats dispatches on rerun',async()=>{
- for(const [hints,attempt]of[[[{repository:'other/repo',workflow:'kairo.yml',ref:'main',requestId:'a'.repeat(64),issueId:'I_foreign'}],'1'],
-  [[{repository:'taco3064/kairo',workflow:'action-stage.yml',ref:'main',requestId:'a'.repeat(64)}],'2']]){
+ for(const [hints,attempt]of[[[{repository:'other/repo',workflow:'nibfin.yml',ref:'main',requestId:'a'.repeat(64),issueId:'I_foreign'}],'1'],
+  [[{repository:'retired-private-source',workflow:'action-stage.yml',ref:'main',requestId:'a'.repeat(64)}],'2']]){
   const result=await handoff(hints,attempt);assert.equal(result.exitCode,1);assert.equal(result.calls.length,0);assert.equal(result.errors.length,1);
  }
 });

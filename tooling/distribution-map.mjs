@@ -11,7 +11,7 @@ export function distributionMap(){
       reviewedNibfinBaseline:{repository:'taco3064/nibfin',commit:'36bfe080e375da2a7beb6d2b9bc87bebc8c06f2d',path:'controller',pullRequests:[239,240]},
       jobAdmission:{repository:'taco3064/nibfin',commit:'6d8c3016923e0895dcecc6f462f47f33b035be4a',pullRequest:243,
         evidence:'https://github.com/taco3064/nibfin/pull/243',evidenceKind:'upstream-only'},
-      details:'docs/kairo-reuse.md',
+      details:'docs/nibfin-reuse.md',
       inputs:distributionOwners.filter(o=>o.input).map(o=>({responsibility:o.responsibility,path:o.input.startsWith('docs/')?o.input:'controller/'+o.input,
         sha256:releaseHash(readFileSync(o.input.startsWith('docs/')?o.input:'controller/'+o.input)),historicalSha256:donor.files.find(f=>f.path===o.input)?.sha256??null}))},
     files:[...new Set(['package.json','README.md',...JSON.parse(readFileSync('package.json')).files])].sort().filter(path=>path!=='src/distribution-map.json').map(path=>({path,sha256:releaseHash(readFileSync(path))}))};

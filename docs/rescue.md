@@ -1,6 +1,6 @@
 # Rescue source integration
 
-Nibfin retains Kairo's bounded recovery mechanisms in the public Core. Recovery
+Nibfin retains upstream's bounded recovery mechanisms in the public Core. Recovery
 metadata uses the existing protected host state/custody owner through
 `createRescueRecords`; it is not delivery evidence or another scheduler.
 `createRescueHost` attaches to the existing relay. It authenticates the exact

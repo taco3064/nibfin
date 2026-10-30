@@ -14,7 +14,7 @@ export async function detectRescueSource(runtime,grant,event){
   const limit=16*1024*1024,bytes=await runtime.github.download('/repos/'+policy.repository+'/actions/jobs/'+jobs[0].id+'/logs',limit);
   if(bytes.length>limit)throw rescueStop('RESCUE_SOURCE_INVALID','Oversized Core log');
   for(const line of bytes.toString('utf8').split('\n')){
-   const match=/^(?:\d{4}-\d\d-\d\dT\S+\s+)?(\{"kind":"kairo-rescue-(?:request|resume-observed)".*\})\r?$/.exec(line);
+   const match=/^(?:\d{4}-\d\d-\d\dT\S+\s+)?(\{"kind":"nibfin-rescue-(?:request|resume-observed)".*\})\r?$/.exec(line);
    if(!match)continue;
    try{const item=JSON.parse(match[1]);if(String(item.runId)===String(source.id))marker=item;}catch{}
   }

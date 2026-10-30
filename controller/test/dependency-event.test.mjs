@@ -8,11 +8,11 @@ import { dependencyWebhookSecret, relayDependencyEvent } from '../src/dependency
 import { createActionRelayServer } from '../src/action-relay.mjs';
 
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), 'kairo-dependency-')); t.after(() => rm(root, { recursive: true }));
+  const root = await mkdtemp(join(tmpdir(), 'nibfin-dependency-')); t.after(() => rm(root, { recursive: true }));
   const entry = { secret: 'aa'.repeat(32), binding: { repository: 'owner/repo', repositoryId: '1', ownerId: '7' } };
   const payload = { action: 'blocked_by_removed', repository: { full_name: 'owner/repo', id: 1, owner: { id: 7 } }, sender: { id: 7 }, blocked_issue: { number: 4, node_id: 'I_D' } };
   let writes = 0, lost = false;
-  const context = { entry, stateDirectory: root, execution: { repository: 'taco3064/kairo', workflowPath: '.github/workflows/action-stage.yml', ref: 'main' }, github: { api: async (path,method,body) => {
+  const context = { entry, stateDirectory: root, execution: { repository: 'retired-private-source', workflowPath: '.github/workflows/action-stage.yml', ref: 'main' }, github: { api: async (path,method,body) => {
     if (method === 'POST') { writes++; assert.deepEqual(body.inputs, { issue_id: 'I_D',issue_ref:'repo#4' }); if (lost) throw Error('response lost'); return {}; }
     if (path === '/user') return { id: 7, type: 'User' };
     return { node_id: 'I_D', user: { id: 7 }, labels:[{name:'scope'}] };

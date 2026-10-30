@@ -2,7 +2,7 @@ import {appendFile} from 'node:fs/promises';
 import {digest} from './core.mjs';
 import {waitForActionIdentity} from './action-identity.mjs';
 
-export const rescueWorkflow='.github/workflows/kairo-rescue.yml';
+export const rescueWorkflow='.github/workflows/nibfin-rescue.yml';
 export const positive=value=>/^[1-9]\d{0,19}$/.test(String(value??''));
 export const hash=value=>/^[a-f0-9]{64}$/.test(value??'');
 export const rescueStop=(code,reason)=>Object.assign(Error(reason),{code});
@@ -21,11 +21,11 @@ export function validateRescueAssistance(value){
 export function cleanRescueText(value){return String(value??'').slice(0,6000).replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g,'?').replace(/\bgh[pousr]_[A-Za-z0-9_]+\b/g,'[REDACTED]').replace(/\bgithub_pat_[A-Za-z0-9_]+\b/g,'[REDACTED]').replace(/(authorization\s*[:=]\s*)(?:Bearer\s+)?[^\s,]+/ig,'$1[REDACTED]').replace(/([?&](?:token|sig|signature|access_token|jwt)=)[^&\s]+/ig,'$1[REDACTED]');}
 export async function rescueLog(report,{summary=process.env.GITHUB_STEP_SUMMARY,log=console.log}={}){
  const safe=JSON.parse(JSON.stringify(report,(_key,value)=>typeof value==='string'?cleanRescueText(value):value));
- log(JSON.stringify({kind:'kairo-rescue',...safe}));
+ log(JSON.stringify({kind:'nibfin-rescue',...safe}));
  if(summary){
   const text=value=>cleanRescueText(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('|','&#124;').replaceAll('`','&#96;').replaceAll('\n','<br>');
   const rows=[['Outcome',safe.outcome??'UNRESOLVED'],['Target',safe.issueRef??safe.sourceRunId??'Unknown'],['Code',safe.code??'UNKNOWN'],['Cause',safe.reason??'No verified reason available'],['Actions',(safe.actions??[]).join('; ')||'No mutation'],['AI diagnosis',safe.aiDiagnosis?JSON.stringify(safe.aiDiagnosis):'Not invoked'],['Verification',safe.verification??'Not verified'],['Next case',safe.nextCaseId??''],['Next check',safe.nextCheckAt??''],['Source Run',safe.sourceUrl??''],['Continuation Run',safe.resumeUrl??'']];
-  await appendFile(summary,'## Kairo Rescue\n\n| Field | Record |\n|---|---|\n'+rows.map(([a,b])=>'| '+a+' | '+text(b)+' |').join('\n')+'\n\n');
+  await appendFile(summary,'## upstream Rescue\n\n| Field | Record |\n|---|---|\n'+rows.map(([a,b])=>'| '+a+' | '+text(b)+' |').join('\n')+'\n\n');
  }
  return safe;
 }

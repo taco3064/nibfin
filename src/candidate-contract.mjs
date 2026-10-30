@@ -1,5 +1,5 @@
-// Adapted from taco3064/kairo@d1b47d5e073cf15bdcdc1fbbec098401649878d9.
-// See docs/kairo-reuse.md for ownership, adapters and deviations.
+// Adapted from retired-private-source@d1b47d5e073cf15bdcdc1fbbec098401649878d9.
+// See docs/nibfin-reuse.md for ownership, adapters and deviations.
 import { validateSchema } from './candidate-schema.mjs';
 import {parseRequirementsDocument} from './requirements-document.mjs';
 
@@ -14,8 +14,8 @@ export function safeCandidatePath(path) {
 }
 export function candidateContract(body) {
   const document=parseRequirementsDocument(body||'');body=document.shape??document.scope;
-  const blocks = [...(body || '').matchAll(/^```kairo-candidate\r?\n([\s\S]*?)^```\s*$/gm)];
-  if (blocks.length !== 1) throw new Error('Shape must contain exactly one kairo-candidate obligations block');
+  const blocks = [...(body || '').matchAll(/^```nibfin-candidate\r?\n([\s\S]*?)^```\s*$/gm)];
+  if (blocks.length !== 1) throw new Error('Shape must contain exactly one nibfin-candidate obligations block');
   return validateCandidateInventory(JSON.parse(blocks[0][1]));
 }
 export function validateCandidateInventory(value) {

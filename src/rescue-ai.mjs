@@ -1,4 +1,4 @@
-// Typed original-role plan and immutable-target rechecks adapted from Kairo PR54.
+// Typed original-role plan and immutable-target rechecks adapted from upstream PR54.
 import {contentIdentity} from './evidence.mjs';
 import {githubId,repositoryCoordinates} from './index.mjs';
 import {rescueNeed as need,rescueSame as same,rescueHash} from './rescue-policy.mjs';

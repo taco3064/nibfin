@@ -46,10 +46,10 @@ test('AC2/4: invalid and unknown execution blocks; corrected same Issue gets fre
 });
 
 test('AC3: independent inventory reconciliation overrides approval',async()=>{
-  const invalid=['missing','```kairo-candidate\n{}\n```',
-    '```kairo-candidate\n{"artifacts":[],"hooks":[]}\n```'];
+  const invalid=['missing','```nibfin-candidate\n{}\n```',
+    '```nibfin-candidate\n{"artifacts":[],"hooks":[]}\n```'];
   const base=shapeFixture().body;
-  invalid.push(base+'\n```kairo-candidate\n{"artifacts":[],"hooks":[]}\n```');
+  invalid.push(base+'\n```nibfin-candidate\n{"artifacts":[],"hooks":[]}\n```');
   for(const body of invalid){const f=shapeFixture();f.state.proposal=body;
     assert.equal((await f.flow.propose()).outcome,'blocked');assert.equal(f.writes().length,0);}
   const f=shapeFixture();f.observation.requiredArtifacts=[{path:'ignored.bin',purpose:'required',evidenceReference:'scope'}];
@@ -112,7 +112,7 @@ test('AC2: same Author/Validator execution cannot be substituted in approved evi
 test('AC3: reordered configured hooks reject even with ready/approved results',async()=>{
   const f=shapeFixture();
   const hooks=[{path:'hooks/pre',event:'pre-commit'},{path:'hooks/msg',event:'commit-msg'}];
-  f.state.proposal='Candidate artifacts applicability: None needed.\n```kairo-candidate\n'+
+  f.state.proposal='Candidate artifacts applicability: None needed.\n```nibfin-candidate\n'+
     JSON.stringify({artifacts:[],hooks:hooks.toReversed()})+'\n```';
   f.observation.hookObservation.hooks=hooks.map(h=>({...h,evidenceReference:'fixture',applicability:'required',prerequisites:[]}));
   assert.equal((await f.flow.propose()).outcome,'blocked');assert.equal(f.writes().length,0);

@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { enrollment } from '../src/enrollment.mjs';
-import { KAIRO_REPOSITORY, KAIRO_REPOSITORY_ID } from '../src/owner-identity.mjs';
+import { UPSTREAM_REPOSITORY, UPSTREAM_REPOSITORY_ID } from '../src/owner-identity.mjs';
 function github(privateRepo, content) {
   return {
-    repository: async name => name === KAIRO_REPOSITORY ? { id: KAIRO_REPOSITORY_ID, owner: { id: 77, type: 'User' } } : { private: privateRepo, owner: { id: 77, type: 'User' } },
+    repository: async name => name === UPSTREAM_REPOSITORY ? { id: UPSTREAM_REPOSITORY_ID, owner: { id: 77, type: 'User' } } : { private: privateRepo, owner: { id: 77, type: 'User' } },
     initialize: async()=>({repository:'owner/repo',entrypoint:privateRepo?'private-reusable':'public-runner-dispatch',defaultBranch:'main'}),
     api: async path => {
       if(path.includes('/contents/')) { if(!content)throw Object.assign(Error('missing'),{status:404});return {encoding:'base64',content:Buffer.from(content).toString('base64')}; }
@@ -26,9 +26,9 @@ test('private bootstrap compares the actual caller and requires an immutable Cor
 test('public init checks the official Owner before writing even enrollment labels', async()=>{
   const gh = github(false); let initialized = false;
   const repository = gh.repository;
-  gh.repository = async name => name === KAIRO_REPOSITORY ? repository(name) : { private: false, owner: { id: 78, type: 'User' } };
+  gh.repository = async name => name === UPSTREAM_REPOSITORY ? repository(name) : { private: false, owner: { id: 78, type: 'User' } };
   gh.initialize = async()=>{initialized=true;};
-  await assert.rejects(enrollment(gh,process.cwd(),'foreign/repo'),/Kairo Owner/);
+  await assert.rejects(enrollment(gh,process.cwd(),'foreign/repo'),/upstream Owner/);
   assert.equal(initialized,false);
 });
 test('public bootstrap never references private source or schedules a credential-bearing runner', async()=>{

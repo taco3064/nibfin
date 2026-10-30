@@ -345,7 +345,7 @@ export function importWorkspace(input,{expected,limits:bounds}={}) {
   if(used.size!==objects.size) fail('extra-object');
   equal(m.changes,changes(baseFiles,files));
   const parsed=inventory(['Candidate artifacts applicability: Transfer declarations.',
-    `Candidate hooks applicability: ${m.emptyHooksReason??'Declared hooks.'}`,'```kairo-candidate',JSON.stringify(m.inventory),'```'].join('\n'));
+    `Candidate hooks applicability: ${m.emptyHooksReason??'Declared hooks.'}`,'```nibfin-candidate',JSON.stringify(m.inventory),'```'].join('\n'));
   if(m.inventory.hooks.length ? m.emptyHooksReason!==null :
       typeof m.emptyHooksReason!=='string' || !m.emptyHooksReason.trim() || /[\x00-\x1f]/.test(m.emptyHooksReason)) fail('applicability');
   const declarations=[...parsed.inventory.artifacts.map(e=>({kind:'artifact',...e})),...parsed.inventory.hooks.map(e=>({kind:'hook',...e}))];

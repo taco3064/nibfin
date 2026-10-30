@@ -1,4 +1,4 @@
-name: Kairo public dispatch
+name: upstream public dispatch
 on:
   issues:
     types: [opened, edited, labeled, unlabeled, reopened, closed, milestoned, demilestoned]
@@ -13,7 +13,7 @@ jobs:
       - name: Authenticate repository binding
         id: dispatch
         env:
-          KAIRO_RUNNER_KEY: ${{ secrets.KAIRO_RUNNER_KEY }}
+          UPSTREAM_RUNNER_KEY: ${{ secrets.UPSTREAM_RUNNER_KEY }}
           REPOSITORY_ID: ${{ github.repository_id }}
           OWNER_ID: ${{ github.repository_owner_id }}
           ACTOR_ID: ${{ github.actor_id }}
@@ -23,9 +23,9 @@ jobs:
           const { createHmac, randomBytes } = require('node:crypto');
           const { readFileSync, writeFileSync, appendFileSync } = require('node:fs');
           const e = process.env;
-          if (!e.KAIRO_RUNNER_KEY) { console.log('BLOCKED: no runner binding; no dispatch created.'); process.exit(0); }
+          if (!e.UPSTREAM_RUNNER_KEY) { console.log('BLOCKED: no runner binding; no dispatch created.'); process.exit(0); }
           let key;
-          try { key = JSON.parse(e.KAIRO_RUNNER_KEY); } catch { throw new Error('Invalid runner key encoding'); }
+          try { key = JSON.parse(e.UPSTREAM_RUNNER_KEY); } catch { throw new Error('Invalid runner key encoding'); }
           const b = key.binding;
           if (!b || b.repository !== e.GITHUB_REPOSITORY || b.repositoryId !== e.REPOSITORY_ID || b.ownerId !== e.OWNER_ID || e.ACTOR_ID !== e.OWNER_ID || !/^[a-f0-9]{64}$/.test(key.secret || '')) throw new Error('Runner binding mismatch');
           const eventName = e.GITHUB_EVENT_NAME;
@@ -48,7 +48,7 @@ jobs:
         if: steps.dispatch.outputs.created == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: kairo-dispatch
+          name: nibfin-dispatch
           path: dispatch.json
           retention-days: 1
           if-no-files-found: error

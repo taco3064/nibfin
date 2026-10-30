@@ -13,7 +13,7 @@ import { attachRequirementRevision,verifyRequirementRevision,verifyRevisionHolds
 import { revisionFixture,releaseFixtureCrashLocks } from './requirement-revision-fixture.mjs';
 import { ownerHold } from '../src/owner-hold.mjs';
 import { shape,deliver } from './fixtures.mjs';
-async function fixture(t){const root=await mkdtemp(join(tmpdir(),'kairo-revision-'));t.after(()=>rm(root,{recursive:true,force:true}));return revisionFixture(root);}
+async function fixture(t){const root=await mkdtemp(join(tmpdir(),'nibfin-revision-'));t.after(()=>rm(root,{recursive:true,force:true}));return revisionFixture(root);}
 const child=(f,mode)=>spawnSync(process.execPath,[fileURLToPath(new URL('./requirement-revision-fixture.mjs',import.meta.url)),'--child',f.root,mode],{encoding:'utf8'});
 
 test('all 70 unaffected projections, unit identities and historical states remain byte-identical',async t=>{

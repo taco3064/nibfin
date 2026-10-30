@@ -8,7 +8,7 @@ import {hookConfigurationAreas, parseCandidateObligations as parse, reconcileCan
 const artifact = {path:'out/core.tgz', purpose:'Required distribution'};
 const hook = (path, event) => ({path,event});
 const body = (artifacts = [artifact], hooks = [], prose = 'Candidate hooks applicability: No applicable configured hooks.') =>
-  `${prose}\n\`\`\`kairo-candidate\n${JSON.stringify({artifacts,hooks})}\n\`\`\``;
+  `${prose}\n\`\`\`nibfin-candidate\n${JSON.stringify({artifacts,hooks})}\n\`\`\``;
 const observation = (hooks = []) => ({areas:hookConfigurationAreas.map(area => ({area,status:'resolved',
   evidenceReference:`fixture:${area}`,detail:'Reviewed full configuration and effective settings'})),
   hooks:hooks.map(item => ({...item,evidenceReference:`fixture:${item.path}`,applicability:'Configured supported event',prerequisites:[]}))});
@@ -18,14 +18,14 @@ const evidence = (hooks = []) => ({scopeEvidenceReference:'fixture:frozen-scope'
 test('inventory cardinality, fences, JSON and strict schema', () => {
   assert.equal(parse(body()).ok,true);
   assert.equal(parse(body([artifact],[], 'Hooks is empty because repository configuration has no applicable hooks.')).ok,true);
-  for (const invalid of ['', body()+'\n'+body(), body().slice(0,-3), '```kairo-candidate\n{\n```',
+  for (const invalid of ['', body()+'\n'+body(), body().slice(0,-3), '```nibfin-candidate\n{\n```',
     '````markdown\n'+body()+'\n````', body().split('\n').map(line => '    '+line).join('\n'),
     '> '+body().replaceAll('\n','\n> ')]) assert.equal(parse(invalid).ok,false,invalid);
   for (const value of [null, [], {}, {artifacts:[],hooks:[],extra:1}, {artifacts:{},hooks:[]},
     {artifacts:[],hooks:'x'}, {artifacts:[{path:'a'}],hooks:[]},
     {artifacts:[{path:'a',purpose:' '}],hooks:[]}, {artifacts:[{...artifact,extra:1}],hooks:[]},
     {artifacts:[],hooks:[{path:'h',event:'post-commit'}]}, {artifacts:[],hooks:[{path:'h',event:2}]}]) {
-    assert.equal(parse('```kairo-candidate\n'+JSON.stringify(value)+'\n```').ok,false);
+    assert.equal(parse('```nibfin-candidate\n'+JSON.stringify(value)+'\n```').ok,false);
   }
   assert.equal(parse(body().replaceAll('```','~~~')).ok,true);
   assert.equal(parse('```js\nCandidate hooks applicability: hidden\n```\n'+body([artifact],[], '')).ok,false);

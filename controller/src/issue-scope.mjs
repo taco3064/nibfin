@@ -73,9 +73,9 @@ export async function reconcileIssueScope(runtime, grant, issue, unitId) {
   else views.get(grant).delete(issue.id);
   const read = async () => ({remote:await runtime.github.issue(issue), repository:await runtime.github.repository(issue.repository)});
   const {remote,repository} = await (runtime.github.freshReadObservation ? runtime.github.freshReadObservation(read) : read());
-  if (String(repository.id) !== issue.repositoryId || String(repository.owner?.id) !== runtime.config.kairoOwnerGitHubUserId ||
+  if (String(repository.id) !== issue.repositoryId || String(repository.owner?.id) !== runtime.config.nibfinOwnerGitHubUserId ||
       remote.node_id !== issue.id || remote.number !== issue.number || remote.pull_request ||
-      String(remote.user?.id) !== runtime.config.kairoOwnerGitHubUserId || !remote.labels.some(l=>l.name==='scope'))
+      String(remote.user?.id) !== runtime.config.nibfinOwnerGitHubUserId || !remote.labels.some(l=>l.name==='scope'))
     fail('ISSUE_SCOPE_IDENTITY_CHANGED', 'Live requirements must remain in the enrolled Owner repository and original Scope Issue');
   const oldUnitId = unitId(grant, issue), old = await new Store(runtime.config.stateDirectory, oldUnitId).read();
   const effective = record.current?.issue || issue;

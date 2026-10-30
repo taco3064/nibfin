@@ -1,4 +1,4 @@
-// Dead-process attribution and race guards adapted from Kairo PR54.
+// Dead-process attribution and race guards adapted from upstream PR54.
 import {lstat,readFile,realpath,unlink} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {rescueNeed as need} from './rescue-policy.mjs';

@@ -7,7 +7,7 @@ import{spawn}from'node:child_process';
 import{verificationBudget,validateBudget,runVerification}from'../src/verification-runner.mjs';
 import{CodexAgent}from'../src/agent.mjs';
 
-async function fixture(t){const directory=await mkdtemp(join(tmpdir(),'kairo-verification-'));t.after(()=>rm(directory,{recursive:true,force:true}));return{directory,budget:verificationBudget(15000),stdout:null,stderr:null,killGraceMs:40};}
+async function fixture(t){const directory=await mkdtemp(join(tmpdir(),'nibfin-verification-'));t.after(()=>rm(directory,{recursive:true,force:true}));return{directory,budget:verificationBudget(15000),stdout:null,stderr:null,killGraceMs:40};}
 async function waitFile(path){for(let n=0;n<200;n++){try{await access(path);return;}catch{}await new Promise(r=>setTimeout(r,10));}throw Error('Fixture did not start');}
 test('budget reserves five minutes without changing the exact Agent timeout',()=>{
  const b=verificationBudget(3600000,1000);assert.equal(b.deadlineAt,3601000);assert.equal(b.stopVerificationAt,3301000);assert.equal(b.reserveMs,300000);validateBudget(b);
@@ -35,7 +35,7 @@ test('explicit cancellation records failure and terminates a running subprocess'
  const running=runVerification(process.execPath,['-e',`require('fs').writeFileSync(${JSON.stringify(marker)},'yes');setInterval(()=>{},1000)`],{...o,signal:controller.signal});await waitFile(marker);controller.abort();const result=await running;assert.equal(result.status,'cancelled');assert.equal(result.exitCode,130);await assert.rejects(access(join(o.directory,'active.lock')));
 });
 test('spawn errors are failed evidence and release the lane',async t=>{
- const o=await fixture(t),result=await runVerification('kairo-nonexistent-test-executable',[],o);assert.equal(result.status,'spawn_failed');assert.equal(result.errorCode,'ENOENT');assert.equal(result.exitCode,1);await assert.rejects(access(join(o.directory,'active.lock')));
+ const o=await fixture(t),result=await runVerification('nibfin-nonexistent-test-executable',[],o);assert.equal(result.status,'spawn_failed');assert.equal(result.errorCode,'ENOENT');assert.equal(result.exitCode,1);await assert.rejects(access(join(o.directory,'active.lock')));
 });
 
 test('a real closed output pipe records EPIPE, stops the command and releases the lane',{skip:process.platform==='win32'},async t=>{

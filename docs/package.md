@@ -366,7 +366,7 @@ structured `{code, path, reason}` entries. Parsing also returns `inventory` and
 These APIs neither authorize execution nor execute hook scripts or produce receipts.
 
 An executable inventory opens on an unindented line of three or more backticks
-or tildes followed by exactly `kairo-candidate` (surrounding whitespace allowed).
+or tildes followed by exactly `nibfin-candidate` (surrounding whitespace allowed).
 It closes with the same character and at least the opening length, whitespace only
 following. Other fenced regions (including fences indented up to three spaces)
 are opaque: an inventory inside an illustrative outer fence does not count.
@@ -737,7 +737,7 @@ SDK consumers run when their
 dependencies change. Website-only PRs need no root suite; core-only PRs retain a
 successful `website` scope check without rebuilding the site. Documentation
 changes also exercise the website. Both workflow names and completion wakeups
-remain stable for Kairo and branch protection.
+remain stable for upstream and branch protection.
 
 Shared package settings, the public barrel, host/skill/workflow assets, shared
 tooling, removed suites/modules and unclassified or uncovered inputs select full
@@ -753,7 +753,7 @@ protected Skills, including unified Rescue and Runner job admission. It excludes
 `controller/`: that maintained development deployment supplies historical source
 and adaptation inputs, not a second installed engine. The exact public hashes and
 one owner per responsibility are in `src/distribution-map.json`, bound by the
-release manifest. See [kairo-reuse.md](kairo-reuse.md) for behavioral provenance.
+release manifest. See [nibfin-reuse.md](nibfin-reuse.md) for behavioral provenance.
 Regenerate that tracked map with `node tooling/distribution-map.mjs --write` after
 changing packaged source. Validation compares the map to the actual package bytes.
 

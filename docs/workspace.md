@@ -41,7 +41,7 @@ The caller authenticates repository identity and supplies its permitted paths an
 Scope/Shape/cycle/policy bindings. A path permission covers that path and its
 children. Every base-tree file, proposed file and declared source must be within
 these explicit permissions. Required ignored files must appear in Shape's unique
-`kairo-candidate` block; empty arrays need the parser's separate applicability
+`nibfin-candidate` block; empty arrays need the parser's separate applicability
 explanations. This consumes the producer's inventory, without discovering host Git
 configuration. Producer validation and independent Candidate/Hooks gates still apply.
 

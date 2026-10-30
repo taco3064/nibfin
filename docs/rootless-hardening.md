@@ -8,7 +8,7 @@ remain separately owned, including #205.
 
 ## Maintained origin
 
-The following responsibilities reuse Kairo revision
+The following responsibilities reuse upstream revision
 `d1b47d5e073cf15bdcdc1fbbec098401649878d9`. This public package contains its
 implementation; consumers need no access to the private source repository.
 

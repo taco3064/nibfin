@@ -1,5 +1,5 @@
-name: Kairo Issue lifecycle
-run-name: Kairo ${{ inputs.request_id || github.run_id }}
+name: upstream Issue lifecycle
+run-name: upstream ${{ inputs.request_id || github.run_id }}
 on:
   issues:
     types: [opened, edited, labeled, unlabeled, reopened, closed, assigned, unassigned, milestoned, demilestoned]
@@ -30,14 +30,14 @@ jobs:
       - name: Sign event metadata without participant checkout
         id: sign
         env:
-          KAIRO_RUNNER_KEY: ${{ secrets.KAIRO_RUNNER_KEY }}
+          UPSTREAM_RUNNER_KEY: ${{ secrets.UPSTREAM_RUNNER_KEY }}
         run: |
           node <<'NODE'
           const { createHmac, randomBytes } = require('node:crypto');
           const { readFileSync, appendFileSync } = require('node:fs');
           const e = process.env;
-          if (!e.KAIRO_RUNNER_KEY) { console.log('No enrolled key; no dispatch.'); process.exit(0); }
-          const key = JSON.parse(e.KAIRO_RUNNER_KEY), b = key.binding;
+          if (!e.UPSTREAM_RUNNER_KEY) { console.log('No enrolled key; no dispatch.'); process.exit(0); }
+          const key = JSON.parse(e.UPSTREAM_RUNNER_KEY), b = key.binding;
           const event = JSON.parse(readFileSync(e.GITHUB_EVENT_PATH, 'utf8'));
           if (e.GITHUB_REPOSITORY !== b.repository || String(event.repository?.id) !== b.repositoryId || String(event.repository?.owner?.id) !== b.ownerId) throw Error('Foreign repository');
           const eventName = e.GITHUB_EVENT_NAME;
@@ -68,7 +68,7 @@ jobs:
         # No checkout, Hooks or Agent login run here.
         env:
           ENVELOPE: ${{ needs.sign-event.outputs.envelope }}
-          EVENT_ENDPOINT: ${{ vars.KAIRO_EVENT_ENDPOINT }}
+          EVENT_ENDPOINT: ${{ vars.UPSTREAM_EVENT_ENDPOINT }}
         run: |
           node <<'NODE'
           (async () => {

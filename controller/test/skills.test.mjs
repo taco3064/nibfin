@@ -39,7 +39,7 @@ test('unknown Skill types, stage aliases and identity-changing configuration fai
 });
 
 test('default, extend and override preserve fixed identities and record actual instruction sources',async t=>{
-  const root=await mkdtemp(join(tmpdir(),'kairo-skills-'));t.after(()=>rm(root,{recursive:true}));
+  const root=await mkdtemp(join(tmpdir(),'nibfin-skills-'));t.after(()=>rm(root,{recursive:true}));
   const path=join(root,'product.md'), text='Product-specific Claim, Oracle and Evidence Obligations.';
   await writeFile(path,text);
   for(const stage of ['shape','shape-validator','shape-diagnosis','shaper-review','deliver','accept']) {

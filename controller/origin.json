@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "repository": "taco3064/kairo",
+  "repository": "retired-private-source",
   "commit": "f55be2070bee63879dee46c3dec38806bb93a0db",
   "files": [
     {
@@ -9,17 +9,17 @@
       "bytes": 4672
     },
     {
-      "path": ".github/workflows/kairo-rescue.yml",
+      "path": ".github/workflows/nibfin-rescue.yml",
       "sha256": "7fbab362bd7b3ffc2b7de24fb22ee176482821a208752e1e2b7ad246d9f8197e",
       "bytes": 3194
     },
     {
-      "path": "bin/kairo-migrate-requirements.mjs",
+      "path": "bin/nibfin-migrate-requirements.mjs",
       "sha256": "f7aecfefa70094eac139328c8b723089ffb213e211d571d6c89d269fe8931782",
       "bytes": 1197
     },
     {
-      "path": "bin/kairo.mjs",
+      "path": "bin/controller.mjs",
       "sha256": "336230045372c2f5d6983c8333371b0b6d7e3c65e311725ffaa8d272afc78fb9",
       "bytes": 11817
     },
@@ -89,22 +89,22 @@
       "bytes": 1326
     },
     {
-      "path": "runner/kairo-dispatch.service",
+      "path": "runner/nibfin-dispatch.service",
       "sha256": "4bf4ecb8094da50ea43cd0567a78212481a6791f6f819497e7a49636a842bd06",
       "bytes": 722
     },
     {
-      "path": "runner/kairo-github-read.service",
+      "path": "runner/nibfin-github-read.service",
       "sha256": "1762836fd98076485fdea60f8093f82ca530588f70e8277d0874bfcd0091eb3a",
       "bytes": 487
     },
     {
-      "path": "runner/kairo-rescue-sudoers",
+      "path": "runner/nibfin-rescue-sudoers",
       "sha256": "252586280bb066ac691426e3232ca0cec6e79c40c13becf71e57392ad8763148",
       "bytes": 242
     },
     {
-      "path": "runner/kairo-rescue-wakeups.service",
+      "path": "runner/nibfin-rescue-wakeups.service",
       "sha256": "6e12c73b78c1eb9b6411b6bafddfe9aa068d6bb756cd49a4841e24343d8db081",
       "bytes": 496
     },
@@ -880,25 +880,673 @@
       "path": "src/action-provenance.mjs",
       "sha256": "dcd08128e22fdecb218b7a8025f216f11fb8c3d4d8216c63bfc030ab925f1d7e",
       "bytes": 7694,
-      "reason": "Permit signed Owner-session historical Run grouping while requiring a fresh dispatched continuation Run; retain strict per-stage mode."
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
     },
     {
       "path": "src/action-stage.mjs",
       "sha256": "9eceaa622d6fa50501eafdf9783dc0bfcc0521c71b267ed56370f908fa0717d6",
       "bytes": 16469,
-      "reason": "Permit signed Owner-session historical Run grouping while requiring a fresh dispatched continuation Run; retain strict per-stage mode."
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
     },
     {
       "path": "test/action-provenance.test.mjs",
       "sha256": "3798c866a2e1d37d49c389b02e8c2c86ebdac50261c163621689c54f98f33179",
       "bytes": 7578,
-      "reason": "Permit signed Owner-session historical Run grouping while requiring a fresh dispatched continuation Run; retain strict per-stage mode."
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
     },
     {
       "path": "test/action-integration.test.mjs",
-      "sha256": "59d4fda502a7ec2c056c39d6cecc8cb66fd6af1ed6a731cfcc862bbd9b28997c",
-      "bytes": 48294,
-      "reason": "Exercise the real Runtime and dispatched Accept after an Owner session yields with grouped historical stage receipts."
+      "sha256": "77b53cf75cd552df7293bdc3e2b9fa8a08ed6685cab4668ec6e430b47cf351e7",
+      "bytes": 48313,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": ".github/workflows/action-stage.yml",
+      "sha256": "faafeb4a8b9b70cfcc398dcf360a69a175ade5acaa7ab2a04247d63f88eaae30",
+      "bytes": 4713,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": ".github/workflows/nibfin-rescue.yml",
+      "sha256": "70a5b10fb73e3bc9d8181ceb5ba0636bb0fc3db9f6056a4138d14fc1d145549c",
+      "bytes": 3217,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "bin/controller.mjs",
+      "sha256": "9f99138be2906e92aff6128e522c64bd52058919793d85cbcac66f8cfe809d94",
+      "bytes": 11823,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "examples/policy.json",
+      "sha256": "c32ed789d1e64a4041caddd6df2fb1fe50c2dd50794293a73da35014237f01f7",
+      "bytes": 1106,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "examples/runtime.json",
+      "sha256": "f4f41ac565913b4139f816487b71fe84fc1c70c4693d68c7f1a84bf3c728b3b9",
+      "bytes": 900,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "examples/workflows/actions-public-caller.yml",
+      "sha256": "4cfb40f8aef7f6455aa2b65f3c1595aa98ed32692f68135902206810345dea4a",
+      "bytes": 5117,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "examples/workflows/legacy-private-runner.yml",
+      "sha256": "1068723850490be264f47c535a26fb4ed8e12eb9b199cbe1555eda2a191937a4",
+      "bytes": 973,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "examples/workflows/private-agent-smoke.yml",
+      "sha256": "5c0738371e0c0977eef63082175b7ad573769242a1e6b31f950cdb74ff4209ab",
+      "bytes": 639,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "examples/workflows/private-caller.yml",
+      "sha256": "a1eb7830fffe6454b2475f97cfdcc7d1153ea635cf2fbf14fc7ba3eab7c3b5a5",
+      "bytes": 246,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "examples/workflows/private-runner-smoke.yml",
+      "sha256": "dea22b1db945d7dface1853a44b9fcff2bf6ba63edd68b89892300a28bcfdea5",
+      "bytes": 898,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "examples/workflows/public-caller.yml",
+      "sha256": "aa4e1a1dbf3299abfc1f5e79a2e547d58ad0b1f5c1dd7be08fcedfcd4a8a9a34",
+      "bytes": 3520,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "runner/install-dispatch-service.sh",
+      "sha256": "c4523e2a182cdd545e981379dbb1457394cbf293b1849a0b924914217a110382",
+      "bytes": 900,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "runner/install-wsl-dispatch-startup.ps1",
+      "sha256": "c02d348dd25bba9f84ab3952dd7ecfb55f11bcb33764aff074c586994c921b8c",
+      "bytes": 1332,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "runner/nibfin-dispatch.service",
+      "sha256": "62e8ac8566c0c5b6ba09e90f5d9cac2d9706a405cad7e4140ebd310fa56188ef",
+      "bytes": 742,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "runner/nibfin-github-read.service",
+      "sha256": "fd0e168688cc2d82ee95431a600c83e3672487343134b9a88d23a38a8d2ce088",
+      "bytes": 494,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "runner/nibfin-rescue-sudoers",
+      "sha256": "cdf04396930b46a6eb6a926135ad5cd5a618e19db41a8c0727347e37b56588df",
+      "bytes": 245,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "runner/nibfin-rescue-wakeups.service",
+      "sha256": "156ef2087492458e003a15d8479048096a242e1135a73177c84fcd00e85b6322",
+      "bytes": 509,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "runner/start-wsl-dispatch.ps1",
+      "sha256": "ea489978206b39c665b1912f76c01ff5698dd5da164abf7405bf5e19d8938469",
+      "bytes": 413,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "scripts/agent-smoke.mjs",
+      "sha256": "38f4aeeda5e247b0f4def00a61eb7277e71d2ace7717fb3e2d18cc48a29501d4",
+      "bytes": 5132,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "scripts/install-egress.sh",
+      "sha256": "33534db5b07f02e052dabcb271146797f739e737c5d4b014401ca95d52eac805",
+      "bytes": 989,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "scripts/render-actions-caller.mjs",
+      "sha256": "305dc90a6a7969a9a1faa9933accfdbcb3231f84247405638e50b5b24d961bc9",
+      "bytes": 1335,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "scripts/rootless-preflight.mjs",
+      "sha256": "3367de2209be2ee0f226f19cb72eb3a71ad8ff5e802502bca7bf6387c3c508d7",
+      "bytes": 3315,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "skills/deliver/SKILL.md",
+      "sha256": "17d76d17fbb13b38c5da1a058d13a200f73ab1a855440c7272e2690e00239553",
+      "bytes": 8543,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "skills/rescue/SKILL.md",
+      "sha256": "67a8ab0be45e9aff51c155f09c343dcdd8f061e60ee4ed723576b0a9d148ab53",
+      "bytes": 2157,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "skills/shape/SKILL.md",
+      "sha256": "839a24e4e0908b2fc0276e1d8b6bc14650a91d67008638110080631c8f137527",
+      "bytes": 12960,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/action-display.mjs",
+      "sha256": "282d37481e5ce1f93f46041ee58bfaa50766522fb6837c6c2c96b79bb4ffb169",
+      "bytes": 1381,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/action-event.mjs",
+      "sha256": "1cd3921f3c26fc3115620630dceb6abb83e051b85aa13027b1511526be960eac",
+      "bytes": 8769,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/action-lifecycle.mjs",
+      "sha256": "ca91939d244089a8412c79030b234b2c0844eac616f37dd7dc8d8ba2cb0053df",
+      "bytes": 8995,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/action-outbox.mjs",
+      "sha256": "5f27b00d08751f3ca0d4fae4ab0327e3582bdb912cc6f39f5845aa5a699228d7",
+      "bytes": 8421,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/action-relay.mjs",
+      "sha256": "837f9ef0e3f26fd2a53a08c8a7304402a3a2ac8aed75ff13099cfcb85d93f741",
+      "bytes": 5604,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/agent-gh-client.mjs",
+      "sha256": "c34f2bb2a8f6b324d022f089612db49afe600d1e91cc56f816e6485bc7aafa9c",
+      "bytes": 1663,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/agent-gh-read.mjs",
+      "sha256": "1e4d761fd1e977e5ed0550f9e32df12c01c61b2e3d5fe5bba344ad607b133ce1",
+      "bytes": 8359,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/agent.mjs",
+      "sha256": "829929c3a47feb1b161219a7b74eb7af7424f79e77eb8e7413bd0572fd05675e",
+      "bytes": 24248,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/assignee-revision-host.mjs",
+      "sha256": "518ec35257996ddc778438f3b43782bf5171bb8f7d1447bc46906dccd4d82203",
+      "bytes": 11698,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/authority.mjs",
+      "sha256": "7bdd200d4c8f1180ba852b2718a737b8f590befb527b912b8c224e2f605f77cc",
+      "bytes": 5915,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/candidate-contract.mjs",
+      "sha256": "40c5a55c09e4a980777fb9fdba7410aa538024fae21dcd681168e47f6b18f4c7",
+      "bytes": 1538,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/core.mjs",
+      "sha256": "3b73475e65d8301125af32db7a09d9ff5ee000bcf6491938384809d97e01dd24",
+      "bytes": 38224,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/dependency-event.mjs",
+      "sha256": "22609ec3b62cc4c653e8bd9557f085289ade0fcd457a08eee84ce6fc04a3e93c",
+      "bytes": 3522,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/dispatch.mjs",
+      "sha256": "cb9dbce9da0f43031fff4476f74107d5168eeec9e22a35af335432260b860aee",
+      "bytes": 13220,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/dynamic.mjs",
+      "sha256": "04dea2697831ef6734a6116892eef6a4430bf1c7f1cb801a222b68664b29eb7f",
+      "bytes": 26177,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/enrollment.mjs",
+      "sha256": "08795ab65174ea08aab3daef7b2d24f4b942396dac0845ef75ca7e5332278eb8",
+      "bytes": 2940,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/github.mjs",
+      "sha256": "6e39a8d2e7514a3326575a5603d6cd6fe389d12182c43d0b541c5882c3a48883",
+      "bytes": 19316,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/hooks.mjs",
+      "sha256": "3759adebe5b195301e278a23b6009e64c93e43eb94143d2c24aef88b2a38977d",
+      "bytes": 5370,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/issue-scope.mjs",
+      "sha256": "4e9d99a2d4a574ba337c0bf51dc4e551e6a1dc04bd13f3ef821e39421d03a38f",
+      "bytes": 8334,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/owner-identity.mjs",
+      "sha256": "7beb1367b6f1a2a36c68fd2ce49d25bfa5f4943bc8a3d947d803daa600b429c0",
+      "bytes": 1197,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/recovery.mjs",
+      "sha256": "fa6598ae4aa3c8267c7fc26a02405797676116a3103e8b906e6abb8254b2a0a6",
+      "bytes": 10762,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/requirement-revision-host.mjs",
+      "sha256": "3566dc2eaba443b9655165617021f3c057b7a94e5950fdda85cf63ffa2ade44a",
+      "bytes": 12277,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/rescue-completion.mjs",
+      "sha256": "98d208d13aa12bb1e21bc0713b7349001265f3dc115b089c7c3301975d3300cd",
+      "bytes": 9330,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/rescue-detection.mjs",
+      "sha256": "c5e0684f7a058b51d58ed9f0bf19669cc37cb094fc4037c91c2b8975a8e57602",
+      "bytes": 1846,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/rescue-policy.mjs",
+      "sha256": "87736be8fff0900003cf23a8b1e8c27aea93aaab7e5c2448f067be9a0a522f57",
+      "bytes": 9330,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/rescue-remedies.mjs",
+      "sha256": "446bcd1b3c2bc0e420d5b7e4e5969d3ea3d3e9497b84401031171ea60bcab583",
+      "bytes": 5977,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/rescue-wakeup.mjs",
+      "sha256": "a2afe3df97a49a021d8c6f2a6e9e81a5f8d1cdf304398aa22776e131c20b9b61",
+      "bytes": 10213,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/rescue.mjs",
+      "sha256": "2c04ccb86f8e90bfc3d17971eac32667169344ff653d23e380fed6b8c9df7c92",
+      "bytes": 29827,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/runner-binding.mjs",
+      "sha256": "156cdcae610fc808576a81d9eddfd62f8658983480b088546d682c5af3a9d9f4",
+      "bytes": 9213,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/runner-operations.mjs",
+      "sha256": "2ddf7282c94569c7690268d8d770c968b169251b1b8a44edfa64a1d1a47c7a11",
+      "bytes": 6242,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/runtime-configuration.mjs",
+      "sha256": "c44560b0ff996134dbafd67e6afc82fadd9e23c0b4d3391bbc6b7d0c3d077377",
+      "bytes": 2380,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/runtime.mjs",
+      "sha256": "4dd9f5d7f5438513e1dfc80b18ab33c156ae9f44d8cfee6a87e8d8bba3b8ddd0",
+      "bytes": 81797,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/verification-prepare.mjs",
+      "sha256": "e01552546276bebd1d52693347ec6d9d1ed06bdce3eb21acf4b210ec7c19eb04",
+      "bytes": 4662,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/verification-runner.mjs",
+      "sha256": "b3e23887a5ce9e2dff6512e6cf081bd93369b6acea4b1eb1d0449d3635168b68",
+      "bytes": 6490,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/website-revision-host.mjs",
+      "sha256": "05a505213b3cb2915002d171f60935401c6e7852b803dde6acf09280031176dd",
+      "bytes": 12478,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "src/workspace.mjs",
+      "sha256": "fa2a7fb5952a161991e7efaa95dbbc050d1c92a282d173bb1aa0177ce6e27078",
+      "bytes": 19838,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/action-completion-routing.test.mjs",
+      "sha256": "c5bdb15dd469e3f7b63a5e4910283444192c594c30756a599ed9f7b1e3c2f344",
+      "bytes": 2626,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/action-event.test.mjs",
+      "sha256": "6226aae813df2aaee9d913eacd3b9271bfe793071950f0291e2f0a4666cc9176",
+      "bytes": 8501,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/action-outbox.test.mjs",
+      "sha256": "e4ce05534911252ce9d172860a8524c113fff6c47c9a0b9282ede178aa94ccd5",
+      "bytes": 6752,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/action-runtime-fixture.mjs",
+      "sha256": "2d7a8d6a2dfbcddc5eb02405d4a9221be333c984e6b541a06e860d9b30ff5d30",
+      "bytes": 7376,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/action-stage.test.mjs",
+      "sha256": "fe7748917bb1b0574dc4665df938a040996fa5c6c547574fb5ea816bd3b2c362",
+      "bytes": 10784,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/adapters.test.mjs",
+      "sha256": "3fb6441d43030af1caf9ba9895211a6eddbf77445ff396122ebeab3e12b31907",
+      "bytes": 7718,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/agent-gh-read.test.mjs",
+      "sha256": "caa3134e9e2434158e7f7f3ed25fa0d25a16986c6193fb19e1c007919c635dcd",
+      "bytes": 6200,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/agent-result.test.mjs",
+      "sha256": "96bd9a023bde23a46f225c10f40545b433db0717c36f5e267a663ac18abab2e0",
+      "bytes": 5538,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/assignee-core-compatibility.test.mjs",
+      "sha256": "7efee076e65f7676e0ee48b22930e028d8acd5d496f2092709ea717b4d4083a8",
+      "bytes": 2466,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/assignee-revision-native.test.mjs",
+      "sha256": "d61085b6e745f1b870ae24e864f8f23f5a0e3915ea3c594317835445957fb5a7",
+      "bytes": 7933,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/assignee-revision.test.mjs",
+      "sha256": "81c8f7cdccec07c4625fae8cec142a9bb4784c2a186854e2ef250da0511090a8",
+      "bytes": 10516,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/candidate-contract.test.mjs",
+      "sha256": "1ecc4fb672e604ab4e58885e7e353c6796043bbe20ffc3c8ec0c1d30f2a7eb3f",
+      "bytes": 5913,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/cli.test.mjs",
+      "sha256": "de2f70330909d25543671bef51aa57467645418f38768cdfb38a5f3281193f4a",
+      "bytes": 1081,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/dependency-event.test.mjs",
+      "sha256": "28277a5e1925e375283badfa4d175e81ccb0f2defa8f379a74352cf09493f9fa",
+      "bytes": 4549,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/dispatch.test.mjs",
+      "sha256": "9f63b974a81b460ca8f917cbdcd8f33557eb942bb49d02ab4e641b4d5c576b36",
+      "bytes": 28953,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/docker-security.test.mjs",
+      "sha256": "7d2f7d56edc4cab924f82eade3d2bcb524ba47ab8fd5d02c630bd001ed435713",
+      "bytes": 6683,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/dynamic.test.mjs",
+      "sha256": "1073e46a38e3ec0828af3351ba95a689bdd477d32e627a184f18b8c194182f24",
+      "bytes": 25855,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/enrollment.test.mjs",
+      "sha256": "42ef27b17f0673fc09d5432975f0f38e70349dc84cc0d3906a5e87b7fa7c2214",
+      "bytes": 2652,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/execution-limits.test.mjs",
+      "sha256": "c42c5286d30b2cf359f319560d318cd4d0dbec754e8cd1c46d9364c828a22c94",
+      "bytes": 5696,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/fixtures.mjs",
+      "sha256": "7cd3a9c3b61da618b702f83136801247ecf152c4c27a2ffc18227becc2c8b26a",
+      "bytes": 4755,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/gh-cli.test.mjs",
+      "sha256": "18cce3b55b55c3b173d1ae9c23dde832c013a4f2a983ad0ae4e63a1f56e97661",
+      "bytes": 3659,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/hooks-docker.test.mjs",
+      "sha256": "b5bd5b808ef854b8597b85c3681cc59e488615c1b9a834be0736d3ed3e398967",
+      "bytes": 3934,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/metadata-lease.test.mjs",
+      "sha256": "675a8b45b81e8541d59b28ab24eb6094b231d42a26c8ac1d64a7e6a55db06f09",
+      "bytes": 1738,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/native-wakeup-fixture.mjs",
+      "sha256": "2faa73ad3d1b325fb7b75019f64e0aa5cf51c8a89fc78850c0113cbaf1412df6",
+      "bytes": 2855,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/private-workflow-cost.test.mjs",
+      "sha256": "d76a3cb1f7f6fd7fd09006a3b0d62106b0c54c0c0f6d6c5ec84039be4ae51a1c",
+      "bytes": 2948,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/render-actions-caller.test.mjs",
+      "sha256": "dad0d7ec7153b20628efde9ce737b079ba5e471e19414c936b11fe8bc4efc5c5",
+      "bytes": 997,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/repository-controls.test.mjs",
+      "sha256": "16757d88f34f6c006ee304f6495d515eb6e8bbbf019904312f28c0fa14b9a294",
+      "bytes": 1843,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/requirement-revision-fixture.mjs",
+      "sha256": "0935dfa6f698fc1afbbf161a504c6bb645f85c0abcf92734068a64a4cb6e34bf",
+      "bytes": 7772,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/requirement-revision-host.test.mjs",
+      "sha256": "03c1657d499659e776f9302cf1ebedb833f004743d8df87c6af87175ce8dc50a",
+      "bytes": 7195,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/requirement-revision.test.mjs",
+      "sha256": "31a251f0c50c82b71d0363140b8aad8b7b7a91fb4d334548d35f21bf26d2d25b",
+      "bytes": 13598,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/rescue-completion.test.mjs",
+      "sha256": "db34b61a67a31bde007d2c6d53d830a63b8792b813769c410b2afd5302d06198",
+      "bytes": 10803,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/rescue-workflows.test.mjs",
+      "sha256": "be3a64da7bdb15a446353816134f592d5596d36a6c8c842d9976b688822f9dc1",
+      "bytes": 5659,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/rescue.test.mjs",
+      "sha256": "26efe9203332c6056743ac1a7d3c88900a69b93ee45c9020a25048d745a197a1",
+      "bytes": 74918,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/reviewer-scratch.test.mjs",
+      "sha256": "cfac90286534ba57fc696c23e7755366be3464f03d632db76ca2e45755ac6a09",
+      "bytes": 1040,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/revision-core-repair.test.mjs",
+      "sha256": "fd37409de7251dc8c39070e6184096e3aa94ec8815addc40507485f6d7c1a961",
+      "bytes": 7881,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/role-session.test.mjs",
+      "sha256": "019083b59d8dd8b2ea2c7cf8c0617ce01d98c2a74241f01ed83550863456e3a0",
+      "bytes": 2674,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/runner-operations.test.mjs",
+      "sha256": "bc518c71ffe8070bb830a91bd86bb6f0d0941e3eeffdf4b16e7f4180ea373a11",
+      "bytes": 7536,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/runtime.test.mjs",
+      "sha256": "95e00bbefe146c8144cec33983a43012cc8b425c21eaed9b3b977d691df8b3cc",
+      "bytes": 39745,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/scope-inputs.test.mjs",
+      "sha256": "ff5b0c7e9589e6701554240cc08e8a7ff8054009364f6d1e2744eaa72fed03be",
+      "bytes": 3891,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/skills.test.mjs",
+      "sha256": "2d472cc4aabdb0b94f0b8c18e0a83510453148dad0935ebc19aa8a85860fcec5",
+      "bytes": 4952,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/store.test.mjs",
+      "sha256": "299f8adf1dbc837e3663d5ce030b0aac1c3c6928b778d0ca454fd61716d736c4",
+      "bytes": 2906,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/upstream-handoff.test.mjs",
+      "sha256": "a7c6fee8a7efe8519b03bf0343caf5014cfd2cb422014a2df2b7e1aa81adafd8",
+      "bytes": 12128,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/verification-prepare.test.mjs",
+      "sha256": "c8b3e7e1ed2d7c9dee3ad1d253f1551a3748f6e609e57a50b9711cc90bc2b221",
+      "bytes": 6003,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/verification-runner.test.mjs",
+      "sha256": "988b58b8d934a6acc8c15cfe3e59e1d19ef5cf961b2d45705be5ab5bec47e806",
+      "bytes": 7124,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/website-revision-native.test.mjs",
+      "sha256": "2f2bc4bb9cc60e4b7f5f7bd82af680ecbedf1f035afe67cc2b66f4b9d7bd3198",
+      "bytes": 10327,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/website-revision.test.mjs",
+      "sha256": "ab8b52cdd31bb10532e15f77b30d7f144471d61d0e0d7de99c8e9f6215175781",
+      "bytes": 8643,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
+    },
+    {
+      "path": "test/workspace.test.mjs",
+      "sha256": "d1ba6d458bc5bcdbf26c3a2f9d95c3c7d3b2657959dff02a8dc0791c543b2572",
+      "bytes": 12637,
+      "reason": "Public source retirement: neutral attribution, native candidate terminology and transport paths. Original hashes and commit remain recorded."
     }
   ]
 }

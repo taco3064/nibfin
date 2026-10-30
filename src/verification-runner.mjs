@@ -1,5 +1,5 @@
 import {preparedCommandInputs} from './node-verification.mjs';
-// Adapted from Kairo d1b47d5e073cf15bdcdc1fbbec098401649878d9.
+// Adapted from upstream d1b47d5e073cf15bdcdc1fbbec098401649878d9.
 // Receipts/lock/deadline contract reused; execution delegates to the single Linux
 // subreaper owner so descendants which call setsid cannot escape reconciliation.
 import {mkdir,readFile,writeFile,unlink,open} from 'node:fs/promises';

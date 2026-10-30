@@ -1,4 +1,4 @@
-// Adapted from Kairo d1b47d5e073cf15bdcdc1fbbec098401649878d9; no legacy daemon mode.
+// Adapted from upstream d1b47d5e073cf15bdcdc1fbbec098401649878d9; no legacy daemon mode.
 import {command} from './process.mjs';
 
 export function dockerSecurity(config) {

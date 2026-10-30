@@ -81,7 +81,7 @@ export async function runActionLifecycle(runtime, event) {
   } else {
     // Grant-applied and dependency-backfill wakeups are explicit Owner Actions
     // runs. A relay App cannot bypass its source envelope by filling issue_id.
-    if (runtime.actionIdentity.actorId !== runtime.config.kairoOwnerGitHubUserId || runtime.actionIdentity.triggeringActorId !== runtime.config.kairoOwnerGitHubUserId)
+    if (runtime.actionIdentity.actorId !== runtime.config.nibfinOwnerGitHubUserId || runtime.actionIdentity.triggeringActorId !== runtime.config.nibfinOwnerGitHubUserId)
       fail('OWNER_RECONCILIATION_REQUIRED', 'Direct grant/backfill reconciliation requires the enrolled Owner');
     targets = grant.manifest.issues.filter(i => i.id === inputs.issue_id);
     if (!targets.length) return {status:'IGNORED',code:'ISSUE_NOT_IN_GRANT',handoffs:[]};

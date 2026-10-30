@@ -23,7 +23,7 @@ export async function revisionFixture(root, options={}){
     const base=gateFixture().policy;
     const policy={...base,schemaVersion:1,grantId:'test-grant',revision:'old-policy',manifestHash:digest(manifest),controlMode:'owner-project',
       stateDirectory:root,maxParallel:2,coreDigest:digest('old-core'),runtimeHash:digest('runtime'),
-      actionExecution:{repository:'taco3064/kairo'},repositories:{'taco3064/nibfin':{...base.repositories['example/one'],repositoryId:'1'},'taco3064/gh-nibfin':{...base.repositories['example/two'],repositoryId:'2'}}};
+      actionExecution:{repository:'retired-private-source'},repositories:{'taco3064/nibfin':{...base.repositories['example/one'],repositoryId:'1'},'taco3064/gh-nibfin':{...base.repositories['example/two'],repositoryId:'2'}}};
     const payload={recordId:'test-parent',actor:'test-owner',revoked:false,manifest,policy,proposal:'Old proposal'};
     const observations={},states={};
     for(const i of issues){

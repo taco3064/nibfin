@@ -1,5 +1,5 @@
 import {observeRepositoryCI} from './github.mjs';
-// Nibfin operation adapter for Kairo src/runtime.mjs execute() at
+// Nibfin operation adapter for upstream src/runtime.mjs execute() at
 // d1b47d5e073cf15bdcdc1fbbec098401649878d9. The pre/post-hook capture algorithm
 // is reused below; versioned dispatch delegates to the maintained Nibfin owners.
 import {canonicalJSON} from './grants.mjs';

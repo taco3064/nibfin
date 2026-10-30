@@ -1,4 +1,4 @@
-// Adapted Kairo d1b47d5 tests; dynamic personal/Organization public repositories.
+// Adapted upstream d1b47d5 tests; dynamic personal/Organization public repositories.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -23,7 +23,7 @@ test('writes, arbitrary GraphQL, host execution, cross-repo access and traversal
   ['issue','view','1','--repo','unauthorized/private'],['issue','view','1','--web'],['issue','view','1','--search','repo:private'],
   ['issue','view','1','--json','projectItems'],['issue','view','https://github.com/private/repo/issues/1'],['pr','view'],
   ['api','graphql'],['api','repos/unauthorized/private/issues'],['api','repos/public-owner/project/issues','-X','POST'],
-  ['api','repos/public-owner/project/../../kairo/issues'],['api','repos/public-owner/project/contents/%2e%2e'],
+  ['api','repos/public-owner/project/../../nibfin/issues'],['api','repos/public-owner/project/contents/%2e%2e'],
   ['api','repos/public-owner/project/actions/secrets'],['api','repos/public-owner/project/issues','--header','Authorization: bad'],
   ['issue','list','--limit','999'],['issue','view','1','--json','title\n--web'],
   ['api','repos/public-owner/project','--jq','env'],['issue','view','1','--jq','include "file"; .'],

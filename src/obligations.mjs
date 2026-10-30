@@ -67,7 +67,7 @@ export function parseCandidateObligations(body) {
     const opening = /^( {0,3})(`{3,}|~{3,})(.*)$/.exec(line);
     if (opening) {
       fence = {char: opening[2][0], length: opening[2].length,
-        candidate: opening[1] === '' && opening[3].trim() === 'kairo-candidate'};
+        candidate: opening[1] === '' && opening[3].trim() === 'nibfin-candidate'};
       content = [];
     } else prose.push(line);
   }

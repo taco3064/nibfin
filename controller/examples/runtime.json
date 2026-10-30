@@ -1,7 +1,7 @@
 {
   "runnerId": "enrolled-private-runner",
-  "stateDirectory": "/var/lib/kairo/state",
-  "publicKeyPath": "/etc/kairo/owner-public.pem",
+  "stateDirectory": "/var/lib/nibfin/state",
+  "publicKeyPath": "/etc/nibfin/owner-public.pem",
   "grantSource": {
     "repository": "OWNER/PRIVATE-CONTROL",
     "path": "grants/cohort.json",
@@ -16,18 +16,18 @@
     "ref": "main"
   },
   "allowedWorkflowPaths": [
-    ".github/workflows/kairo.yml"
+    ".github/workflows/nibfin.yml"
   ],
   "agent": {
     "image": "REGISTRY/TRUSTED-CODEX@sha256:REPLACE_WITH_64_HEX_DIGEST",
-    "network": "kairo-agent-private",
+    "network": "nibfin-agent-private",
     "user": "1000:1000",
-    "authDirectory": "/var/lib/kairo/agent-auth",
+    "authDirectory": "/var/lib/nibfin/agent-auth",
     "timeoutMs": 1800000,
     "egressProxy": {
-      "container": "kairo-egress-proxy",
+      "container": "nibfin-egress-proxy",
       "url": "http://172.30.91.2:3128",
-      "scriptPath": "/opt/kairo/security/egress-proxy.mjs"
+      "scriptPath": "/opt/nibfin/security/egress-proxy.mjs"
     }
   }
 }

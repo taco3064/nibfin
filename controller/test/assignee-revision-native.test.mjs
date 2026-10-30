@@ -14,7 +14,7 @@ import { migrateAssigneeRequirements } from '../src/assignee-revision.mjs';
 import { assigneeFixture } from './assignee-revision-fixture.mjs';
 
 test('Linux operator adapter fsyncs archives and applies only the exact PATCH/DELETE/PATCH plan; replay does not repeat', { skip: process.platform !== 'linux' }, async t => {
-  const root = await mkdtemp(join(tmpdir(), 'kairo-native-assignee-')); t.after(() => rm(root, { recursive: true, force: true }));
+  const root = await mkdtemp(join(tmpdir(), 'nibfin-native-assignee-')); t.after(() => rm(root, { recursive: true, force: true }));
   const stateDirectory = join(root, 'state'); await mkdir(stateDirectory);
   const f = await assigneeFixture(stateDirectory), p = structuredClone(f.d.parentBundle.payload);
   const config = { runnerId: 'test-runner', stateDirectory, publicKeyPath: join(root, 'owner.pem'),

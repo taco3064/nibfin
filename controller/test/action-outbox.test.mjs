@@ -7,7 +7,7 @@ import { ActionOutbox } from '../src/action-outbox.mjs';
 import {issueReference,actionRunTitle} from '../src/action-display.mjs';
 
 test('private dispatch and old durable intents show repository and Issue while preserving exact request identity',async t=>{
- const root=await mkdtemp(join(tmpdir(),'kairo-display-'));t.after(()=>rm(root,{recursive:true,force:true}));
+ const root=await mkdtemp(join(tmpdir(),'nibfin-display-'));t.after(()=>rm(root,{recursive:true,force:true}));
  const execution={repository:'owner/core',repositoryId:'1',workflowPath:'.github/workflows/stage.yml',ref:'main',actorIds:['7']},issues=[{id:'I_A',repository:'owner/gh-nibfin',number:55}];
  const calls=[],published=[],github={api:async(_p,_m,body)=>{calls.push(body);},list:async()=>published};
  const old=new ActionOutbox(root,github,execution),request={issueId:'I_A',repository:'owner/gh-nibfin',sourceReceipt:'verified'};
@@ -21,7 +21,7 @@ test('private dispatch and old durable intents show repository and Issue while p
 });
 
 test('lost dispatch response persists intent and reconciles without sending twice across restart', async t => {
-  const root = await mkdtemp(join(tmpdir(), 'kairo-outbox-')); t.after(() => rm(root, { recursive: true }));
+  const root = await mkdtemp(join(tmpdir(), 'nibfin-outbox-')); t.after(() => rm(root, { recursive: true }));
   const execution = { repository: 'owner/core', repositoryId: '1', workflowPath: '.github/workflows/stage.yml', ref: 'main', actorIds: ['7'] };
   let writes = 0, published = [];
   const gh = { api: async () => { writes++; throw new Error('response lost'); }, list: async () => published };
@@ -30,7 +30,7 @@ test('lost dispatch response persists intent and reconciles without sending twic
   const id = await outbox.enqueue(request); assert.equal(await outbox.enqueue(request), id);
   await assert.rejects(outbox.dispatch(id), /response lost/);
   assert.equal((await outbox.dispatch(id)).code, 'DISPATCH_READBACK_PENDING');
-  published = [{ id: 123, display_title: `Kairo ${id}`, path: execution.workflowPath, repository: { id: 1 }, actor: { id: 7 } }];
+  published = [{ id: 123, display_title: `upstream ${id}`, path: execution.workflowPath, repository: { id: 1 }, actor: { id: 7 } }];
   const restarted = new ActionOutbox(root, gh, execution);
   assert.equal((await restarted.dispatch(id)).runId, '123'); assert.equal(writes, 1);
   assert.deepEqual((await restarted.read(id)).request, request);
@@ -39,7 +39,7 @@ test('lost dispatch response persists intent and reconciles without sending twic
 });
 
 test('different event Runs share one stage handoff, including restart; changed work remains new', async t => {
-  const root = await mkdtemp(join(tmpdir(), 'kairo-dedup-')); t.after(() => rm(root, { recursive: true }));
+  const root = await mkdtemp(join(tmpdir(), 'nibfin-dedup-')); t.after(() => rm(root, { recursive: true }));
   const execution = { repositoryId: '1', repository: 'owner/core', workflowPath: 'stage.yml', ref: 'main' };
   const request = { schemaVersion: 1, authority: { revision: 1 }, repository: 'owner/repo', issueId: 'A', operation: 'shaper-review', basis: 'basis', artifacts: { head: 'head' }, source: { runId: '1' }, predecessor: { runId: '10' } };
   const box = new ActionOutbox(root, {}, execution), first = await box.enqueue(request);
@@ -55,7 +55,7 @@ test('different event Runs share one stage handoff, including restart; changed w
 });
 
 test('explicit dependency wait can be woken by a fresh event without retrying ambiguous dispatches', async t => {
-  const root=await mkdtemp(join(tmpdir(),'kairo-wait-'));t.after(()=>rm(root,{recursive:true}));
+  const root=await mkdtemp(join(tmpdir(),'nibfin-wait-'));t.after(()=>rm(root,{recursive:true}));
   const box=new ActionOutbox(root,{}, {repositoryId:'1',repository:'owner/core',workflowPath:'stage.yml',ref:'main'});
   const r={schemaVersion:1,authority:{revision:1},repository:'owner/repo',issueId:'C',operation:'shape',basis:'b',artifacts:{},source:{runId:'1'}};
   const id=await box.enqueue(r);await box.prepareHandoff(id);
@@ -65,7 +65,7 @@ test('explicit dependency wait can be woken by a fresh event without retrying am
 });
 
 test('same-repository mutations queue durably while independent work runs; completion releases exactly one',async t=>{
- const root=await mkdtemp(join(tmpdir(),'kairo-write-queue-'));t.after(()=>rm(root,{recursive:true}));
+ const root=await mkdtemp(join(tmpdir(),'nibfin-write-queue-'));t.after(()=>rm(root,{recursive:true}));
  const ex={repositoryId:'1',repository:'owner/core',workflowPath:'stage.yml',ref:'main'};
  const box=new ActionOutbox(root,{},ex),other=new ActionOutbox(root,{},ex);
  const base={schemaVersion:1,authority:{revision:1},repository:'owner/repo',operation:'publish-shape',basis:'b',artifacts:{}};

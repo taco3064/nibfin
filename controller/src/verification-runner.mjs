@@ -83,7 +83,7 @@ export async function main(args=process.argv.slice(2)) {
   if(args[0]!=='--'||!args[1])throw Error('Usage: node /verification-runner.mjs -- <executable> [arguments...]');
   const budget=JSON.parse(await readFile('/io/verification-budget.json','utf8')),controller=new AbortController();
   const abort=()=>controller.abort();process.once('SIGINT',abort);process.once('SIGTERM',abort);
-  try{const result=await runVerification(args[1],args.slice(2),{budget,signal:controller.signal});console.error(JSON.stringify({kind:'kairo-verification',...result}));return result.exitCode;}
+  try{const result=await runVerification(args[1],args.slice(2),{budget,signal:controller.signal});console.error(JSON.stringify({kind:'nibfin-verification',...result}));return result.exitCode;}
   finally{process.removeListener('SIGINT',abort);process.removeListener('SIGTERM',abort);}
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){main().then(code=>{process.exitCode=code;}).catch(error=>{console.error(error.message);process.exitCode=1;});}

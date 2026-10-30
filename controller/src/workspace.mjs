@@ -141,9 +141,9 @@ export class Workspace {
       if (bytes.length !== item.size || createHash('sha256').update(bytes).digest('hex') !== item.sha256)
         throw new Error('Repair source artifact snapshot differs');
     }
-    const identity = {GIT_AUTHOR_NAME:'Kairo',GIT_AUTHOR_EMAIL:'kairo@localhost',GIT_COMMITTER_NAME:'Kairo',GIT_COMMITTER_EMAIL:'kairo@localhost',GIT_AUTHOR_DATE:'2000-01-01T00:00:00Z',GIT_COMMITTER_DATE:'2000-01-01T00:00:00Z'};
+    const identity = {GIT_AUTHOR_NAME:'upstream',GIT_AUTHOR_EMAIL:'nibfin@localhost',GIT_COMMITTER_NAME:'upstream',GIT_COMMITTER_EMAIL:'nibfin@localhost',GIT_AUTHOR_DATE:'2000-01-01T00:00:00Z',GIT_COMMITTER_DATE:'2000-01-01T00:00:00Z'};
     const commit = await this.git(['commit-tree',candidate.tree,'-p',candidate.base], 'Preserved repair candidate '+digest(candidate)+'\n', identity);
-    await this.git(['update-ref','refs/kairo/repair-candidates/'+digest(candidate),commit]);
+    await this.git(['update-ref','refs/nibfin/repair-candidates/'+digest(candidate),commit]);
     return {candidate:structuredClone(candidate),candidateHash:digest(candidate),commit};
   }
   async snapshotRepair(base, obligations) {
@@ -232,8 +232,8 @@ export class Workspace {
     await this.run('git',['init','--bare','--template=',directory],{env:this.env});
     // Fetch objects into a new repository, never copy controller configuration.
     await this.run('git',[`--git-dir=${directory}`,'fetch','--no-tags',this.gitDir,base],{env:this.env});
-    await this.run('git',[`--git-dir=${directory}`,'update-ref','refs/heads/kairo',base],{env:this.env});
-    await this.run('git',[`--git-dir=${directory}`,'symbolic-ref','HEAD','refs/heads/kairo'],{env:this.env});
+    await this.run('git',[`--git-dir=${directory}`,'update-ref','refs/heads/nibfin',base],{env:this.env});
+    await this.run('git',[`--git-dir=${directory}`,'symbolic-ref','HEAD','refs/heads/nibfin'],{env:this.env});
     return {directory,base,tree:candidate.tree,paths:candidate.paths,commitMessage:this.commitMessage(candidate)};
   }
   async captureAttempt(base) {
@@ -262,7 +262,7 @@ export class Workspace {
   async commit(candidate, timestamp) {
     const current = await this.capture(candidate.base, false, candidate.obligations);
     if (digest(current) !== digest(candidate)) throw new Error('Candidate changed after independent acceptance');
-    const identity = { GIT_AUTHOR_NAME: 'Kairo', GIT_AUTHOR_EMAIL: 'kairo@localhost', GIT_COMMITTER_NAME: 'Kairo', GIT_COMMITTER_EMAIL: 'kairo@localhost', GIT_AUTHOR_DATE: timestamp, GIT_COMMITTER_DATE: timestamp };
+    const identity = { GIT_AUTHOR_NAME: 'upstream', GIT_AUTHOR_EMAIL: 'nibfin@localhost', GIT_COMMITTER_NAME: 'upstream', GIT_COMMITTER_EMAIL: 'nibfin@localhost', GIT_AUTHOR_DATE: timestamp, GIT_COMMITTER_DATE: timestamp };
     const commit = await this.git(['commit-tree', candidate.tree, '-p', candidate.base], this.commitMessage(candidate), identity);
     if (await this.git(['rev-parse', `${commit}^{tree}`]) !== candidate.tree) throw new Error('Committed tree mismatch');
     return commit;
@@ -270,8 +270,8 @@ export class Workspace {
   async mergeCommit(candidate, head, timestamp) {
     if (!/^[a-f0-9]{40}$/.test(head)) throw new Error('Invalid reviewed head');
     if (await this.git(['rev-parse', head + '^{tree}']) !== candidate.tree || await this.git(['rev-parse', head + '^']) !== candidate.base) throw new Error('Reviewed head does not match accepted tree and base');
-    const identity = { GIT_AUTHOR_NAME: 'Kairo', GIT_AUTHOR_EMAIL: 'kairo@localhost', GIT_COMMITTER_NAME: 'Kairo', GIT_COMMITTER_EMAIL: 'kairo@localhost', GIT_AUTHOR_DATE: timestamp, GIT_COMMITTER_DATE: timestamp };
-    return this.git(['commit-tree', candidate.tree, '-p', candidate.base, '-p', head], 'Merge reviewed Kairo candidate\n', identity);
+    const identity = { GIT_AUTHOR_NAME: 'upstream', GIT_AUTHOR_EMAIL: 'nibfin@localhost', GIT_COMMITTER_NAME: 'upstream', GIT_COMMITTER_EMAIL: 'nibfin@localhost', GIT_AUTHOR_DATE: timestamp, GIT_COMMITTER_DATE: timestamp };
+    return this.git(['commit-tree', candidate.tree, '-p', candidate.base, '-p', head], 'Merge reviewed upstream candidate\n', identity);
   }
   async advanceBase(commit, branch, expectedBase) {
     await this.git(['check-ref-format', 'refs/heads/' + branch]);

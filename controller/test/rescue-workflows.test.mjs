@@ -5,12 +5,12 @@ import vm from 'node:vm';
 import {detectRescueSource} from '../src/rescue-detection.mjs';
 import {rescueConclusion} from '../src/rescue-result.mjs';
 
-const workflow=await readFile(new URL('../.github/workflows/kairo-rescue.yml',import.meta.url),'utf8');
+const workflow=await readFile(new URL('../.github/workflows/nibfin-rescue.yml',import.meta.url),'utf8');
 const script=workflow.split("node <<'NODE'")[1].split('\n          NODE')[0];
 function fixture({conclusion='failure',marker=null}={}){
- const source={id:123,run_attempt:1,repository:{id:9,full_name:'taco3064/kairo'},path:'.github/workflows/action-stage.yml',event:'workflow_dispatch',status:'completed',head_branch:'main',head_sha:'a'.repeat(40),actor:{id:7},triggering_actor:{id:7},conclusion};
+ const source={id:123,run_attempt:1,repository:{id:9,full_name:'retired-private-source'},path:'.github/workflows/action-stage.yml',event:'workflow_dispatch',status:'completed',head_branch:'main',head_sha:'a'.repeat(40),actor:{id:7},triggering_actor:{id:7},conclusion};
  const event={repository:{private:true},workflow_run:structuredClone(source)},calls=[];
- const policy={repository:'taco3064/kairo',repositoryId:'9',workflowPath:source.path,workflowBlob:'b'.repeat(40),actorIds:['7']};
+ const policy={repository:'retired-private-source',repositoryId:'9',workflowPath:source.path,workflowBlob:'b'.repeat(40),actorIds:['7']};
  const runtime={actionExecutionPolicy:()=>policy,github:{api:async path=>{calls.push(path);return path.includes('/contents/')?{sha:policy.workflowBlob}:source;},list:async()=>[{id:77,name:'execute',status:'completed'}],download:async path=>{calls.push(path);return Buffer.from(marker?'2026-10-28T00:00:00Z '+JSON.stringify(marker):'Ordinary successful work');}}};
  return{runtime,event,source,calls};
 }
@@ -22,14 +22,14 @@ test('one workflow directly detects failures without dispatching a second Rescue
  }
 });
 test('successful sources require an exact live-run recovery marker; normal work is a no-op',async()=>{
- for(const marker of [null,{kind:'kairo-rescue-request',runId:999}]){
+ for(const marker of [null,{kind:'nibfin-rescue-request',runId:999}]){
   const f=fixture({conclusion:'success',marker});assert.equal(await detectRescueSource(f.runtime,{},f.event),null);
  }
- for(const kind of ['kairo-rescue-request','kairo-rescue-resume-observed']){
+ for(const kind of ['nibfin-rescue-request','nibfin-rescue-resume-observed']){
   const f=fixture({conclusion:'success',marker:{kind,runId:123}});
   assert.equal((await detectRescueSource(f.runtime,{},f.event)).inputs.source_run_id,'123');
  }
- const f=fixture({conclusion:'success'});f.runtime.github.download=async()=>Buffer.from('echo '+JSON.stringify({kind:'kairo-rescue-request',runId:123}));
+ const f=fixture({conclusion:'success'});f.runtime.github.download=async()=>Buffer.from('echo '+JSON.stringify({kind:'nibfin-rescue-request',runId:123}));
  assert.equal(await detectRescueSource(f.runtime,{},f.event),null);
 });
 test('changed attempt, SHA, actor, workflow, public origin or incomplete source cannot enter repair',async()=>{
@@ -44,7 +44,7 @@ test('only verified resolution is green; failure is red; intermediate/no-op stat
  for(const state of ['DEFERRED','PENDING_VERIFICATION','STAGE_RECOVERED','SUPERSEDED','NOT_NEEDED','RECHECKED'])assert.equal(rescueConclusion(state),'cancelled');
 });
 async function finalizer(conclusion,step='success',status=202){
- const calls=[],process={env:{RESCUE_CONCLUSION:conclusion,RESCUE_STEP_OUTCOME:step,GITHUB_REPOSITORY:'taco3064/kairo',GITHUB_RUN_ID:'456',GH_TOKEN:'hidden'},exitCode:0};
+ const calls=[],process={env:{RESCUE_CONCLUSION:conclusion,RESCUE_STEP_OUTCOME:step,GITHUB_REPOSITORY:'retired-private-source',GITHUB_RUN_ID:'456',GH_TOKEN:'hidden'},exitCode:0};
  await vm.runInNewContext(script,{process,console:{error:()=>{}},fetch:async(url,options)=>{calls.push({url,options});return{status};},AbortSignal,setTimeout:callback=>callback()});
  return{calls,process};
 }
@@ -59,11 +59,11 @@ test('final gate never paints a failed step green and cancels only its own repor
  r=await finalizer('cancelled','success',403);assert.equal(r.process.exitCode,1);assert.equal(r.calls.length,1);
 });
 test('single English workflow preserves pinned Core, typed inputs and nonrecursive completion',async()=>{
- await assert.rejects(access(new URL('../.github/workflows/kairo-rescue-trigger.yml',import.meta.url)),{code:'ENOENT'});
- assert(workflow.startsWith('name: Kairo Rescue\n'));assert(!/[\u3400-\u9fff]/.test(workflow));
+ await assert.rejects(access(new URL('../.github/workflows/nibfin-rescue-trigger.yml',import.meta.url)),{code:'ENOENT'});
+ assert(workflow.startsWith('name: upstream Rescue\n'));assert(!/[\u3400-\u9fff]/.test(workflow));
  assert.doesNotMatch(workflow,/^\s+workflow_run:/m);assert(workflow.includes('workflow_dispatch:'));
- assert(!workflow.includes('actions/checkout'));assert(workflow.includes('rescue-run /etc/kairo/actions-runtime.json'));
- assert(workflow.includes('runs-on: [self-hosted, linux, kairo-actions]'));
+ assert(!workflow.includes('actions/checkout'));assert(workflow.includes('rescue-run /etc/nibfin/actions-runtime.json'));
+ assert(workflow.includes('runs-on: [self-hosted, linux, nibfin-actions]'));
  assert(workflow.includes('cancel-in-progress: false'));assert.doesNotMatch(workflow,/^\s*(?:-\s*)?(schedule|cron):/m);
  for(const line of workflow.split('\n'))if(/^\s+(?:run:|node |const |await )/.test(line))assert(!line.includes('${{ inputs.'));
 });

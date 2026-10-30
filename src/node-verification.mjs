@@ -1,4 +1,4 @@
-// Adapted from Kairo d1b47d5e073cf15bdcdc1fbbec098401649878d9 verification-prepare; stronger Nibfin input/cache guards retained.
+// Adapted from upstream d1b47d5e073cf15bdcdc1fbbec098401649878d9 verification-prepare; stronger Nibfin input/cache guards retained.
 import {lstatSync,realpathSync,readlinkSync,readdirSync,readFileSync,writeFileSync,mkdirSync,mkdtempSync,chmodSync,openSync,fstatSync,closeSync,constants,existsSync} from 'node:fs';
 import {join,resolve,relative,dirname,sep} from 'node:path';
 import {createHash} from 'node:crypto';

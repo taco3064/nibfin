@@ -98,7 +98,7 @@ merge gate where assigned; neither CI nor a test count proves requirement covera
 ## Assemble and hand off the candidate
 
 Produce the complete candidate with necessary generated files and declared
-non-tree artifacts. Follow Shape's `kairo-candidate` inventory. Missing required
+non-tree artifacts. Follow Shape's `nibfin-candidate` inventory. Missing required
 ignored artifacts are missing deliverables; caches are not evidence. Do not add
 ceremonial report files or silently omit unsupported obligations.
 

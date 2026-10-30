@@ -7,8 +7,8 @@ import {dockerSecurity,dockerCommand,verifyDockerSecurity} from '../src/docker-s
 const config=JSON.parse(await readFile(process.argv[2],'utf8')),agent=config.agent;
 if(process.platform!=='linux'||!dockerSecurity(agent)||!/^sha256:[a-f0-9]{64}$/.test(agent.image))throw Error('Explicit Linux rootless runtime and immutable image required');
 const run=dockerCommand(agent);await verifyDockerSecurity(agent,run);
-const parent=await realpath(tmpdir()),scratch=await mkdtemp(join(parent,'kairo-rootless-probe-'));
-const container='kairo-rootless-probe-'+randomUUID();
+const parent=await realpath(tmpdir()),scratch=await mkdtemp(join(parent,'nibfin-rootless-probe-'));
+const container='nibfin-rootless-probe-'+randomUUID();
 await writeFile(join(scratch,'sentinel'),'credential-free fixture\n',{mode:0o600});
 const probe=`const fs=require('node:fs'),os=require('node:os');
 const need=(value,message)=>{if(!value)throw Error(message);};
@@ -33,6 +33,6 @@ try{
  // Reconcile only this generated name, including after a lost/timed-out launch reply.
  const residual=(await run('docker',['ps','-aq','--filter','name=^/'+container+'$'])).stdout.trim();
  if(residual){await run('docker',['rm','--force',container]);if((await run('docker',['ps','-aq','--filter','name=^/'+container+'$'])).stdout.trim())throw Error('Probe container cleanup unresolved');}
- if(!scratch.startsWith(parent+'/kairo-rootless-probe-')||await realpath(scratch)!==scratch)throw Error('Unexpected probe cleanup path');
+ if(!scratch.startsWith(parent+'/nibfin-rootless-probe-')||await realpath(scratch)!==scratch)throw Error('Unexpected probe cleanup path');
  await rm(scratch,{recursive:true});
 }

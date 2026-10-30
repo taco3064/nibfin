@@ -9,7 +9,7 @@ import { Store } from '../src/store.mjs';
 import { ActionOutbox } from '../src/action-outbox.mjs';
 
 test('four CI completions route only matching Issues and dispatch two reviews; stale and merged heads', async t => {
-  const root = await mkdtemp(join(tmpdir(), 'kairo-routing-')); t.after(() => rm(root, { recursive: true }));
+  const root = await mkdtemp(join(tmpdir(), 'nibfin-routing-')); t.after(() => rm(root, { recursive: true }));
   const issues = ['A','B','C','D'].map(id => ({ id, repository: 'owner/repo', repositoryId: '1', scopeHash: id }));
   const grant = { policy: { grantId: 'g', revision: 1 }, manifest: { issues } };
   for (const [index, issue] of issues.slice(0,2).entries()) {

@@ -15,7 +15,7 @@ import { Store } from '../src/store.mjs';
 import { unitId, ready } from '../src/dynamic.mjs';
 import { eventSource } from '../src/native-wakeup.mjs';
 import { loadIssueScopes, issueScopeStore } from '../src/issue-scope.mjs';
-import { KAIRO_REPOSITORY_ID } from '../src/owner-identity.mjs';
+import { UPSTREAM_REPOSITORY_ID } from '../src/owner-identity.mjs';
 import { mkdir } from 'node:fs/promises';
 
 async function harness(t, {local=false,owner=false,live=false}={}) {
@@ -29,7 +29,7 @@ async function harness(t, {local=false,owner=false,live=false}={}) {
   g.policy.operations.push('pre-accept-hooks', 'post-accept-hooks', 'verify-deployment');
   const execution = { repository: 'example/control', repositoryId: '999', workflowPath: '.github/workflows/action-stage.yml', workflowBlob: 'f'.repeat(40), actorIds: ['7'], runnerIds: [1], runnerName: config.runnerId, jobName: 'execute', ref: 'main' };
   if(local)Object.assign(execution,{identityMode:'local-gh',ownerId:'7'});
-  g.policy.actionExecution = execution; config.actionExecution = execution; config.kairoOwnerGitHubUserId = '7';
+  g.policy.actionExecution = execution; config.actionExecution = execution; config.nibfinOwnerGitHubUserId = '7';
   if(owner){config.controlMode='owner-project';g.policy.controlMode='owner-project';for(const r of Object.values(g.policy.repositories)){r.ciMode='github-repository';r.finalProofs=[];}}
   g.policy.runtimeHash = runtimeConfigurationHash(config);
   gh.issues = Object.fromEntries(g.manifest.issues.map(i => [i.id, { node_id: i.id, number: i.number, user:{id:7,type:'User'}, body: i.scopeBody, labels: [{ name: 'scope' }], state: 'open' }]));
@@ -37,7 +37,7 @@ async function harness(t, {local=false,owner=false,live=false}={}) {
   gh.dependencies = async issue => g.manifest.issues.find(i => i.id === issue.id).dependencies.map(node_id => ({ node_id }));
   const runs = new Map(); let serial = 1000;
   const originalApi = gh.api.bind(gh), originalList = gh.list.bind(gh);
-  gh.repository = async repository => ({ id: repository === 'taco3064/kairo' ? KAIRO_REPOSITORY_ID : repository === execution.repository ? 999 : Number(g.manifest.issues.find(i => i.repository === repository).repositoryId), full_name: repository, private: repository === execution.repository, visibility: repository === execution.repository?'private':'public', owner:{id:7,type:'User'}, default_branch: 'main', permissions: { push: true } });
+  gh.repository = async repository => ({ id: repository === 'retired-private-source' ? UPSTREAM_REPOSITORY_ID : repository === execution.repository ? 999 : Number(g.manifest.issues.find(i => i.repository === repository).repositoryId), full_name: repository, private: repository === execution.repository, visibility: repository === execution.repository?'private':'public', owner:{id:7,type:'User'}, default_branch: 'main', permissions: { push: true } });
   gh.api = async (path, method, body) => {
     if(path==='/user')return {id:7,type:'User'};
     if(path.includes('/issues/'))return gh.issues[g.manifest.issues.find(i=>path===`/repos/${i.repository}/issues/${i.number}`)?.id] || originalApi(path,method,body);
@@ -57,8 +57,8 @@ async function harness(t, {local=false,owner=false,live=false}={}) {
     }
     return originalList(path, field);
   };
-  const bindings = Object.fromEntries(g.manifest.issues.map(i => [i.repository, { kairoOwnerGitHubUserId:'7',binding: {repository:i.repository,ownerId:'7',runnerId:config.runnerId,bindingId:'b'.repeat(32),repositoryId: i.repositoryId, workflowPath: '.github/workflows/kairo.yml',workflowBlob:execution.workflowBlob } }]));
-  g.actorGitHubUserId='7';g.policy.kairoOwnerGitHubUserId='7';
+  const bindings = Object.fromEntries(g.manifest.issues.map(i => [i.repository, { nibfinOwnerGitHubUserId:'7',binding: {repository:i.repository,ownerId:'7',runnerId:config.runnerId,bindingId:'b'.repeat(32),repositoryId: i.repositoryId, workflowPath: '.github/workflows/nibfin.yml',workflowBlob:execution.workflowBlob } }]));
+  g.actorGitHubUserId='7';g.policy.nibfinOwnerGitHubUserId='7';
   g.policy.publicRunner={rootId:'c'.repeat(64),bindings:Object.fromEntries(Object.entries(bindings).map(([r,e])=>[r,e.binding]))};
   g.policy.actionEvents = Object.fromEntries(g.manifest.issues.map(i => [i.repository, { actorIds: ['7'],signerVerification:'hmac-workflow-pin',reconcileWorkflowPaths:['.github/workflows/ci.yml'] }]));
   const nativeSources=new Map();
@@ -86,7 +86,7 @@ async function harness(t, {local=false,owner=false,live=false}={}) {
     runtime.grant = async () => {
       const grant = verifyGrant(await gh.grant(), f.publicKey.export({ format: 'pem', type: 'spki' }));
       runtime.actionIdentity = await verifyActionRun(gh, execution, { runId, attempt: 1, jobId });
-      runtime.executionContext = {...runtime.actionIdentity,kind:'public-runner-dispatch',rootId:g.policy.publicRunner.rootId,kairoOwnerGitHubUserId:'7'}; runtime.publicDispatch=true;runtime.publicBindings = bindings;
+      runtime.executionContext = {...runtime.actionIdentity,kind:'public-runner-dispatch',rootId:g.policy.publicRunner.rootId,nibfinOwnerGitHubUserId:'7'}; runtime.publicDispatch=true;runtime.publicBindings = bindings;
       if(live)await loadIssueScopes(runtime,grant);
       return grant;
     };

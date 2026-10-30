@@ -15,7 +15,7 @@ export function lockEvidence(lock,source,alive=processAlive){
 }
 export async function activeIssueContainers(runtime,issue,grant,{unit}={}){
  const run=dockerCommand(runtime.config.agent,runtime.rescueCommand??command);
- const ids=(await run('docker',['ps','--filter','name=kairo-','--format','{{.ID}}'],{timeout:10000})).stdout.trim().split('\n').filter(Boolean);
+ const ids=(await run('docker',['ps','--filter','name=nibfin-','--format','{{.ID}}'],{timeout:10000})).stdout.trim().split('\n').filter(Boolean);
  if(!ids.length)return[];
  const containers=JSON.parse((await run('docker',['inspect',...ids],{timeout:10000})).stdout);
  const prefix=resolve(runtime.config.stateDirectory,'workspaces',digest(unit??unitId(grant,issue)));
@@ -55,11 +55,11 @@ export async function probeGithubRead(runtime,repository){
  await verifyDockerSecurity(c,run);
  const args=['run','--rm','--network','none','--read-only','--cap-drop','ALL','--security-opt','no-new-privileges','--pids-limit','64','--memory','128m','--user',c.user,
   '--mount',`type=bind,src=${resolve(runtime.root,'src','agent-gh-client.mjs')},dst=/usr/local/bin/gh,readonly`,
-  '--mount','type=bind,src=/run/kairo-github-read,dst=/github-read,readonly','--entrypoint','gh',c.image,'repo','view','--repo',repository,'--json','nameWithOwner,isPrivate'];
+  '--mount','type=bind,src=/run/nibfin-github-read,dst=/github-read,readonly','--entrypoint','gh',c.image,'repo','view','--repo',repository,'--json','nameWithOwner,isPrivate'];
  const read=async()=>{const result=JSON.parse((await run('docker',args,{timeout:45000})).stdout);if(result.nameWithOwner!==repository||result.isPrivate!==false)throw Error('Read probe returned another repository');return result;};
  try{return{status:'healthy',observation:await read(),restarted:false};}
  catch{
-  await run('sudo',['-n','/usr/bin/systemctl','restart','kairo-github-read.service'],{timeout:15000});
+  await run('sudo',['-n','/usr/bin/systemctl','restart','nibfin-github-read.service'],{timeout:15000});
   return{status:'healthy',observation:await read(),restarted:true};
  }
 }

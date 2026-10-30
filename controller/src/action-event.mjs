@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { canonical, digest } from './core.mjs';
 import { Store } from './store.mjs';
 import { repoPath } from './github.mjs';
-import { verifyKairoOwner } from './owner-identity.mjs';
+import { verifyupstreamOwner } from './owner-identity.mjs';
 
 const fail = reason => { throw Object.assign(new Error(reason), { code: 'ACTION_EVENT_INVALID' }); };
 const fields = ['schemaVersion', 'repository', 'repositoryId', 'runnerId', 'bindingId', 'runId', 'runAttempt', 'nonce', 'issuedAt', 'expiresAt', 'eventName', 'eventAction', 'issueId', 'issueNumber', 'relatedRunId'];
@@ -72,7 +72,7 @@ export async function verifyActionEvent(github, entry, envelope, policy, now = D
 // that verifier to the private inbox. This is not an envelope authentication API.
 export async function verifyPublicEventRun(github, entry, p, policy) {
   const b = entry.binding, root = repoPath(b.repository);
-  const ownerId = await verifyKairoOwner(github, { kairoOwnerGitHubUserId: entry.kairoOwnerGitHubUserId });
+  const ownerId = await verifyupstreamOwner(github, { nibfinOwnerGitHubUserId: entry.nibfinOwnerGitHubUserId });
   const repo = await github.repository(b.repository);
   if (repo.private || String(repo.id) !== b.repositoryId || String(repo.owner?.id) !== ownerId || b.ownerId !== ownerId) fail('Public participant identity differs');
   const run = await github.api(`${root}/actions/runs/${p.runId}/attempts/${p.runAttempt}`);

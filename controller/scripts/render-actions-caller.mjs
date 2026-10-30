@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 export function renderActionsCaller(template, workflows) {
   if (!Array.isArray(workflows) || !workflows.length) throw Error('Explicit approved workflows required');
   const names = workflows.map(w => {
-    if (!/^\.github\/workflows\/[\w.-]+\.ya?ml$/.test(w.path) || w.path === '.github/workflows/kairo.yml' ||
+    if (!/^\.github\/workflows\/[\w.-]+\.ya?ml$/.test(w.path) || w.path === '.github/workflows/nibfin.yml' ||
         typeof w.name !== 'string' || !w.name.trim() || /[\r\n*?\[\]]/.test(w.name)) throw Error('Invalid approved workflow');
     return w.name;
   });

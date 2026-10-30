@@ -4,7 +4,7 @@ export function issueReference(issue){
  return issue.repository.split('/')[1]+'#'+issue.number;
 }
 export const requestIssueReference=(request,issues=[])=>issueReference(issues.find(i=>i.id===request.issueId&&i.repository===request.repository));
-export const actionRunTitle=(reference,id)=>'Kairo | '+(reference||'Request')+' | '+id;
+export const actionRunTitle=(reference,id)=>'upstream | '+(reference||'Request')+' | '+id;
 export async function eventIssueReference(github,p,resolveIssues){
  const direct=issueReference({repository:p.repository,number:p.issueNumber});if(direct)return direct;
  try{

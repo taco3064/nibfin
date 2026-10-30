@@ -58,7 +58,7 @@ export async function processRescueCompletions(runtime,grant,{now=Date.now}={}){
      // A provider-proven crash/timeout may occur before Core can register a
      // case. Persist intent first; an uncertain POST is never replayed.
      s=await store.transaction(s.revision,v=>({...v,status:'attempted',attemptedAt:new Date().toISOString()}));
-     const result=await runtime.github.api('/repos/'+runtime.actionExecutionPolicy(grant).repository+'/actions/workflows/kairo-rescue.yml/dispatches','POST',{ref:'main',inputs:{source_run_id:String(source.id),reason_code:'PROVIDER_FAILURE',mode:'repair'},return_run_details:true},'2022-11-28');
+     const result=await runtime.github.api('/repos/'+runtime.actionExecutionPolicy(grant).repository+'/actions/workflows/nibfin-rescue.yml/dispatches','POST',{ref:'main',inputs:{source_run_id:String(source.id),reason_code:'PROVIDER_FAILURE',mode:'repair'},return_run_details:true},'2022-11-28');
      if(!positive(result?.workflow_run_id))throw Error('Rescue dispatch outcome is uncertain');
      await store.transaction(s.revision,v=>({...v,status:'confirmed',rescueRunId:String(result.workflow_run_id),nextCheckAt:null}));return{status:'confirmed',runId:String(result.workflow_run_id)};
     }
@@ -67,7 +67,7 @@ export async function processRescueCompletions(runtime,grant,{now=Date.now}={}){
     const latest=await store.read(),tries=(latest.readAttempts??0)+1;
     const retry=latest.status==='pending'&&(error.code==='RESCUE_SOURCE_ACTIVE'||error.requestMethod==='GET'||['EEXIST','GITHUB_READ_UNAVAILABLE','GITHUB_RATE_LIMIT'].includes(error.code))&&tries<8;
     await store.transaction(latest.revision,v=>({...v,status:retry?'pending':'unresolved',readAttempts:tries,nextCheckAt:retry?new Date(Math.max(now()+Math.min(900000,15000*2**(tries-1)),error.retryAt??0)).toISOString():null,error:cleanRescueText(error.message)}));
-    console.error(JSON.stringify({kind:'kairo-rescue-completion-error',id,status:retry?'pending':'unresolved',reason:cleanRescueText(error.message)}));return{status:retry?'pending':'unresolved'};
+    console.error(JSON.stringify({kind:'nibfin-rescue-completion-error',id,status:retry?'pending':'unresolved',reason:cleanRescueText(error.message)}));return{status:retry?'pending':'unresolved'};
    }
   }));
   if(results.length>=10)break;
@@ -83,7 +83,7 @@ export async function startRescueCompletions(runtime,loadGrant=()=>loadRescueWak
    const items=Object.keys((await index.read()).items??{}),due=[];for(const id of items){const s=await eventStore(runtime,id).read();if(s.status==='pending'&&Date.parse(s.nextCheckAt)<=Date.now())due.push(id);}
    if(due.length){const fresh=await loadGrant();if(digest(binding(fresh.manifest,fresh.policy))!==digest(binding(grant.manifest,grant.policy)))throw Error('Completion authority changed; restart notifier');await processRescueCompletions(runtime,fresh);}
   }catch(error){
-   console.error(JSON.stringify({kind:'kairo-rescue-completion-error',reason:cleanRescueText(error.message)}));
+   console.error(JSON.stringify({kind:'nibfin-rescue-completion-error',reason:cleanRescueText(error.message)}));
    for(const id of Object.keys((await index.read()).items??{})){const store=eventStore(runtime,id),s=await store.read();if(s.status!=='pending'||Date.parse(s.nextCheckAt)>Date.now())continue;await store.metadataLease(async()=>{const v=await store.read(),tries=(v.readAttempts??0)+1;await store.transaction(v.revision,x=>({...x,readAttempts:tries,status:tries<8?'pending':'unresolved',nextCheckAt:tries<8?new Date(Date.now()+Math.min(900000,15000*2**(tries-1))).toISOString():null,error:cleanRescueText(error.message)}));});}
   }
   finally{

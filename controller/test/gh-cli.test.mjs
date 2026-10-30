@@ -58,7 +58,7 @@ test('conditional empty responses and binary downloads preserve their types', as
 });
 
 test('production Git workspace delegates credentials to gh without embedding a token', () => {
-  const workspace = new Workspace('/tmp/kairo-cli-test', {repository:'owner/repo'});
+  const workspace = new Workspace('/tmp/nibfin-cli-test', {repository:'owner/repo'});
   assert.ok(Object.values(workspace.env).includes('!gh auth git-credential'));
   assert.ok(!Object.values(workspace.env).some(v => /AUTHORIZATION: basic/.test(v)));
   assert.equal(workspace.env.GITHUB_TOKEN, undefined);

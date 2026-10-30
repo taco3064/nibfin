@@ -21,10 +21,10 @@ import {validateAiRepairPlan} from '../src/rescue-ai.mjs';
 
 const policy={schemaVersion:1,workflowBlob:'a'.repeat(40),maxRepairsPerIssue:3,cooldownSeconds:60};
 const issue={id:'I_190',repository:'taco3064/nibfin',repositoryId:'12',number:190,scopeHash:'scope',dependencies:[]};
-const grant={recordId:'authority',manifest:{id:'cohort',issues:[issue],proposalRevision:'p',freezeRevision:'f'},policy:{grantId:'grant',revision:'r',maxParallel:2,actionExecution:{repository:'taco3064/kairo',repositoryId:'9',workflowPath:'.github/workflows/action-stage.yml',workflowBlob:'b'.repeat(40),actorIds:['7'],runnerIds:['2','22']}}};
-function source(id='100'){return{id:Number(id),run_attempt:1,repository:{full_name:'taco3064/kairo',id:9},path:grant.policy.actionExecution.workflowPath,event:'workflow_dispatch',head_branch:'main',head_sha:'c'.repeat(40),actor:{id:7},triggering_actor:{id:7},status:'completed',conclusion:'failure',created_at:'2026-10-27T01:00:00Z',updated_at:'2026-10-27T02:00:00Z',jobs:[{status:'completed'}]};}
+const grant={recordId:'authority',manifest:{id:'cohort',issues:[issue],proposalRevision:'p',freezeRevision:'f'},policy:{grantId:'grant',revision:'r',maxParallel:2,actionExecution:{repository:'retired-private-source',repositoryId:'9',workflowPath:'.github/workflows/action-stage.yml',workflowBlob:'b'.repeat(40),actorIds:['7'],runnerIds:['2','22']}}};
+function source(id='100'){return{id:Number(id),run_attempt:1,repository:{full_name:'retired-private-source',id:9},path:grant.policy.actionExecution.workflowPath,event:'workflow_dispatch',head_branch:'main',head_sha:'c'.repeat(40),actor:{id:7},triggering_actor:{id:7},status:'completed',conclusion:'failure',created_at:'2026-10-27T01:00:00Z',updated_at:'2026-10-27T02:00:00Z',jobs:[{status:'completed'}]};}
 async function fixture(t){
- const root=await mkdtemp(join(tmpdir(),'kairo-rescue-'));t.after(()=>rm(root,{recursive:true,force:true}));
+ const root=await mkdtemp(join(tmpdir(),'nibfin-rescue-'));t.after(()=>rm(root,{recursive:true,force:true}));
  const writes=[],runs=new Map([['100',source()],['200',{...source('200'),status:'queued',conclusion:null}]]);
  const runtime={root,config:{stateDirectory:root,actionExecution:grant.policy.actionExecution,agent:{user:'1000:1000',image:'sha256:'+'d'.repeat(64)}},coreUpgrade:{rescue:policy,agentGithubRead:true},actionIdentity:{runId:'100',runAttempt:1},rescueIdentity:{runId:'300'},grant:async()=>grant,actionExecutionPolicy:()=>grant.policy.actionExecution,
   rescueCommand:async()=>({stdout:''}),github:{api:async(path,method='GET',body)=>{
@@ -61,7 +61,7 @@ test('bounded Rescue authority is signed and unknown permissions cannot be smugg
 });
 test('Rescue identities require exact current workflow bytes, approved actor, job and runner',async t=>{
  const f=await fixture(t),r=f.runtime,run={...source('300'),path:rescueWorkflow,status:'in_progress'};
- r.environment={GITHUB_REPOSITORY:'taco3064/kairo',GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_RUN_ID:'300',GITHUB_RUN_ATTEMPT:'1',GITHUB_JOB:'rescue',GITHUB_SHA:run.head_sha,RUNNER_NAME:'runner'};
+ r.environment={GITHUB_REPOSITORY:'retired-private-source',GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_RUN_ID:'300',GITHUB_RUN_ATTEMPT:'1',GITHUB_JOB:'rescue',GITHUB_SHA:run.head_sha,RUNNER_NAME:'runner'};
  r.github.api=async path=>path.includes('/contents/')?{sha:policy.workflowBlob}:run;
  r.github.repository=async()=>({private:true});r.github.list=async()=>[{id:99,name:'rescue',status:'in_progress',runner_name:'runner',runner_id:2}];
  assert.equal((await verifyRescueInvocation(r,grant,f.event('a'.repeat(64)))).runnerId,'2');
@@ -74,7 +74,7 @@ test('Rescue identities require exact current workflow bytes, approved actor, jo
 });
 test('queued Rescue may use one explicitly approved historical pin while main stays exact',async t=>{
  const f=await fixture(t),r=f.runtime,run={...source('300'),path:rescueWorkflow,status:'in_progress'},previous='f'.repeat(40);
- r.environment={GITHUB_REPOSITORY:'taco3064/kairo',GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_RUN_ID:'300',GITHUB_RUN_ATTEMPT:'1',GITHUB_JOB:'rescue',GITHUB_SHA:run.head_sha,RUNNER_NAME:'runner'};
+ r.environment={GITHUB_REPOSITORY:'retired-private-source',GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_RUN_ID:'300',GITHUB_RUN_ATTEMPT:'1',GITHUB_JOB:'rescue',GITHUB_SHA:run.head_sha,RUNNER_NAME:'runner'};
  r.github.repository=async()=>({private:true});r.github.list=async()=>[{id:99,name:'rescue',status:'in_progress',runner_name:'runner',runner_id:2}];
  r.github.api=async path=>path.includes('/contents/')?{sha:path.endsWith('ref=main')?policy.workflowBlob:previous}:run;
  await assert.rejects(verifyRescueInvocation(r,grant,f.event('a'.repeat(64))),{code:'RESCUE_PIN_CHANGED'});
@@ -111,7 +111,7 @@ test('a transient read resumes through Core; queued or receiptless runs are neve
  result=await runRescue(f.runtime,f.event(id),{verifyOnly:true});assert.equal(result.outcome,'UNRESOLVED');assert.equal(result.verification,'Still blocked');
 });
 
-function timeoutSource(){return{...source(),conclusion:'cancelled',updated_at:'2026-10-27T04:00:39Z',jobs:[{id:77,name:'execute',status:'completed',conclusion:'cancelled',started_at:'2026-10-27T01:00:00Z',completed_at:'2026-10-27T04:00:39Z',check_run_url:'https://api.github.com/repos/taco3064/kairo/check-runs/77'}]};}
+function timeoutSource(){return{...source(),conclusion:'cancelled',updated_at:'2026-10-27T04:00:39Z',jobs:[{id:77,name:'execute',status:'completed',conclusion:'cancelled',started_at:'2026-10-27T01:00:00Z',completed_at:'2026-10-27T04:00:39Z',check_run_url:'https://api.github.com/repos/retired-private-source/check-runs/77'}]};}
 const timeoutAnnotation={annotation_level:'failure',message:'The job has exceeded the maximum execution time of 3h0m0s'};
 test('a continuation timeout creates its own case under the original Issue repair budget',async t=>{
  const f=await fixture(t),parent=await f.queue();await runRescue(f.runtime,f.event(parent));
@@ -132,7 +132,7 @@ async function interruptedWriter(t){
  const projected=projectUnit(g,issue),authority=binding(projected.manifest,projected.policy),key=digest({repository:issue.repository,issue:issue.id,scope:issue.scopeHash,binding:authority,role:'deliver'}),sessionId=randomUUID();
  const sessionStore=new Store(f.root,'role-session:'+key);await sessionStore.transaction(0,s=>({...s,sessionStatus:'running',stage:'deliver',sessionId}));
  const directory=join(f.root,'role-sessions',key);await mkdir(directory,{recursive:true});const conversation=join(directory,sessionId+'.jsonl');await writeFile(conversation,JSON.stringify({type:'session_meta',payload:{id:sessionId,cwd:'/work'}})+'\n');
- const s=await f.unit.read();await f.unit.transaction(s.revision,v=>({...v,issues:{[issue.id]:{repairs:0,shape:{body:'```kairo-candidate\n{"artifacts":[],"hooks":[]}\n```\n'}}},pending:{...authority,operation:'deliver',executionContext:{action:{runId:'100'}},artifacts:{base:'e'.repeat(40)}}}));
+ const s=await f.unit.read();await f.unit.transaction(s.revision,v=>({...v,issues:{[issue.id]:{repairs:0,shape:{body:'```nibfin-candidate\n{"artifacts":[],"hooks":[]}\n```\n'}}},pending:{...authority,operation:'deliver',executionContext:{action:{runId:'100'}},artifacts:{base:'e'.repeat(40)}}}));
  f.runtime.workspace=(_grant,_issue,stored)=>({root:join(f.root,'attempt-'+(stored.repairs??0)),preparedBase:async()=>'e'.repeat(40),snapshotRepair:async()=>({candidate:{base:'e'.repeat(40),tree:'f'.repeat(40),paths:['source.mjs']}})});
  const src=timeoutSource();f.runs.set('100',src);f.runtime.coreUpgrade.executionLimits={jobTimeoutMinutes:180};f.runtime.github.list=async path=>path.endsWith('/annotations')?[timeoutAnnotation]:src.jobs;
  return{...f,g,src,sessionStore,sessionId,conversation};
@@ -158,7 +158,7 @@ test('durable continuation verification queues a distinct timeout repair once wh
  const src={...timeoutSource(),id:200};f.runs.set('200',src);f.runtime.coreUpgrade.executionLimits={jobTimeoutMinutes:180};f.runtime.github.list=async path=>path.endsWith('/annotations')?[timeoutAnnotation]:src.jobs;
  const s=await f.unit.read();await f.unit.transaction(s.revision,v=>({...v,pending:{operation:'accept',executionContext:{action:{runId:'200'}}}}));
  const before=await f.unit.read(),r=await runRescue(f.runtime,f.event(parent),{verifyOnly:true});assert.equal(r.outcome,'UNRESOLVED');assert(r.nextCaseId);assert.notEqual(r.nextCaseId,parent);
- assert.equal(f.writes.length,2);assert(f.writes[1].path.endsWith('kairo-rescue.yml/dispatches'));assert.deepEqual(await f.unit.read(),before);
+ assert.equal(f.writes.length,2);assert(f.writes[1].path.endsWith('nibfin-rescue.yml/dispatches'));assert.deepEqual(await f.unit.read(),before);
  await runRescue(f.runtime,f.event(parent),{verifyOnly:true});assert.equal(f.writes.length,2);
 });
 test('linked continuation incidents cannot reset the Issue repair limit or remove locks after exhaustion',async t=>{
@@ -189,7 +189,7 @@ test('provider cancellation recovery requires exact job annotation, signed durat
   if(change==='early')r.jobs[0].completed_at='2026-10-27T01:05:00Z';
   if(change==='late')r.jobs[0].completed_at='2026-10-27T05:00:00Z';
   if(change==='missing-time')delete r.jobs[0].completed_at;
-  if(change==='foreign-check')r.jobs[0].check_run_url='https://evil.test/repos/taco3064/kairo/check-runs/77';
+  if(change==='foreign-check')r.jobs[0].check_run_url='https://evil.test/repos/retired-private-source/check-runs/77';
   if(change==='active-job')r.jobs[0].status='in_progress';
   if(change==='duplicate-job')r.jobs.push({...r.jobs[0]});
   assert.equal(await providerTimeoutEvidence(f.runtime,grant,r),null,change);
@@ -213,7 +213,7 @@ test('a deferred live Agent is rechecked without consuming a repair or removing 
  await runRescue(f.runtime,f.event(id));assert.equal((await f.state(id)).deferredChecks,1);assert.equal(f.writes.length,0);
  active=false;const cs=new Store(f.root,'rescue-case:'+id),c=await cs.read();await cs.transaction(c.revision,v=>({...v,nextCheckAt:'2020-01-01T00:00:00Z'}));
  report=await wakeRescueCases(f.runtime,grant);
- assert.equal(report.outcome,'RECHECKED');assert.equal(report.results[0].outcome,'NOTIFIED');assert.equal(f.writes.length,1);assert.equal((await budget.read()).attempts,undefined);assert(f.writes[0].path.endsWith('kairo-rescue.yml/dispatches'));
+ assert.equal(report.outcome,'RECHECKED');assert.equal(report.results[0].outcome,'NOTIFIED');assert.equal(f.writes.length,1);assert.equal((await budget.read()).attempts,undefined);assert(f.writes[0].path.endsWith('nibfin-rescue.yml/dispatches'));
  assert.equal((await runRescue(f.runtime,f.event(id))).outcome,'PENDING_VERIFICATION');assert.equal((await budget.read()).attempts,1);
  await wakeRescueCases(f.runtime,grant);assert.equal(f.writes.length,2);
 });
@@ -234,7 +234,7 @@ test('host pending rechecks stop at the bound and never replay a partially attem
 test('Rescue admission rejects cron and non-Actions host execution',async t=>{
  const f=await fixture(t),r=f.runtime;
  for(const name of ['schedule',undefined]){
-  r.environment={GITHUB_REPOSITORY:'taco3064/kairo',GITHUB_EVENT_NAME:name,GITHUB_RUN_ID:'300',GITHUB_RUN_ATTEMPT:'1',GITHUB_JOB:'rescue'};
+  r.environment={GITHUB_REPOSITORY:'retired-private-source',GITHUB_EVENT_NAME:name,GITHUB_RUN_ID:'300',GITHUB_RUN_ATTEMPT:'1',GITHUB_JOB:'rescue'};
   await assert.rejects(verifyRescueInvocation(r,grant,{schedule:'*/5 * * * *'}),{code:'RESCUE_ORIGIN_INVALID'});
  }
 });
@@ -339,7 +339,7 @@ test('host wakeups notify only ready continuations once and never execute repair
  let report=await wakeRescueCases(f.runtime,grant);assert.equal(report.results[0].outcome,'DEFERRED');assert.equal(f.writes.length,1);
  c=await cs.read();await cs.transaction(c.revision,v=>({...v,nextCheckAt:'2020-01-01T00:00:00Z'}));f.runs.set('200',{...source('200'),conclusion:'success'});
  report=await wakeRescueCases(f.runtime,grant);assert.equal(report.results[0].outcome,'NOTIFIED');assert.equal(f.writes.length,2);
- assert(f.writes[1].path.endsWith('kairo-rescue.yml/dispatches'));assert.equal(f.writes[1].body.inputs.request_id,id);
+ assert(f.writes[1].path.endsWith('nibfin-rescue.yml/dispatches'));assert.equal(f.writes[1].body.inputs.request_id,id);
  assert.equal((await wakeRescueCases(f.runtime,grant)).results.length,0);assert.equal(f.writes.length,2);
  assert.equal((await cs.read()).outcome,'DEFERRED'); // Only the authenticated Action may verify resolution.
 });
@@ -464,7 +464,7 @@ test('actual gh probe can restart only the exact approved service then revalidat
  const f=await fixture(t),calls=[];let failed=false;
  f.runtime.rescueCommand=async(name,args)=>{calls.push({name,args});if(name==='sudo')return{stdout:''};if(!failed){failed=true;throw Error('socket unavailable');}return{stdout:JSON.stringify({nameWithOwner:issue.repository,isPrivate:false})};};
  const result=await probeGithubRead(f.runtime,issue.repository);assert.equal(result.restarted,true);assert.equal(calls.length,3);
- assert.deepEqual(calls[1],{name:'sudo',args:['-n','/usr/bin/systemctl','restart','kairo-github-read.service']});assert(calls[0].args.includes('none'));assert(!JSON.stringify(calls).includes('GH_TOKEN'));
+ assert.deepEqual(calls[1],{name:'sudo',args:['-n','/usr/bin/systemctl','restart','nibfin-github-read.service']});assert(calls[0].args.includes('none'));assert(!JSON.stringify(calls).includes('GH_TOKEN'));
 });
 test('proven gh failure archives its block, preserves the candidate and dispatches original Core only once',async t=>{
  const f=await fixture(t),executionId=randomUUID(),root=join(f.root,'executions',executionId);await mkdir(root,{recursive:true});
@@ -590,7 +590,7 @@ test('IO recovery cannot reinterpret failed checks, missing receipts or other IO
 
 test('completion-triggered Rescue authenticates the pinned workflow and verifies the hinted source',async t=>{
  const f=await fixture(t),r=f.runtime,run={...source('300'),path:rescueWorkflow,event:'workflow_run',status:'in_progress'};
- r.environment={GITHUB_REPOSITORY:'taco3064/kairo',GITHUB_EVENT_NAME:'workflow_run',GITHUB_RUN_ID:'300',GITHUB_RUN_ATTEMPT:'1',GITHUB_JOB:'rescue',GITHUB_SHA:run.head_sha,RUNNER_NAME:'runner'};
+ r.environment={GITHUB_REPOSITORY:'retired-private-source',GITHUB_EVENT_NAME:'workflow_run',GITHUB_RUN_ID:'300',GITHUB_RUN_ATTEMPT:'1',GITHUB_JOB:'rescue',GITHUB_SHA:run.head_sha,RUNNER_NAME:'runner'};
  r.github.api=async path=>path.includes('/contents/')?{sha:policy.workflowBlob}:run;r.github.repository=async()=>({private:true});r.github.list=async()=>[{id:99,name:'rescue',status:'in_progress',runner_name:'runner',runner_id:2}];
  const event={repository:{private:true},workflow_run:source()};assert.equal((await verifyRescueInvocation(r,grant,event)).runId,'300');
  event.workflow_run.path=rescueWorkflow;await assert.rejects(verifyRescueInvocation(r,grant,event),/approved private Core hint/);
@@ -599,7 +599,7 @@ test('completion-triggered Rescue authenticates the pinned workflow and verifies
 async function aiFixture(t,{stage='accept',result,mutate=false}={}){
  const f=await fixture(t);
  const g=structuredClone(grant);Object.assign(g.manifest,{schemaVersion:2,scheduling:'native-dependencies',membership:'fixed-approved-set',proposalHash:digest('fixture proposal')});g.policy.stateDirectory=f.root;g.policy.repositories={[issue.repository]:{repositoryId:issue.repositoryId}};g.approval={verified:true};f.runtime.grant=async()=>g;
- if(stage==='deliver'){const s=await f.unit.read();await f.unit.transaction(s.revision,v=>({...v,issues:{[issue.id]:{repairs:0,shape:{body:'```kairo-candidate\n{"artifacts":[],"hooks":[]}\n```\n'}}}}));}
+ if(stage==='deliver'){const s=await f.unit.read();await f.unit.transaction(s.revision,v=>({...v,issues:{[issue.id]:{repairs:0,shape:{body:'```nibfin-candidate\n{"artifacts":[],"hooks":[]}\n```\n'}}}}));}
  const b=await budgetFailure(f,{stage,latest:'failed'});f.runtime.coreUpgrade.rescueContinuations=[];f.runtime.coreUpgrade.rescueAssistance={schemaVersion:1,aiRepair:true};
  const projected=projectUnit(g,issue);b.context.binding=binding(projected.manifest,projected.policy);await writeFile(join(b.root,'context.json'),JSON.stringify(b.context));
  if(stage==='deliver'){const key=digest({repository:issue.repository,issue:issue.id,scope:issue.scopeHash,binding:b.context.binding,role:'deliver'}),session=new Store(f.root,'role-session:'+key);await session.transaction(0,s=>({...s,sessionStatus:'ready',sessionId:randomUUID(),lastExecution:b.blocked.executionId}));}

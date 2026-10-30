@@ -23,7 +23,7 @@ export async function acceptFixture({empty=false,ownership='personal',child=fals
   const scopeBody='Review this exact candidate before commit';
   const shapeBody=['Candidate artifacts applicability: Required ignored fixture payload.',
     'Candidate hooks applicability: Empty only for explicit empty fixture configuration.',
-    '```kairo-candidate',JSON.stringify({artifacts:[{path:'ignored',purpose:'fixture output'}],hooks}),'```'].join('\n');
+    '```nibfin-candidate',JSON.stringify({artifacts:[{path:'ignored',purpose:'fixture output'}],hooks}),'```'].join('\n');
   const captureInput={root,base,scopeBody,shapeBody,permittedPaths:['.gitignore','binary','ignored','pre',...(rich?['deleted']:[])],
     binding:{repository,scopeHash:bodyDigest(scopeBody),shapeHash:bodyDigest(shapeBody),cycle:'one',policy:h}};
   let w=captureWorkspace(captureInput);

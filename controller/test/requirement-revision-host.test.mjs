@@ -13,10 +13,10 @@ import { migrateRequirements } from '../src/requirement-revision.mjs';
 import { revisionFixture } from './requirement-revision-fixture.mjs';
 
 async function nativeFixture(t){
-  const root=await mkdtemp(join(tmpdir(),'kairo-native-revision-'));t.after(()=>rm(root,{recursive:true,force:true}));
+  const root=await mkdtemp(join(tmpdir(),'nibfin-native-revision-'));t.after(()=>rm(root,{recursive:true,force:true}));
   const f=await revisionFixture(root),p=f.data.parentBundle.payload,r=f.data.revisionBundle.payload;
   const config={runnerId:'test-runner',stateDirectory:root,publicKeyPath:join(root,'owner-public.pem'),agent:{authDirectory:root+'-unused-auth'},
-    grantSource:{repository:'taco3064/kairo',path:'fixture.json',ref:'main'},proposalSource:{repository:'taco3064/kairo',path:'old-proposal.txt',ref:'main'}};
+    grantSource:{repository:'retired-private-source',path:'fixture.json',ref:'main'},proposalSource:{repository:'retired-private-source',path:'old-proposal.txt',ref:'main'}};
   await writeFile(config.publicKeyPath,f.data.publicKey);
   p.actorGitHubUserId='77';p.policy.runtimeHash=runtimeConfigurationHash(config);p.policy.coreDigest=await coreDigest(process.cwd());
   r.requiredCoreDigest=p.policy.coreDigest;r.parentPayloadHash=digest(p);r.parentPolicyHash=digest(p.policy);

@@ -40,7 +40,7 @@ async function defaultContainers(agent) {
   const { command } = await import('./process.mjs');
   const {dockerCommand}=await import('./docker-security.mjs');
   const { stdout } = await dockerCommand(agent,command)('docker', ['ps', '--format', '{{.Names}}']);
-  return stdout.split('\n').filter(x => /^kairo-[a-f0-9]{8}-/i.test(x));
+  return stdout.split('\n').filter(x => /^nibfin-[a-f0-9]{8}-/i.test(x));
 }
 export async function createAssigneeRevisionHost(config, root, github, signed, { containers = defaultContainers } = {}) {
   need(process.platform === 'linux', 'ASSIGNEE_OPERATOR_LINUX_REQUIRED');

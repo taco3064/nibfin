@@ -114,10 +114,10 @@ export function createRunnerPoolHost({configuration,memberId,capacity,records,so
    // A crash during preparation/registration never becomes permission to replay.
    need(false,'original-intent-reconciliation-required');
   }catch{
-   let diagnosis='unavailable';try{const r=await source.blocked({request:id,phase:record?.phase??'source',
+   let notification='unavailable';try{const r=await source.blocked({request:id,phase:record?.phase??'source',
     reason:'registration-or-execution-unconfirmed',...(record?{record:structuredClone(record)}:{})});
-    if(r?.status==='retained')diagnosis='retained';}catch{}
-   return {status:'unresolved',reason:'registration-or-execution-unconfirmed',diagnosis,...(record?{slot:record.lease.slot}:{})};
+    if(r?.status==='retained')notification='retained';}catch{}
+   return {status:'unresolved',reason:'registration-or-execution-unconfirmed',notification,...(record?{slot:record.lease.slot}:{})};
   }
   finally{busy.delete(id);}
  }});

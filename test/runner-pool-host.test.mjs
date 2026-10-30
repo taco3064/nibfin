@@ -46,7 +46,7 @@ test('on-demand lifecycle registers only the Job repository, installs admission 
 test('unknown JIT writes retain capacity, notify diagnosis and cannot be replayed after a host restart',async()=>{
  const f=fixture();f.flags.unknown=true;
  assert.equal((await f.make().advance('request-0')).status,'unresolved');assert.equal(f.jobs.get('request-0').phase,'registration-intent');
- assert.equal((await f.make().advance('request-0')).diagnosis,'retained');assert.equal(f.calls.filter(r=>r.method==='POST').length,1);
+ assert.equal((await f.make().advance('request-0')).notification,'retained');assert.equal(f.calls.filter(r=>r.method==='POST').length,1);
  assert.equal(Object.keys(f.allocation().leases).length,1);assert.equal(f.flags.starts,undefined);assert.equal(f.blocks.length,2);
 });
 test('lost launch acknowledgement adopts the actual running process instead of launching a duplicate',async()=>{

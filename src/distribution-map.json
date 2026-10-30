@@ -652,7 +652,7 @@
     },
     {
       "path": "src/index.mjs",
-      "sha256": "30bb46191336026f8fa857e376c50501cad91eec84335edb3f3f92d555caf27e"
+      "sha256": "6b13889ab303dd1ba9d53d0fd031d388befffcfc8d38c665f09a95052fc7ee99"
     },
     {
       "path": "src/installation.mjs",
@@ -828,7 +828,7 @@
     },
     {
       "path": "src/runner-pool-host.mjs",
-      "sha256": "91d1563ba59650f3df465313147122b96862adc7344f3b5650824d0e27740291"
+      "sha256": "91aa0bcd3715ae01a9dbda521c0932704c919e9efea445d1c55f654cbd5913dd"
     },
     {
       "path": "src/runner-work-custody.mjs",

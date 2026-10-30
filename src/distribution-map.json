@@ -432,7 +432,7 @@
     },
     {
       "path": "package.json",
-      "sha256": "02c732c1984597d679f478e992dc8859de98cd7926d1d52cd3c717c3173048f3"
+      "sha256": "da808892fa8635bb59926017bb6d6f433541d2b0099a5606c503781708ef4dac"
     },
     {
       "path": "skills/accept/SKILL.md",
@@ -652,7 +652,7 @@
     },
     {
       "path": "src/index.mjs",
-      "sha256": "24ccdd1531ef4e45fac1013fbb5d40643e86dd196947ae19fb403e532ba1d567"
+      "sha256": "2d64830b0fd2ea0eb310a921ba226d4e513f330c57124d27acecb34da10da097"
     },
     {
       "path": "src/installation.mjs",
@@ -700,7 +700,7 @@
     },
     {
       "path": "src/provider.mjs",
-      "sha256": "9b9b3ccc6b11511287ca8002ccb89e24158203e27ac8080536fa15e3cae6a962"
+      "sha256": "4aad440c8f3f1c348550333f1a96399a18fa5114e58433ff91cd60eece3d5a09"
     },
     {
       "path": "src/publication.mjs",
@@ -824,7 +824,11 @@
     },
     {
       "path": "src/runner-pool-capacity.mjs",
-      "sha256": "940ce07d7cfedfc300e79c78ca5070bf8a900fecffa1ad5694d67e13d67a56c3"
+      "sha256": "9bdf399d0fafe88fdcd8731692fec28c4b8351433c1e02e280161f4953046614"
+    },
+    {
+      "path": "src/runner-pool-host.mjs",
+      "sha256": "f6e84c21a7860244440d2916ae7e30e3fc2adf25c7e61d69dc725f7baaa8448a"
     },
     {
       "path": "src/runner.mjs",

@@ -150,6 +150,8 @@ function classify(response) {
  * Unknown management endpoints are deliberately unsupported. */
 export function githubEndpointPermission(method, endpoint) {
   if (typeof endpoint!=='string') return null;
+  if(/^\/repos\/[^/]+\/[^/]+\/actions\/runners\/generate-jitconfig$/.test(endpoint))
+    return method==='POST'?'administration:write':null;
   if(method==='GET'&&recoveryReadPermission(endpoint))return recoveryReadPermission(endpoint);
   if(endpoint.includes('?')) {
     const [path,query,extra]=endpoint.split('?'),params=new URLSearchParams(query);

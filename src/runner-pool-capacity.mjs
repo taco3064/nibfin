@@ -50,8 +50,10 @@ export function createRunnerPoolCapacity({configuration,records,observeRelease}=
    });need(result,'transaction');return result;
   },
   async release(value){
-   const r=request(value);let lease;
-   await records.update(s=>{state(s);lease=structuredClone(s.leases[r.id]);need(lease&&same(lease.request,r),'missing-lease');return null;});
+   const r=request(value);let lease,completed=false;
+   await records.update(s=>{state(s);if(s.completed[r.id]){need(s.completed[r.id]===contentIdentity(r),'request-reuse');completed=true;return null;}
+    lease=structuredClone(s.leases[r.id]);need(lease&&same(lease.request,r),'missing-lease');return null;});
+   if(completed)return {status:'released',already:true};
    const proof=await observeRelease(structuredClone(lease));
    // Unknown remote deregistration, a live process or cleanup failure keeps
    // consuming the original slot. It is never treated as free after a timeout.

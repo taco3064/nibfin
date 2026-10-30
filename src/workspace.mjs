@@ -46,8 +46,8 @@ function bindings(v) {
 }
 // Inherit only executable lookup. In particular no alternate object/index/config,
 // credentials, external diff, pager or replacement objects from the caller env.
-function git(root,args,max,input) {
-  return execFileSync('git', ['--no-pager','-c','core.hooksPath=/dev/null','-c','core.fsmonitor=false',
+function git(root,args,max,input,gitDirectory) {
+  return execFileSync('git', [...(gitDirectory?['--git-dir='+gitDirectory,'--work-tree='+root]:[]),'--no-pager','-c','core.hooksPath=/dev/null','-c','core.fsmonitor=false',
     '-c','diff.external=','-c','credential.helper=','-c','core.attributesFile=/dev/null',...args], {cwd:root,
     env:{PATH:process.env.PATH, HOME:'/nonexistent', GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',
       GIT_NO_REPLACE_OBJECTS:'1',GIT_NO_LAZY_FETCH:'1',GIT_ALLOW_PROTOCOL:'',GIT_OPTIONAL_LOCKS:'0',
@@ -201,7 +201,14 @@ export function captureWorkspace(input) {
   // Existing Core body hash semantics, not raw UTF-8 hashing.
   if (typeof scopeBody!=='string' || bodyDigest(scopeBody)!==binding.scopeHash || bodyDigest(shapeBody)!==binding.shapeHash) fail('body');
   const absolute=resolve(root);
-  const run=args=>git(absolute,args,l.serializedBytes);
+  const gitDirectory=input.gitDirectory;
+  if(gitDirectory!==undefined){
+    if(typeof gitDirectory!=='string'||resolve(gitDirectory)!==gitDirectory||gitDirectory==='/')fail('git-directory');
+    for(let p=gitDirectory;;p=dirname(p)){
+      const s=lstatSync(p);if(!s.isDirectory()||s.isSymbolicLink())fail('git-directory');if(p==='/')break;
+    }
+  }
+  const run=args=>git(absolute,args,l.serializedBytes,undefined,gitDirectory);
   if(run(['rev-parse','--show-object-format']).toString().trim()!=='sha1'
       || run(['rev-parse','--show-toplevel']).toString().trim()!==absolute) fail('repository');
   const objects=new Map();

@@ -3,6 +3,20 @@ import assert from 'node:assert/strict';
 import {coreFixture} from '../tooling/core-fixture.mjs';
 import {bodyDigest,createCore,coreStages,contentIdentity} from '../src/index.mjs';
 
+test('protected diagnostics expose bounded gates and never provider text or execution permission',async()=>{
+ const f=coreFixture(),request=f.request(),records=[];
+ const make=(current,onDiagnostic)=>createCore({current,provider:f.provider,authorization:f.authorization,dependencies:f.dependencies,
+  selector:f.selector,owners:f.owners,onDiagnostic});
+ const mismatch=structuredClone(f.pin);mismatch.invocation.request='different-original';
+ const known=await make(()=>mismatch,value=>records.push(value)).run(request);
+ assert.equal(known.disposition,'blocked');assert.deepEqual(records,[{phase:'intake',stage:null,code:'core:binding'}]);
+ records.length=0;
+ const unknown=await make(()=>{throw Error('GH_TOKEN=never-export-provider-text');},value=>records.push(value)).run(request);
+ assert.equal(unknown.disposition,'blocked');assert.equal(records[0].code,'core:unavailable');assert.ok(!JSON.stringify(records).includes('GH_TOKEN'));
+ const lost=await make(()=>mismatch,()=>{throw Error('diagnostic unavailable');}).run(request);assert.deepEqual(lost,known);
+ assert.equal(f.sh.records.length,0);
+});
+
 test('public inert entry, fresh signed native eligibility, one Author then independent Validator',async()=>{
   const f=coreFixture();assert.equal(f.calls.length,0);assert.equal(f.sh.records.length,0);
   const r=await f.queued();assert.equal(r.expected.stage,'shape');

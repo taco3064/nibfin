@@ -1,0 +1,34 @@
+name: Nibfin independent stage v2
+run-name: '#${{ inputs.nibfin_issue }} | ${{ inputs.nibfin_stage }} | op:${{ inputs.nibfin_correlation }}'
+on:
+  workflow_dispatch:
+    inputs:
+      nibfin_request: {type: string, required: true}
+      nibfin_correlation: {type: string, required: true}
+      nibfin_issue: {type: string, required: true}
+      nibfin_stage: {type: string, required: true}
+      nibfin_member: {type: string, required: true}
+permissions: {}
+concurrency:
+  group: nibfin-v2-${{ github.repository_id }}-issue-${{ inputs.nibfin_issue }}
+  cancel-in-progress: false
+  queue: max
+jobs:
+  stage:
+    name: stage / execute
+    runs-on: [self-hosted, linux, x64, "nibfin-user-${{ inputs.nibfin_member }}", "nibfin-request-${{ inputs.nibfin_request }}"]
+    timeout-minutes: 60
+    permissions: {}
+    steps:
+      - name: Execute the authenticated Issue stage
+        shell: bash
+        env:
+          NIBFIN_REQUEST: ${{ inputs.nibfin_request }}
+          NIBFIN_CORRELATION: ${{ inputs.nibfin_correlation }}
+          NIBFIN_ISSUE: ${{ inputs.nibfin_issue }}
+          NIBFIN_STAGE: ${{ inputs.nibfin_stage }}
+          NIBFIN_MEMBER: ${{ inputs.nibfin_member }}
+          NIBFIN_REPOSITORY: ${{ github.repository }}
+          NIBFIN_RUN_ID: ${{ github.run_id }}
+          NIBFIN_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: /usr/local/bin/node "$HOME/.local/share/nibfin/control/runtime/client/native-stage-main.mjs"

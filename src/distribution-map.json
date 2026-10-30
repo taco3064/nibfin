@@ -344,7 +344,7 @@
     },
     {
       "path": "docs/runner-pools.md",
-      "sha256": "e1e2cb8c9aea3faaa5862d903134cf2c1e9b61070fa57446f4711c796dae3aea"
+      "sha256": "4a384bb9b463792eb325c7c36e974c1c41b184607c29b0ede5eb55a469605b19"
     },
     {
       "path": "docs/scope.md",
@@ -828,7 +828,7 @@
     },
     {
       "path": "src/runner-pool-host.mjs",
-      "sha256": "9978bc97931f330eed687741261b20a04247e928fb41777ca46a1c136c78a0d0"
+      "sha256": "91d1563ba59650f3df465313147122b96862adc7344f3b5650824d0e27740291"
     },
     {
       "path": "src/runner.mjs",

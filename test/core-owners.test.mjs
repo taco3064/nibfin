@@ -6,7 +6,7 @@ import {coreFixture} from '../tooling/core-fixture.mjs';
 import {acceptFixture} from '../tooling/accept-fixture.mjs';
 import {codexFixture} from '../tooling/codex-fixture.mjs';
 import {chain,fixture} from '../tooling/evidence-fixture.mjs';
-import {contentIdentity,coreStages,createAgentLifecycle,selectInstructions,compareEvidence,createProtectedRoleHost,supportedRunnerDefaults,captureWorkspace} from '../src/index.mjs';
+import {contentIdentity,coreStages,createCore,createAgentLifecycle,selectInstructions,compareEvidence,createProtectedRoleHost,supportedRunnerDefaults,captureWorkspace} from '../src/index.mjs';
 
 // Synthetic retained history. Selected owners still verify actual workspaces,
 // lifecycle output, both hook passes, custody and their independent expectations.
@@ -374,4 +374,22 @@ test('grouped approved Owner history permits a fresh dispatched Accept, never re
     assert.equal(result.disposition,'completed',JSON.stringify(result));assert.equal(result.executed,'accept');
     assert.deepEqual(f.pin.receipts,history);
   }finally{a.close();}
+});
+
+// A successful causal close changes the remote Issue during the same invocation.
+// The orchestrator must permit its owner to read that effect and verify its event.
+test('checkpointed closure reads back only its own confirmed causal operation',async()=>{
+ const f=coreFixture(),a=await completionFixture(undefined,p=>f.adopt(p));eligible(f,a.pin,'closure');
+ const original=a.capabilities.operations;
+ const completion={...a.capabilities,operations:async options=>{
+  const ops=await original(options);return {...ops,execute:async(...args)=>{
+   const value=await ops.execute(...args);
+   if(a.state.closed)Object.assign(f.sf.routes[f.sf.issuePath],{state:'closed',state_reason:'completed'});
+   return value;
+  }};
+ }};
+ const runtime=createCore({current:()=>structuredClone(f.pin),provider:f.provider,authorization:f.authorization,
+  dependencies:f.dependencies,selector:f.selector,owners:{completion},checkpoint:async()=>{}});
+ const result=await run(f,runtime);assert.equal(result.disposition,'completed',JSON.stringify(result));
+ assert.equal(result.owner.output.outcome,'closed');assert.equal(a.state.closed,true);assert.equal(a.label.writes().length,0);
 });

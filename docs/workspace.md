@@ -56,6 +56,15 @@ bare Git repository with no templates computes `diff-tree --binary --full-index
 drivers and text conversion disabled. Deleted files and both sides' modes/object
 IDs appear in `metadata.changes`; rename is represented as deletion plus addition.
 
+For retained work using a separate Git directory, the trusted host may explicitly
+supply `gitDirectory` alongside `root`. Both locations stay in place: capture
+uses fixed `--git-dir`/`--work-tree` arguments and the same credential-free,
+transport-disabled Git commands. The metadata directory and its ancestors must
+be real directories without links. This path is never derived from a transfer
+or model output. The resulting transfer contains the same files, objects and
+protected expectation as a normal checkout; no Git configuration or credentials
+are imported into the independently materialized role workspace.
+
 Supported paths use ASCII letters, digits, underscore, dot and hyphen components.
 Names such as `untracked..file` are unambiguous. Spaces, control characters,
 non-UTF-8 names, `.git` components, traversal and absolute paths fail explicitly.

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
-import {mkdtempSync,writeFileSync,readFileSync,rmSync,chmodSync,symlinkSync,mkdirSync,existsSync,readdirSync} from 'node:fs';
+import {mkdtempSync,writeFileSync,readFileSync,rmSync,chmodSync,symlinkSync,mkdirSync,existsSync,readdirSync,renameSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {captureWorkspace,exportWorkspace,importWorkspace,verifyWorkspace,materializeWorkspace,bodyDigest,contentIdentity,byteDigest,createEvidence} from '../src/index.mjs';
@@ -33,6 +33,20 @@ const inv={artifacts:[{path:'ignored',purpose:'Mandatory binary'}],hooks:[
 const wire=c=>JSON.parse(exportWorkspace(c));
 const canonical=v=>v===null||typeof v!=='object'?JSON.stringify(v):Array.isArray(v)?'['+v.map(canonical).join(',')+']':'{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonical(v[k])).join(',')+'}';
 const pack=v=>Buffer.from(canonical(v));
+
+test('explicit external Git metadata captures retained work without moving files or modifying the original index',()=>{
+ const f=fixture(inv),parent=mkdtempSync(join(tmpdir(),'nibfin-external-git-'));
+ try{
+  const original=captureWorkspace(f.input),gitDirectory=join(parent,'repository.git');
+  renameSync(join(f.root,'.git'),gitDirectory);const index=readFileSync(join(gitDirectory,'index'));
+  const capture=captureWorkspace({...f.input,gitDirectory});
+  assert.deepEqual(capture.expected,original.expected);assert.deepEqual(exportWorkspace(capture),exportWorkspace(original));
+  assert.deepEqual(readFileSync(join(gitDirectory,'index')),index);assert.equal(existsSync(join(f.root,'.git')),false);
+  symlinkSync(gitDirectory,join(parent,'alias'));
+  assert.throws(()=>captureWorkspace({...f.input,gitDirectory:join(parent,'alias')}),/git-directory/);
+  assert.throws(()=>captureWorkspace({...f.input,gitDirectory:'relative'}),/git-directory/);
+ }finally{f.close();rmSync(parent,{recursive:true,force:true});}
+});
 
 test('native materialization restores exact binary/modes/ignored sources into an independent role without modifying the original',()=>{
   const f=fixture(inv),parent=mkdtempSync(join(tmpdir(),'nibfin-role-materialize-'));

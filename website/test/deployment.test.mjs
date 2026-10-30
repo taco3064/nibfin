@@ -7,9 +7,9 @@ import { spawnSync } from 'node:child_process';
 import { parse } from 'yaml';
 import { validateConfiguration } from '../tooling/pages-configuration.mjs';
 import { outputMember } from '../tooling/build-identity.mjs';
-const workflow = parse(readFileSync('../.github/workflows/website-ci.yml', 'utf8'));
-test('required Core and website checks run for every PR; deployment requires successful quality on protected main', () => {
-  const core = parse(readFileSync('../.github/workflows/core-ci.yml', 'utf8'));
+const workflow = parse(readFileSync('../.github/workflows/ci.yml', 'utf8'));
+test('required check names remain visible with scoped jobs; deployment requires successful quality on protected main', () => {
+  const core = parse(readFileSync('../.github/workflows/ci.yml', 'utf8'));
   for (const ci of [workflow, core]) {
     assert(Object.hasOwn(ci.on, 'pull_request'));
     for (const event of ['pull_request', 'push']) {
@@ -18,8 +18,13 @@ test('required Core and website checks run for every PR; deployment requires suc
     }
     assert.deepEqual(ci.on.push.branches, ['main']);
   }
-  assert.equal(workflow.jobs.website.if, undefined);
-  assert.equal(core.jobs.core.if, undefined);
+  for(const name of ['core','website','controller']) {
+    assert.equal(workflow.jobs[name].needs,'owner-pr');
+    assert.equal(workflow.jobs[name].if,`needs.owner-pr.outputs.${name} == 'true'`);
+  }
+  assert.equal(workflow.jobs['owner-pr'].if,undefined);
+  assert(workflow.jobs['owner-pr'].steps.find(s=>s.id==='plan'));
+  assert.deepEqual(Object.keys(workflow.jobs).sort(),['controller','core','deploy','owner-pr','website']);
   assert.deepEqual(workflow.permissions, { contents: 'read' });
   assert.equal(workflow.jobs.deploy.needs, 'website');
   assert.match(workflow.jobs.deploy.if, /event_name == 'push'.*refs\/heads\/main.*ref_protected/);
@@ -68,6 +73,7 @@ test('real build verifier rejects changed sources, added inputs and altered arch
   const runner = `import {inventory, outputInventory, hash, verifyBuild} from ${JSON.stringify('file://' + script)}; import {readFileSync,writeFileSync} from 'node:fs'; const b={inputs:inventory(), outputs:outputInventory(),commands:Array(9).fill({exitCode:0}),archive:{sha256:hash(readFileSync('out/site.tar.gz'))}};writeFileSync('out/build-evidence.json',JSON.stringify(b));verifyBuild();`;
   try {
     for (const dir of ['website/tooling', 'website/dist', 'website/out', '.github/workflows']) mkdirSync(join(root, dir), { recursive: true });
+    writeFileSync(join(root,'.github/workflows/ci.yml'),'name: fixture');
     const cwd = join(root,'website'); writeFileSync(join(cwd,'dist/index.html'), '<h1>Exact output</h1>'); writeFileSync(join(cwd,'tooling/input.mjs'), '// original');
     assert.equal(spawnSync('tar',['-czf','out/site.tar.gz','-C','dist','.'], {cwd}).status,0);
     assert.equal(spawnSync(process.execPath,['--input-type=module','-e',runner],{cwd}).status,0);

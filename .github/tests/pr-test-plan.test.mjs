@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {selectTests,changedFiles} from '../../tooling/ci-tests.mjs';
+import {selectTests,selectJobs,changedFiles} from '../../tooling/ci-tests.mjs';
 
 const fixture = () => new Map([
   ['src/index.mjs',"export {alpha} from './alpha.mjs'; export {beta} from './beta.mjs';"],
@@ -30,7 +30,7 @@ test('selects direct and transitive barrel/fixture consumers, excludes unrelated
 });
 
 test('independent controller changes use their own regression while mixed product changes retain gates',()=>{
- const result=plan(['controller/src/core.mjs','controller/test/core.test.mjs','.github/workflows/controller-ci.yml','tooling/ci-tests.mjs','.github/tests/pr-test-plan.test.mjs']);
+ const result=plan(['controller/src/core.mjs','controller/test/core.test.mjs']);
  assert.equal(result.mode,'scoped');assert.deepEqual(result.tests,[]);assert.equal(result.archive,false);assert.equal(result.website,false);
  for(const path of ['src/alpha.mjs','package.json','host/entry.mjs','workflow/templates/nibfin-stage.yml'])assert.equal(plan(['controller/src/core.mjs',path]).mode,'full');
  assert.equal(plan(['controller/src/core.mjs'],fixture(),'push').mode,'full');
@@ -96,8 +96,8 @@ test('runner does not discover all tests for an explicitly empty selection and p
 });
 
 test('workflow contract retains required checks, main full run, pinned actions and wakeup identity',()=>{
-  const core=readFileSync(new URL('../workflows/core-ci.yml',import.meta.url),'utf8').replaceAll('\r\n','\n');
-  assert.match(core,/name: Core package/);assert.match(core,/\n  core:\n/);
+  const core=readFileSync(new URL('../workflows/ci.yml',import.meta.url),'utf8').replaceAll('\r\n','\n');
+  assert.match(core,/name: CI/);assert.match(core,/\n  core:\n/);
   assert.match(core,/fetch-depth: 0/);assert.match(core,/PR_BASE_SHA: \$\{\{ github.event.pull_request.base.sha \}\}/);
   // Runtime prerequisites must fail before suites, including the installed
   // consumers, rather than silently skipping subprocess/cancellation coverage.
@@ -107,7 +107,7 @@ test('workflow contract retains required checks, main full run, pinned actions a
   assert.match(core,/env -i PATH=\/usr\/bin:\/bin \/usr\/bin\/python3 -I -S/);
   for(const name of ['node','npm'])assert(core.includes('/usr/local/bin/'+name+' --version'));
   assert.match(core,/run: node tooling\/ci-tests.mjs run/);assert.match(core,/run: npm run verify:archive\n\s+if: steps.plan.outputs.archive == 'true'/);
-  const website=readFileSync(new URL('../workflows/website-ci.yml',import.meta.url),'utf8').replaceAll('\r\n','\n');
+  const website=readFileSync(new URL('../workflows/ci.yml',import.meta.url),'utf8').replaceAll('\r\n','\n');
   assert.match(website,/\n  website:\n/);assert.match(website,/always\(\) && steps.plan.outputs.website == 'true'/);
   for (const text of [core,website]) for (const match of text.matchAll(/uses: (actions\/[^\s]+)/g)) assert.match(match[1],/@[a-f0-9]{40}$/);
 });
@@ -124,4 +124,13 @@ test('maintained recovery source changes select their new direct and transitive 
     const result=plan([path],files);
     assert.ok(result.tests.some(p=>/^test\/rescue.*\.test\.mjs$/.test(p)),path);
   }
+});
+
+test('job allocation skips unrelated runners and retains all gates for shared or unknown inputs',()=>{
+  assert.deepEqual(selectJobs(plan(['website/src/page.astro'])),{core:false,website:true,controller:false});
+  assert.deepEqual(selectJobs(plan(['controller/src/core.mjs'])),{core:false,website:false,controller:true});
+  assert.deepEqual(selectJobs(plan(['src/other.mjs'])),{core:true,website:false,controller:false});
+  for (const changed of [['.github/workflows/ci.yml'],['tooling/ci-tests.mjs'],['unknown-input'],['controller/x','.github/tests/pr-test-plan.test.mjs'],[]])
+    assert.deepEqual(selectJobs(plan(changed)),{core:true,website:true,controller:true});
+  assert.deepEqual(selectJobs(plan(['website/x'],fixture(),'push')),{core:true,website:true,controller:true});
 });

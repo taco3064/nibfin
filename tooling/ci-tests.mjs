@@ -20,8 +20,8 @@ export function selectTests({files, changed, event = 'pull_request'}) {
   // excluded from the public package. Root planner regression runs in both CI
   // jobs before this plan is consumed. Mixed product changes retain full gates.
   if (changed.some(path=>path.startsWith('controller/')) && changed.every(path=>
-    path.startsWith('controller/') || ['.github/workflows/controller-ci.yml','tooling/ci-tests.mjs','.github/tests/pr-test-plan.test.mjs'].includes(path))) {
-    return {mode:'scoped',reason:'Independent development controller; full controller regression runs in Development controller',changed,tests:[],sdk:false,archive:false,website:false};
+    path.startsWith('controller/'))) {
+    return {mode:'scoped',reason:'Independent development controller; full controller regression runs in the controller job',changed,tests:[],sdk:false,archive:false,website:false};
   }
   const symbols = new Map();
   for (const match of (files.get('src/index.mjs') ?? '').matchAll(/export\s*\{([^}]+)\}\s*from\s*['"](\.[^'"]+)['"]/g)) {
@@ -82,6 +82,17 @@ export function selectTests({files, changed, event = 'pull_request'}) {
   return {mode:'scoped', reason:'Changed files and transitive consumers', changed, tests, sdk, archive:false, website};
 }
 
+// Reuse the same conservative plan for job allocation and the Core test runner.
+// Unknown/shared inputs retain full gates. A required owner-pr classifier fails
+// closed when Git comparison, regression tests or output publication fail.
+export function selectJobs(plan) {
+  return {
+    core: plan.tests.length > 0 || plan.sdk || plan.archive,
+    website: plan.website,
+    controller: plan.mode === 'full' || plan.changed.some(path => path.startsWith('controller/')),
+  };
+}
+
 export function changedFiles(base, head, cwd = root) {
   if (![base, head].every(sha => /^[a-f0-9]{40}$/.test(sha ?? ''))) throw Error('ci:invalid-commit');
   // NUL-separated paths and no rename coalescing retain both sides of renames.
@@ -110,9 +121,10 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     const plan = selectTests({files:inventory(),event,
       changed:event === 'pull_request' ? changedFiles(process.env.PR_BASE_SHA,process.env.PR_HEAD_SHA) : []});
     writeFileSync(planPath,JSON.stringify(plan,null,2)+'\n');
-    if (process.env.GITHUB_OUTPUT) for (const key of ['sdk','archive','website']) appendFileSync(process.env.GITHUB_OUTPUT,`${key}=${plan[key]}\n`);
+    const outputs = {sdk:plan.sdk, archive:plan.archive, ...selectJobs(plan)};
+    if (process.env.GITHUB_OUTPUT) for (const [key,value] of Object.entries(outputs)) appendFileSync(process.env.GITHUB_OUTPUT,`${key}=${value}\n`);
     const summary = `## CI test plan\n\nMode: **${plan.mode}** — ${plan.reason}\n\n`+
-      `SDK: ${plan.sdk}; installed archive: ${plan.archive}; website: ${plan.website}\n\n`+
+      `Jobs: ${JSON.stringify(selectJobs(plan))}\n\nSDK: ${plan.sdk}; installed archive: ${plan.archive}; website: ${plan.website}\n\n`+
       `Selected root suites (${plan.tests.length}):\n\n`+(plan.tests.map(path=>'- `'+path+'`').join('\n') || 'No root suites affected.')+'\n';
     console.log(summary);
     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY,summary);

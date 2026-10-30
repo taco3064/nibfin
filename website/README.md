@@ -171,7 +171,7 @@ changed configuration, modified archives and added/changed output invalidate pro
 The build embeds a non-secret `build-identity.json`; live verification compares
 its exact bytes and referenced resource digests to the retained build.
 
-The independent Website CI uses read-only PR jobs and uploads quality evidence
+The website job in the shared `ci.yml` entry uses read-only PR jobs and uploads quality evidence
 with failure diagnostics. Only a push of protected main may upload Pages content
 and enter the `github-pages` deployment job. A successful quality job is a native
 `needs` prerequisite; Pages deployments share non-cancelling concurrency. Official

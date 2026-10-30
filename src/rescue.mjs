@@ -23,6 +23,15 @@ export function createRescueController({policy,records,provenance,current,author
     &&typeof provenance?.verify==='function'&&typeof provenance?.timeout==='function','configuration');
   const modify=async(id,fn)=>{const s=await records.update(s=>{need(s.cases[id],'missing-case');s.cases[id]=fn(s.cases[id]);return s;});return s.cases[id];};
   const result=c=>({...c,conclusion:rescueConclusion(c.outcome),continuation:false});
+  async function diagnose(c,signal){
+    if(c.diagnosis){need(c.diagnosis.status==='completed','ai-diagnosis-incomplete');return c;}
+    await checkpoint(c);const before=await capture(c.target);
+    c=await modify(c.id,c=>({...c,diagnosis:{attempted:true,status:'attempted'}}));
+    const diagnostic=await diagnoseRescueTarget({target:c.target,adapter:await adapter(c.target),capture,retain:retainDiagnosis,signal});
+    c=await modify(c.id,c=>({...c,diagnosis:{attempted:true,...diagnostic}}));
+    need(diagnostic.status==='completed','adapter-unsupported');
+    await checkpoint(c);need(same(await capture(c.target),before),'ai-mutation');return c;
+  }
   async function checkpoint(c,{allowActive=false,verification=false}={}) {
     need(now()<p.expiresAt,'authority-expired');
     const state=await current(structuredClone(c.target));
@@ -117,11 +126,11 @@ export function createRescueController({policy,records,provenance,current,author
       // bound notifier wakeups; the shared budget below enforces cooldown for
       // every authenticated invocation, including early/manual requests.
       if(c.budgetReservation)return result(await modify(id,c=>({...c,outcome:'UNRESOLVED',code:'REPAIR_ALREADY_ATTEMPTED',nextCheckAt:null})));
-      if(diagnoseOnly)return result({...c,outcome:'DEFERRED',code:'DIAGNOSIS_ONLY'});
+      if(diagnoseOnly){c=await diagnose(c,signal);return result({...c,outcome:'DEFERRED',code:'DIAGNOSIS_ONLY'});}
       // Classify deterministic evidence before spending a repair. Pending CI and
       // read-only availability checks are not repair attempts.
       const remedy=await deterministic({case:structuredClone(c),source,signal});
-      if(remedy?.kind==='ci-wait')return result(await defer(id,'CI_WAIT'));
+      if(remedy?.kind==='ci-wait'){c=await diagnose(c,signal);return result(await defer(id,'CI_WAIT'));}
       await checkpoint(c);
       // Reserve the shared per-Issue-cycle budget before any diagnostic/remedy.
       const key=contentIdentity({repositoryId:c.target.repositoryId,issueId:c.target.issueId,cycle:c.target.cycle});
@@ -137,6 +146,9 @@ export function createRescueController({policy,records,provenance,current,author
       if(!reserved)return result(cooldown?await defer(id,'COOLDOWN'):await modify(id,c=>({...c,outcome:'UNRESOLVED',code:'BUDGET_EXHAUSTED',nextCheckAt:null})));
       c=(await records.read()).cases[id];
       await checkpoint(c);
+      // Every eligible block receives a retained AI diagnosis, including known
+      // deterministic remedies. AI never applies the remedy or clears a gate.
+      c=await diagnose(c,signal);
       // Deterministic classifier returns a proof and bounded fixed remedy. It may
       // not dispatch/execute a role. No commands or credentials occur in plans.
       let proof,plan=null;
@@ -149,13 +161,7 @@ export function createRescueController({policy,records,provenance,current,author
         c=await modify(id,c=>({...c,actions:[...c.actions,remedy.kind],proof}));
       } else {
         need(c.blocked.contractConflicts?.length===0&&['external_failure','implementation_defect'].includes(c.blocked.failureClass),'ai-ineligible');
-        const before=await capture(c.target);
-        c=await modify(id,c=>({...c,diagnosis:{attempted:true,status:'attempted'}}));
-        const diagnostic=await diagnoseRescueTarget({target:c.target,adapter:await adapter(c.target),capture,
-          retain:retainDiagnosis,signal});
-        c=await modify(id,c=>({...c,diagnosis:{attempted:true,...diagnostic}}));
-        need(diagnostic.status==='completed','adapter-unsupported');
-        await checkpoint(c);need(same(await capture(c.target),before),'ai-mutation');
+        const diagnostic=c.diagnosis;
         proof={kind:'ai-repair',diagnosis:contentIdentity(diagnostic.record)};plan=diagnostic.plan;
       }
       await checkpoint(c);

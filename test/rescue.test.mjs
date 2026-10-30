@@ -18,9 +18,9 @@ test('eligible AI plan preserves UNACCEPTED source/session and dispatches fresh 
   assert.equal([...f.ops.values()][0].writes().length,1);
   assert.equal((await f.controller.report()).verifiedAutomaticResolutions,0);
 });
-test('deterministic remedies precede AI and do not claim resolution',async()=>{
+test('deterministic remedies require a retained AI diagnosis and do not claim resolution',async()=>{
   const f=rescueFixture();f.flags.remedy={kind:'github-read',proof:{status:'healthy'},apply:async()=>({status:'healthy'})};
-  const r=await f.controller.run(await f.register());assert.equal(r.outcome,'PENDING_VERIFICATION');assert.equal(f.flags.diagnoses,0);
+  const r=await f.controller.run(await f.register());assert.equal(r.outcome,'PENDING_VERIFICATION');assert.equal(f.flags.diagnoses,1);
 });
 for(const [name,mutate]of Object.entries({noPlan:f=>f.flags.diagnosisResult.body='',
   invalid:f=>f.flags.diagnosisResult.body='{"action":"run-shell","steps":["curl"]}',
@@ -147,9 +147,22 @@ test('active-Agent race after reservation refunds only the unspent reservation a
   const r=await controller.run(id);assert.equal(r.outcome,'DEFERRED');assert.equal(f.flags.diagnoses,0);
   assert.equal(f.ops.size,0);assert.deepEqual(f.snapshot().budgets,{});
 });
-test('pending exact-head CI defers before a repair budget or diagnostic is spent',async()=>{
+test('pending exact-head CI retains one AI diagnosis without spending a repair budget or repeating it',async()=>{
   const f=rescueFixture();f.flags.remedy={kind:'ci-wait'};
-  const r=await f.controller.run(await f.register());assert.equal(r.outcome,'DEFERRED');assert.deepEqual(f.snapshot().budgets,{});assert.equal(f.flags.diagnoses,0);assert.equal(f.ops.size,0);
+  const id=await f.register(),r=await f.controller.run(id);assert.equal(r.outcome,'DEFERRED');assert.deepEqual(f.snapshot().budgets,{});assert.equal(f.flags.diagnoses,1);assert.equal(f.ops.size,0);
+  await f.controller.run(id);assert.equal(f.flags.diagnoses,1);
+});
+
+test('diagnose mode actually invokes AI and retains its reason without dispatching a repair',async()=>{
+ const f=rescueFixture(),id=await f.register();const r=await f.controller.run(id,{diagnoseOnly:true});
+ assert.equal(r.diagnosis.record.result.result.rootCause,'Invocation failure');assert.equal(f.flags.diagnoses,1);
+ assert.equal(f.flags.repairs,0);assert.equal(f.ops.size,0);assert.deepEqual(f.snapshot().budgets,{});
+});
+
+test('failed diagnosis prevents even a known deterministic remedy from claiming success',async()=>{
+ const f=rescueFixture();let applied=false;f.flags.remedy={kind:'github-read',proof:{status:'healthy'},apply:async()=>{applied=true;return{status:'healthy'};}};
+ f.flags.diagnosisResult.outcome='blocked';const r=await f.controller.run(await f.register());
+ assert.equal(r.outcome,'UNRESOLVED');assert.equal(applied,false);assert.equal(f.flags.repairs,0);
 });
 test('invalid AI proposals count as diagnoses, never actual repair attempts or verified success',async()=>{
   const f=rescueFixture();f.flags.diagnosisResult.body='invalid';await f.controller.run(await f.register());

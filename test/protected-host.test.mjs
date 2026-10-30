@@ -73,7 +73,7 @@ test('maintained execute invokes the real publication owner with independent pre
   const validated=(await f.core.run(await f.queued())).owner.output,vr=validated.validator.receipt;
   f.pin.receipts['shape-validator']=vr;f.pin.evidenceCurrent['shape-validator']={expected:structuredClone(vr),consumed:[]};
   f.pin.stageInput=validated;f.pin.invocation={request:'publication',run:{id:'102',attempt:'1'}};
-  f.input.nibfin_request='publication';f.identity.run=f.pin.invocation.run;f.context.run=f.pin.invocation.run;
+  f.input.nibfin_request='publication';f.input.nibfin_stage='publication';f.identity.run=f.pin.invocation.run;f.context.run=f.pin.invocation.run;
   Object.assign(f.queuedRequest,await f.queued());
   const resolution=await compose('resolve',f.context,f.host).invoke('resolve',f.input,f.context);
   assert.equal(resolution.execution_mode,'execute');assert.equal(f.sh.writes().length,0);

@@ -808,7 +808,7 @@
     },
     {
       "path": "src/role-host.mjs",
-      "sha256": "793589254bbe8c4bad9c15089aef7eaaef30d1e00b43101e234064b87d130abe"
+      "sha256": "00c2e2410e5e747a99a50690714fe68d8f5cb319b346693d113da9343847dcb3"
     },
     {
       "path": "src/role-session.mjs",

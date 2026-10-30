@@ -20,11 +20,12 @@ const linux={codex:createLinuxCodexBackend,claude:createLinuxClaudeBackend,gemin
  * Protected deployment supplies identities/expectations and OS observations; checkout,
  * Issue and model inputs can neither select an adapter nor change an account/profile.
  */
-export function createProtectedRoleHost({configuration,bind,retain,probe,observe,process:run,observeHost,sessions,now=Date.now}={}) {
+export function createProtectedRoleHost({configuration,bind,retain,probe,observe,process:run,observeHost,sessions,now=Date.now,collectUntilTerminal=false,signal,checkpoint=async()=>{}}={}) {
   if(!configuration||typeof bind!=='function'||typeof retain!=='function'||typeof probe!=='function'
       ||Object.keys(configuration).sort().join(' ')!=='assignments profiles runner'
       ||!Array.isArray(configuration.profiles)||!configuration.profiles.length)fail('configuration');
   if(sessions&&[sessions.prepare,sessions.retain].some(f=>typeof f!=='function'))fail('sessions');
+  if(typeof collectUntilTerminal!=='boolean'||typeof checkpoint!=='function')fail('collection-configuration');
   const runner=runnerConfiguration(configuration.runner),profiles=new Map(),registry=createAgentEnvironments(),used=new Set();
   for(const p of clone(configuration.profiles)) {
     if(Object.keys(p).sort().join(' ')!=='agent backend id os'||profiles.has(p.id)
@@ -116,7 +117,17 @@ export function createProtectedRoleHost({configuration,bind,retain,probe,observe
         }catch{return {status:'unresolved',residuals:[(profile.os==='linux'?profile.backend:profile.backend.linux).environment.instances.find(i=>i.id===(profile.os==='linux'?profile.backend:profile.backend.linux).instanceId).service]};}
         return backend.cleanup(query);
       },async collect(query) {
-        const value=await backend.collect(query);
+        let value=await backend.collect(query);
+        // Core stage owners collect one attributed execution. A native host may
+        // await that original process here instead of incorrectly treating its
+        // first pending read as a blocked stage or launching a replacement.
+        while(collectUntilTerminal&&value.status==='pending'&&now()<deadlineAt-reserveMs){
+          let cancelled=signal?.aborted===true;
+          try{if(!cancelled)await checkpoint();}catch{cancelled=true;}
+          if(cancelled){await backend.stop(query);return backend.collect(query);}
+          await new Promise(resolve=>setTimeout(resolve,Math.min(1000,Math.max(1,deadlineAt-reserveMs-now()))));
+          value=await backend.collect(query);
+        }
         if(shapeAuthor&&value.status==='complete'&&value.evidence){
           try{
             const {shapeBody,...evidence}=value.evidence;

@@ -10,7 +10,7 @@ test('single dispatch-only Rescue template installs with immutable bundle/host p
   const rescue=[...plan.files].filter(([path])=>/rescue/i.test(path));assert.equal(rescue.length,1);
   const doc=parseDocument(rescue[0][1],{uniqueKeys:true});assert.deepEqual(doc.errors,[]);const w=doc.toJS();
   assert.equal(w.name,'Nibfin Rescue');assert.deepEqual(Object.keys(w.on),['workflow_dispatch']);
-  assert.deepEqual(Object.keys(w.on.workflow_dispatch.inputs),['request_id','source_run_id','source_attempt','nibfin_correlation','nibfin_issue','mode']);
+  assert.deepEqual(Object.keys(w.on.workflow_dispatch.inputs),['request_id','source_run_id','source_attempt','nibfin_correlation','nibfin_issue','nibfin_stage','mode']);
   assert.equal(Object.values(w.jobs).length,1);assert.equal(w.jobs.rescue['runs-on'],'ubuntu-latest');
   assert.equal(w.jobs.rescue.steps.at(-1).with.mode,'rescue');
   for(const step of w.jobs.rescue.steps.filter(s=>s.with?.repository))assert.match(step.with.ref,/^[a-f0-9]{40}$/);
@@ -40,8 +40,8 @@ test('maintained dispatch builder supplies exact installed notification and norm
   const f=rescueFixture(),id=await f.register();await f.controller.wake(id);
   const notification=[...f.ops.values()][0].input;
   assert.deepEqual(notification.payload.inputs,{request_id:id,source_run_id:'100',source_attempt:'1',mode:'repair',
-    nibfin_correlation:notification.correlation,nibfin_issue:'101'});
-  assert.deepEqual(notification.payload.display,{repository:f.target.repository,issue:'101'});
+    nibfin_correlation:notification.correlation,nibfin_issue:'101',nibfin_stage:f.target.role});
+  assert.deepEqual(notification.payload.display,{repository:f.target.repository,issue:'101',stage:f.target.role});
   await f.controller.run(id);const inputs=[...f.ops.values()].map(f=>f.input.payload.inputs);
   assert.ok(inputs.some(i=>i.nibfin_request==='fresh-core-request'));
   assert.ok(inputs.every(i=>i.nibfin_correlation));

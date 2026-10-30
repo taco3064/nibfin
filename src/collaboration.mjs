@@ -32,16 +32,18 @@ export function verifyOwnerSignature(bytes,signature,publicKey) {
 /** Registry descriptor comparison/revocation, without the donor's root-key or
  * dispatch protocol. Legacy descriptors are v1; explicit other versions fail. */
 export function validateMemberBinding(record,{repositoryId,registration,executionPool}) {
+  let legacy=false;
   if(executionPool!==undefined){
     const pool=validateExecutionPool(executionPool);
-    need(pool.targets.some(t=>t.repositoryId===repositoryId)&&registration?.level==='repository'
+    need(pool.targets.some(t=>t.repositoryId===repositoryId));legacy=pool.version===1;
+    if(legacy)need(registration?.level==='repository'
       &&registration.id===pool.source.repositoryId&&record?.version===2
       &&record.executionRepositoryId===pool.source.repositoryId);
   }
   need(id(repositoryId)&&registration&&['repository','organization'].includes(registration.level)&&id(registration.id)
-    &&(registration.level==='repository'?executionPool!==undefined||registration.id===repositoryId:
+    &&(registration.level==='repository'?legacy||registration.id===repositoryId:
       typeof registration.organization==='string'&&/^[a-z0-9-]+$/i.test(registration.organization)));
-  need(record&&(executionPool!==undefined?record.version===2:record.version===undefined||record.version===1)
+  need(record&&(legacy?record.version===2:record.version===undefined||record.version===1)
     &&(record.active===undefined||record.active===true)
     &&id(record.runnerId)&&id(record.memberId)&&record.repositoryId===repositoryId
     &&typeof record.instanceId==='string'&&record.instanceId.length>0&&record.instanceId.length<=256

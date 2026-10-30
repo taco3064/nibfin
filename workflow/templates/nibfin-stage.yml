@@ -1,10 +1,12 @@
 name: Nibfin independent stage v1
-run-name: nibfin-operation:${{ inputs.nibfin_correlation }}
+run-name: '#${{ inputs.nibfin_issue }} | ${{ inputs.nibfin_stage }} | op:${{ inputs.nibfin_correlation }}'
 on:
   workflow_dispatch:
     inputs:
       nibfin_request: {type: string, required: true}
       nibfin_correlation: {type: string, required: true}
+      nibfin_issue: {type: string, required: true, description: Display issue verified against the retained request}
+      nibfin_stage: {type: string, required: true, description: Intended stage verified against the retained request}
 permissions: {}
 jobs:
   lookup:
@@ -55,3 +57,5 @@ jobs:
       issue: ${{ needs.lookup.outputs.issue }}
       nibfin_request: ${{ inputs.nibfin_request }}
       nibfin_correlation: ${{ inputs.nibfin_correlation }}
+      nibfin_issue: ${{ inputs.nibfin_issue }}
+      nibfin_stage: ${{ inputs.nibfin_stage }}

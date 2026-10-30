@@ -141,7 +141,8 @@ export function createDownstreamFanout({provider, currentSource, retrieveReceipt
             source:{...origin.provenance,request:id},binding:t.binding,
             target:{id:t.workflow.id,number:null,workflow:t.workflow.id},
             payload:{handoff:{source,origin,target,workflow:t.workflow},ref:t.workflow.ref,refIdentity:{sha:t.workflow.sha,workflowDigest:t.workflow.digest},
-              inputs:{nibfin_request:id,nibfin_correlation:id}}});
+              display:{repository:target.repository,issue:target.number,stage:'resolve'},
+              inputs:{nibfin_request:id,nibfin_correlation:id,nibfin_issue:target.number,nibfin_stage:'resolve'}}});
           need(intent.payload.refIdentity,'request');
           requestId=id;
           const retained={id,source,origin,target,intent};
@@ -173,7 +174,7 @@ export async function resolveFanoutWakeup({inputs,authenticate,lookup,dependenci
       signal.addEventListener('abort',abort,{once:true});timer=setTimeout(abort,timeoutMs);});
     const call=async fn=>{need(!signal.aborted&&performance.now()-started<timeoutMs,'cancelled');const value=await Promise.race([Promise.resolve().then(fn),deadline]);need(!signal.aborted&&performance.now()-started<timeoutMs,'cancelled');return value;};
     const evaluate=dependencies.evaluate.bind(dependencies);
-    need(inputs&&same(Object.keys(inputs).sort(),['nibfin_correlation','nibfin_request'])
+    need(inputs&&same(Object.keys(inputs).sort(),['nibfin_correlation','nibfin_request',...(inputs.nibfin_stage!==undefined?['nibfin_issue','nibfin_stage']:[])].sort())
       &&/^fanout-[a-f0-9]{64}$/.test(inputs.nibfin_request)&&inputs.nibfin_request===inputs.nibfin_correlation,'request');
     const retained=copy(await call(()=>lookup(inputs.nibfin_request,{signal})));
     need(retained.id===inputs.nibfin_request,'request');

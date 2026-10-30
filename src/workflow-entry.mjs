@@ -5,6 +5,7 @@ import {pathToFileURL,fileURLToPath} from 'node:url';
 import {loadProtectedHost,loadProtectedDeployment} from './host-source.mjs';
 import * as core from './index.mjs';
 import {createWorkflowEntry,projectIssue} from './workflow.mjs';
+import {actionLogLine} from './action-display.mjs';
 export async function workflowMain(env=process.env,{deployment}={}) {
   let output={status:'blocked',selected:'false',reason:'host-configuration-unavailable'};
   try {
@@ -26,9 +27,13 @@ export async function workflowMain(env=process.env,{deployment}={}) {
     context=core.projectExecutionContext({options:deployment.options,mode:env.NIBFIN_MODE,context});
     const controller=new AbortController(),cancel=()=>controller.abort();
     process.once('SIGTERM',cancel);process.once('SIGINT',cancel);
-    try {output=await createWorkflowEntry(await host.configure({core,mode:env.NIBFIN_MODE,context,deployment})).invoke(env.NIBFIN_MODE,input,context,{signal:controller.signal});}
+    try {output=await createWorkflowEntry(await host.configure({core,mode:env.NIBFIN_MODE,context,deployment}),
+      {onProgress:record=>process.stdout.write(actionLogLine(record,env.NIBFIN_MODE))}).invoke(env.NIBFIN_MODE,input,context,{signal:controller.signal});}
     finally {process.removeListener('SIGTERM',cancel);process.removeListener('SIGINT',cancel);}
   } catch { /* No raw exceptions, provider data, tokens or event text in outputs/logs. */ }
+  process.stdout.write(actionLogLine(output,env.NIBFIN_MODE));
+  if(env.GITHUB_STEP_SUMMARY)await appendFile(env.GITHUB_STEP_SUMMARY,'<pre>'+actionLogLine(output,env.NIBFIN_MODE)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</pre>\n');
   for (const [key,value] of Object.entries(output)) {
     if (!/^[a-z_]+$/.test(key) || typeof value!=='string' || value.length>32768 || /[\r\n]/.test(value)) throw Error('workflow:output');
     await appendFile(env.GITHUB_OUTPUT,`${key}=${value}\n`);

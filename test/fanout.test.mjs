@@ -43,7 +43,7 @@ test('AC2/3/5 exact C/D public destination transport, source identity distinct, 
   for(const [i,r] of requests.entries()) {
     const target=[f.c,f.d][i],post=f.writes()[i];
     assert.equal(post.endpoint,`/repos/${target.repository}/actions/workflows/50/dispatches`);
-    assert.deepEqual(JSON.parse(post.body),{ref:'main',inputs:{nibfin_request:r.id,nibfin_correlation:r.id}});
+    assert.deepEqual(JSON.parse(post.body),{ref:'main',inputs:{nibfin_request:r.id,nibfin_correlation:r.id,nibfin_issue:target.number,nibfin_stage:'resolve'}});
     assert.equal(r.intent.source.repositoryId,f.b.repositoryId);assert.equal(r.intent.binding.repositoryId,target.repositoryId);
     assert.notEqual(r.intent.source.runId,r.intent.binding.runId);
     assert.equal(r.origin.identity,f.completions.get(f.b.issueId).identity);

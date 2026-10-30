@@ -45,7 +45,7 @@ export function createHostRouting({adapters,current,mode,maxCheckpointMs,now=Dat
       && same(observation.run,p.invocation.run));
     // A repository registration cannot receive a Job from another repository.
     // Organization registrations may serve other allowed repos in that org.
-    need(pool
+    need(pool?.version===1
       ? input.registration.level==='repository'&&observation.sourceRepositoryId===pool.source.repositoryId
         &&observation.sourceRepository===pool.source.repository
       : input.registration.level==='repository'

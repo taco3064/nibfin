@@ -1,4 +1,5 @@
 import {verifySessionResult} from './collaboration.mjs';
+import {validDisplayStage,rescueActionReport} from './action-display.mjs';
 import {createCore, createEventRelay, createRegistrationHost, canonicalJSON, githubId,
   memberRunnerLabel, repositoryCoordinates,createRescueController,reportRescueOutcome} from './index.mjs';
 
@@ -11,13 +12,17 @@ const exact = (v,keys) => need(v && same(Object.keys(v).sort(),keys.split(' ').s
 const deliveryKeys = 'nibfin_request nibfin_correlation';
 export function workflowInput(mode,input) {
   if(mode==='rescue') {
-    exact(input,'request_id source_run_id source_attempt mode nibfin_correlation nibfin_issue');
+    exact(input,'request_id source_run_id source_attempt mode nibfin_correlation nibfin_issue'+(input.nibfin_stage!==undefined?' nibfin_stage':''));
+    if(input.nibfin_stage!==undefined)need(validDisplayStage(input.nibfin_stage));
     need(/^[a-f0-9]{64}$/.test(input.request_id)&&['repair','diagnose','verify'].includes(input.mode));
     githubId(input.source_run_id);githubId(input.source_attempt);githubId(input.nibfin_issue);need(opaque(input.nibfin_correlation));return structuredClone(input);
   }
+  const display=input.nibfin_issue!==undefined||input.nibfin_stage!==undefined;
+  const keys=deliveryKeys+(display?' nibfin_issue nibfin_stage':'');
   exact(input, mode === 'registration' ? 'nibfin_registration public_key level'
-    : ['resolve','execute','compute'].includes(mode) ? deliveryKeys+' issue'+(mode!=='resolve'?' resolution':'')
-    : mode === 'lookup' ? deliveryKeys : 'event');
+    : ['resolve','execute','compute'].includes(mode) ? keys+' issue'+(mode!=='resolve'?' resolution':'')
+    : mode === 'lookup' ? keys : 'event');
+  if(display){githubId(input.nibfin_issue);need(validDisplayStage(input.nibfin_stage));}
   if (mode === 'registration') {
     need(opaque(input.nibfin_registration) && ['repository','organization'].includes(input.level)
       && typeof input.public_key === 'string' && input.public_key.length <= 8192);
@@ -54,8 +59,9 @@ export async function workflowRoute(selection,conditions,target,group) {
   return {group:verified.name,labels};
 }
 /** Constructor capabilities are protected executable configuration, never JSON inputs. */
-export function createWorkflowEntry(host) {
+export function createWorkflowEntry(host,{onProgress}={}) {
   need(typeof host?.authenticate==='function');
+  need(onProgress===undefined||typeof onProgress==='function');
   const attempted=new Set();
   return Object.freeze({async invoke(mode,raw,context,{signal}={}) {
     let activeRequest=null;
@@ -69,12 +75,14 @@ export function createWorkflowEntry(host) {
         need(context.eventName==='workflow_dispatch');
         const config=await host.rescue({identity,input,context,signal});
         const held=(await config.records.read()).cases[input.request_id];
-        need(held&&held.source.runId===input.source_run_id&&held.source.attempt===input.source_attempt&&held.target.number===input.nibfin_issue);
+        need(held&&held.source.runId===input.source_run_id&&held.source.attempt===input.source_attempt&&held.target.number===input.nibfin_issue
+          &&(input.nibfin_stage===undefined||input.nibfin_stage===held.target.role));
         const controller=createRescueController(config);
         const result=input.mode==='verify'?await controller.verify(input.request_id):await controller.run(input.request_id,{diagnoseOnly:input.mode==='diagnose',signal});
         const reporting=await reportRescueOutcome({outcome:result.outcome,reportingRun:identity.run.id,
           capability:config.reporting?.capability,report:config.reporting?.report??(async()=>({confirmed:false}))});
-        return {status:reporting.outcome==='reported'?(result.outcome==='UNRESOLVED'?'unresolved':result.outcome.toLowerCase()):'blocked',
+        const retained=(await config.records.read()).cases[input.request_id];
+        return {...rescueActionReport(retained,result),status:reporting.outcome==='reported'?(result.outcome==='UNRESOLVED'?'unresolved':result.outcome.toLowerCase()):'blocked',
           outcome:result.outcome,conclusion:reporting.conclusion,reason:reporting.outcome==='reported'?'verified-report':'reporting-'+reporting.outcome};
       }
       if (mode==='wake') {
@@ -85,7 +93,8 @@ export function createWorkflowEntry(host) {
       if (mode==='lookup') {
         const target=await host.lookup({identity,input});
         need(target.repository===identity.repository && target.repositoryId===identity.repositoryId);
-        githubId(target.number);return {status:'resolved',issue:target.number};
+        githubId(target.number);need(input.nibfin_issue===undefined||input.nibfin_issue===target.number);
+        return {status:'resolved',issue:target.number};
       }
       if (mode==='registration') {
         if(typeof host.runRegistration==='function')return host.runRegistration({identity,input,context,signal});
@@ -110,6 +119,8 @@ export function createWorkflowEntry(host) {
       const spec=await host.delivery({identity,input,context}), request=structuredClone(spec.request);
       need(request.target.repository===identity.repository && request.target.repositoryId===identity.repositoryId
         && request.target.number===input.issue && request.request===input.nibfin_request && same(request.run,identity.run));
+      need(input.nibfin_issue===undefined||input.nibfin_issue===request.target.number
+        &&(input.nibfin_stage==='resolve'||input.nibfin_stage===request.expected.stage));
       let selection,conditions;
       const config={...spec.config,selector:{select:async (value,options)=>{
         conditions=value.conditions; selection=await spec.config.selector.select(value,options);return selection;
@@ -127,7 +138,7 @@ export function createWorkflowEntry(host) {
         const resolution=await host.retain({kind:'resolution',key:request.request,
           value:{request,route,memberId:selection.memberId,
             ...(selection.observation?{observation:selection.observation}:{})},identity,signal});need(opaque(resolution));
-        return {status:'selected',selected:'true',runs_on:JSON.stringify(route),resolution,
+        return {status:'selected',selected:'true',issue:request.target.number,stage:request.expected.stage,runs_on:JSON.stringify(route),resolution,
           execution_mode:writers.has(request.expected.stage)?'execute':'compute'};
       }
       const held=await host.retrieve({kind:'resolution',key:input.resolution,identity,signal});
@@ -155,16 +166,17 @@ export function createWorkflowEntry(host) {
             // substituted Runner or login under an otherwise identical request.
             need(same(execution,host.runnerObservation()));
           }
-          return {status:value.disposition,reference:prior.key};
+          return {status:value.disposition,issue:request.target.number,stage:request.expected.stage,reference:prior.key};
         }
         need(prior.outcome==='started');
       }
+      if(onProgress)await onProgress({issue:request.target.number,stage:request.expected.stage,status:'running'});
       const result=await core.run(request,{signal});
       const value={...result,routing:{route,memberId:held.memberId,
         ...(typeof host.runnerObservation==='function'?{execution:host.runnerObservation()}:{})}};
       const reference=await host.retain({kind:'stage-result',key:request.request,value,identity,signal});need(opaque(reference));
       if(typeof host.recordBlocked==='function')await host.recordBlocked({identity,value,reference,request});
-      return {status:result.disposition,reference};
+      return {status:result.disposition,issue:request.target.number,stage:request.expected.stage,reference};
     } catch {return activeRequest?{status:'unresolved',request:activeRequest,reason:'result-reconciliation-required'}
       :{status:'blocked',selected:'false',reason:'invalid-or-unavailable'};}
   }});

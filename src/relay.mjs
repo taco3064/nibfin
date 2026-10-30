@@ -30,7 +30,7 @@ function validateRequest(request) {
   if (!exact(request, 'id hint intent sourcePolicy predecessor fallback mutation') || !opaque(request.id)
       || !['resolve','deliver','completion','recovery','reevaluate','substage'].includes(request.hint)) fail();
   const v = controlledIntent(request.intent), p = request.sourcePolicy;
-  if (v.kind !== 'dispatch' || !exact(v.payload.inputs, 'nibfin_request nibfin_correlation')
+  if (v.kind !== 'dispatch' || !exact(v.payload.inputs, 'nibfin_request nibfin_correlation'+(v.payload.display?.stage!==undefined?' nibfin_issue nibfin_stage':''))
       || v.payload.inputs.nibfin_request !== request.id || v.source.request !== request.id) fail();
   if (!exact(p, 'repositoryId workflowRef workflowSha workflowDigest ref actorIds suppressionEvent') || !Array.isArray(p.actorIds)
       || !p.actorIds.length || !hash(p.workflowDigest) || !/^[a-f0-9]{40}$/.test(p.workflowSha)
@@ -73,7 +73,7 @@ export function createEventRelay({authenticateEvent, loadRequest, loadPredecesso
       const inputCopy = structuredClone(input);
       let hint, selector;
       if (inputCopy.name === 'workflow_dispatch') {
-        if (!exact(inputCopy.payload, 'nibfin_request nibfin_correlation')
+        if (!exact(inputCopy.payload, 'nibfin_request nibfin_correlation'+(inputCopy.payload.nibfin_stage!==undefined?' nibfin_issue nibfin_stage':''))
             || !opaque(inputCopy.payload.nibfin_request) || !opaque(inputCopy.payload.nibfin_correlation)) fail();
         selector = {request:inputCopy.payload.nibfin_request};
       } else {
@@ -88,7 +88,7 @@ export function createEventRelay({authenticateEvent, loadRequest, loadPredecesso
       sourceMatches(source, request.sourcePolicy, inputCopy.name === 'suppressed' ? request.sourcePolicy.suppressionEvent : inputCopy.name);
       if (hint && (hint !== request.hint || inputCopy.payload.repositoryId !== b.repositoryId
           || inputCopy.payload.issueId !== b.issueId || inputCopy.payload.number !== b.number)) fail();
-      if (!hint && (inputCopy.payload.nibfin_request !== request.id || inputCopy.payload.nibfin_correlation !== intent.correlation)) fail();
+      if (!hint && !same(inputCopy.payload,intent.payload.inputs)) fail();
       if (inputCopy.name !== 'issues' && !request.fallback.approved)
         return {outcome:'waiting', reason:'dispatch-not-approved', continuation:false};
       const wakeup = contentIdentity({version:1, request});

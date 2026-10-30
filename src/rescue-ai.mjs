@@ -45,5 +45,6 @@ export async function diagnoseRescueTarget({target,adapter,capture,retain,signal
   need(same(await capture(t),before),'ai-mutation');
   need(result?.execution&&result.execution!==t.execution&&result.terminated===true
     &&result.memberId===t.memberId&&result.adapter===t.adapter,'ai-session');
-  return {status:'completed',record,plan:validateAiRepairPlan(result.result)};
+  try{return {status:'completed',record,plan:validateAiRepairPlan(result.result)};}
+  catch{return {status:'unresolved',record,reason:'ai-plan-rejected'};}
 }

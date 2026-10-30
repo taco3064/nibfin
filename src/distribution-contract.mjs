@@ -1,5 +1,5 @@
 export const distributionAPI=Object.freeze({version:1,readiness:1,installation:1,transition:1,
-  runtime:2,workflow:1,skills:1,source:1,recovery:1,jobAdmission:1,evidence:1});
+  runtime:2,workflow:1,skills:1,source:1,recovery:1,jobAdmission:1,evidence:1,nativeHost:1});
 // Each responsibility has ONE executable public owner. Controller is provenance,
 // never an imported parallel lifecycle or an end-user installation prerequisite.
 export const distributionOwners=Object.freeze([

@@ -166,7 +166,7 @@ function shapeResult(value,p,stage) {
  * current() resolves independent expectations/custody; it must not trust receipts
  * to choose their own expectations. No callback supplied by request data is used.
  */
-export function createCore({current,provider,authorization,dependencies,selector,owners,referenceInputs,checkpoint}={}) {
+export function createCore({current,provider,authorization,dependencies,selector,owners,referenceInputs,checkpoint,onDiagnostic}={}) {
   need(typeof current==='function'&&typeof authorization?.eligibility==='function'
     &&typeof provider?.request==='function'&&typeof dependencies?.evaluate==='function'&&typeof selector?.select==='function'&&owners,'capabilities');
   const read=current,request=provider.request.bind(provider), eligibility=authorization.eligibility.bind(authorization),
@@ -175,6 +175,7 @@ export function createCore({current,provider,authorization,dependencies,selector
     publication:createCandidatePublication,review:createFinalReview,merge:createProtectedMerge,
     completion:createCompletionFlow,fanout:createDownstreamFanout,recovery:createRecoveryFlow,repair:createRepairFlow};
   need(checkpoint===undefined||typeof checkpoint==='function','checkpoint');
+  need(onDiagnostic===undefined||typeof onDiagnostic==='function','diagnostic');
   let executing=null,executionSignal,executionDependencies;
   const checkExecution=async()=>{
     need(protectedWorkRestriction((await read()).restrictions)===null,'execution-restriction');
@@ -351,7 +352,10 @@ export function createCore({current,provider,authorization,dependencies,selector
               'delivered','observed','qualified','not-applicable','retained','woken','success','satisfied','merged','handoff','discovered'].includes(value)||owner?.ok===true?'completed':'blocked';
         return result(r,d,signal?.aborted&&disposition==='completed'?'blocked':disposition,
           signal?.aborted?'cancelled':'owner-result',d.stage,owner);
-      }catch(e){return r?result(r,e?.decision??d,launched?'unresolved':'blocked',e?.decision?e.gate:'invalid-or-unavailable',launched?d.stage:null)
+      }catch(e){
+        if(onDiagnostic)try{await onDiagnostic({phase:launched?'owner':'intake',stage:d?.stage??null,
+          code:typeof e?.message==='string'&&/^(?:core|shape|operations|runtime|evidence|authority|lifecycle):[a-z-]{1,100}$/.test(e.message)?e.message:'core:unavailable'});}catch{/* Diagnostics never change the disposition. */}
+        return r?result(r,e?.decision??d,launched?'unresolved':'blocked',e?.decision?e.gate:'invalid-or-unavailable',launched?d.stage:null)
         :{version:1,disposition:'rejected',reason:'invalid-request'};}
       finally{if(acquired){executing=null;executionSignal=undefined;executionDependencies=undefined;busy=false;}}
     }

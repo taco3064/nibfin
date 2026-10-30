@@ -37,7 +37,7 @@ test('AC1/4: inert public adapter, fixed guest bridge, all protected roles and i
     assert.deepEqual(c.env,{PATH:'/usr/bin:/bin',LANG:'C'});
     for(const secret of ['HOST-CREDENTIAL','WSLENV','ENV-SENTINEL','LOGIN-SENTINEL','registration1','service1','work1','signing-key'])
       assert.equal(JSON.stringify([f.commands,c]).includes(secret),false);
-    assert.ok(mounts.find(m=>m.includes('dst=/tmp/home/.codex/auth.json,')).endsWith(',readonly'));
+    assert.ok(mounts.find(m=>m.includes('dst=/auth/auth.json,')).endsWith(',readonly'));
     await finish(f);assert.equal(f.wslFlags.closed,true);
     assert.ok(existsSync(f.environment.loginSpace));assert.ok(existsSync(f.environment.instances[1].workspace));
     assert.equal(existsSync(f.environment.instances[0].workspace),false);

@@ -69,6 +69,8 @@ export function createInstallation(configuration){
       +(Object.hasOwn(input,'executionPool')?' executionPool':'')+(Object.hasOwn(input,'repository')?' repository':''));}
     catch{return {version:1,status:'blocked',diagnostics:[diagnostic('source','invalid-installation-plan')]};}
     const {commit,hostRepository,hostCommit,admission,executionPool,repository}=input;
+    if(executionPool!==undefined&&executionPool?.version!==2)return {version:1,status:'blocked',
+      diagnostics:[diagnostic('source','legacy-central-pool-reconciliation-required')]};
     const readiness=await check();if(readiness.status!=='ready')return {version:1,status:'blocked',readiness};
     // Never execute the live aborting hook here, including init --check.
     let policies=null;try{

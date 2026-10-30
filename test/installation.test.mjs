@@ -159,12 +159,14 @@ test('repository initialization plans require no existing Runner ID; member plan
 
 test('source installation carries a protected pool into its actual workflow plan without registering extra Runners',async()=>{
   const source={version:1,repository:'example/core',repositoryId:'41',ownerId:'7',ownerType:'User'},
-    executionPool={version:1,source,targets:[source,{...source,repository:'example/cli',repositoryId:'42'}]},
-    input={commit:git,hostCommit:git,hostRepository:'taco3064/nibfin',executionPool};
+    executionPool={version:2,id:'member-default',capacity:6,targets:[source,{...source,repository:'example/cli',repositoryId:'42'}]},
+    input={commit:git,hostCommit:git,hostRepository:'taco3064/nibfin',repository:'example/cli',executionPool};
   const before=structuredClone(executionPool),result=await createInstallation(fixture().configuration).plan(input);
   assert.equal(result.status,'planned');assert.deepEqual(executionPool,before);
-  assert.deepEqual(result.workflow.deployments.map(t=>t.repositoryId),['41','42']);
+  assert.equal(result.workflow.repository,'example/cli');assert.equal(result.workflow.executionPool.capacity,6);
   assert.equal(result.admission.policies,null);
-  assert.ok(result.workflow.files.has('.github/workflows/nibfin-stage-42.yml'));
+  assert.ok(result.workflow.files.has('.github/workflows/nibfin-stage.yml'));
+  const legacy=await createInstallation(fixture().configuration).plan({...input,executionPool:{version:1,source,targets:[source]}});
+  assert.equal(legacy.status,'blocked');assert.equal(legacy.diagnostics[0].code,'legacy-central-pool-reconciliation-required');
   assert.equal((await createInstallation(fixture().configuration).plan({...input,executionPool:{...executionPool,targets:[]}})).status,'blocked');
 });

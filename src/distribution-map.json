@@ -362,7 +362,7 @@
     },
     {
       "path": "docs/workflows.md",
-      "sha256": "8a23024f2e9f623ae18c6136a95d7980db74434b84e03f48d64e8ef32f70a477"
+      "sha256": "34790ef71516ffcaa279a3b612604d18b7b8beb9bfbbde4082dd5ce98fc8526b"
     },
     {
       "path": "docs/workspace.md",
@@ -854,7 +854,7 @@
     },
     {
       "path": "src/shape.mjs",
-      "sha256": "5e67e4fa9a51d58232365185b9dcaade60701410e890a602d9fd117afc867c43"
+      "sha256": "e86e32323a6f0f04e19328e4d0dc533035435793a780c471b96c54b91fbfcdfc"
     },
     {
       "path": "src/verification-child.mjs",
@@ -882,7 +882,7 @@
     },
     {
       "path": "src/workflow-install.mjs",
-      "sha256": "4cbbf2f8707fdc17fc94f6ef518c056f4356ccaa45fc24fc38fa8f6fc69a7baa"
+      "sha256": "81fc1e964553639e1fcb2a1785be2dfe2ae52c0a3e15d409d9b2259637aa4042"
     },
     {
       "path": "src/workflow.mjs",

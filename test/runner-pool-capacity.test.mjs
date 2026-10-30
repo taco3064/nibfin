@@ -25,11 +25,13 @@ test('ten repositories share six physical slots; concurrent reservations cannot 
  assert.equal((await f.capacity.reserve(request(6))).lease.slot,1);assert.equal(Object.keys(f.state().leases).length,6);
  await assert.rejects(f.capacity.reserve({...request(9),repository:'outside/project'}),/repository/);
 });
-test('workflow installation keeps all stage, delivery and rescue files in each project with no central source',()=>{
+test('native workflow installation keeps one direct stage entry in each project and preserves package entry points',()=>{
  const pool=validateExecutionPool(configuration());assert.equal(pool.capacity,6);assert.equal(pool.targets.length,10);assert.equal(pool.source,undefined);
  for(const target of pool.targets){
   const plan=workflowInstallation({commit:'a'.repeat(40),hostRepository:'taco3064/nibfin',hostCommit:'b'.repeat(40),executionPool:pool,repository:target.repository});
-  for(const name of ['nibfin-stage.yml','nibfin-delivery.yml','nibfin-rescue.yml'])assert.ok(plan.files.has('.github/workflows/'+name));
+  assert.deepEqual([...plan.files.keys()],['.github/workflows/nibfin-stage.yml']);
+  assert.match(plan.files.get('.github/workflows/nibfin-stage.yml'),/native-stage-main\.mjs/);
+  assert.ok(!plan.files.get('.github/workflows/nibfin-stage.yml').includes('uses: taco3064/'));
   assert.equal(plan.repository,target.repository);assert.equal(plan.deployments,undefined);
   assert.ok(![...plan.files.keys()].some(p=>/nibfin-stage-[0-9]+/.test(p)));
   const options={repository:target.repository,repositoryId:target.repositoryId,authentication:'actions-oidc',executionPool:pool};

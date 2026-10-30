@@ -2,6 +2,7 @@ import {hasSessionData,sessionIdFromEvents} from './role-session.mjs';
 import {prepareReadonlyVerification,decodeRoleOutput} from './agent-session.mjs';
 import {probeVerificationSupervisor} from './verification-child.mjs';
 import {initializeCodexCredentials,stageCodexCredentials} from './codex-credentials.mjs';
+import {redactCredentials} from './credential-output.mjs';
 // Fixed container entrypoint. No repository code is loaded by this module.
 import {probeGateway,dependencyProbeEndpoints,executeSession,codexEvents,capacityError} from './agent-session.mjs';
 import {spawnSync} from 'node:child_process';
@@ -31,10 +32,10 @@ export function codexInvocation(request) {
       '-c',`sandbox_mode="${request.access === 'write' ? 'workspace-write' : 'read-only'}"`,
       '--output-schema','/input/schema.json',...(request.model?['--model',request.model]:[]),
       ...(request.session?[request.session]:[]),'-'];
-  return {file:tool,args,options:{env,input:request.prompt,encoding:'utf8',stdio:['pipe','pipe','ignore'],
+  return {file:tool,args,options:{env,input:request.prompt,encoding:'utf8',stdio:['pipe','pipe','pipe'],
     cwd:'/work',timeout:request.timeout,killSignal:'SIGKILL',maxBuffer:1048576}};
 }
-export function executeCodex(request,secrets=[],run=spawnSync,{sessionDirectory='/tmp/home/.codex/sessions'}={}) {
+export function executeCodex(request,secrets=[],run=spawnSync,{sessionDirectory='/tmp/home/.codex/sessions',onDiagnostic}={}) {
   let last;
   const observed=(...args)=>{last=run(...args);return last;};
   const result=executeSession({request,adapter:'codex',version:'codex-cli 0.163.0',invoke:codexInvocation,run:observed,
@@ -50,6 +51,17 @@ export function executeCodex(request,secrets=[],run=spawnSync,{sessionDirectory=
     if((!request.resume||request.resume.id===id)&&hasSessionData(sessionDirectory,id))
       result.session={id,adapter:'codex',version:'codex-cli 0.163.0'};
   }catch{}
+  if(!result.evidence&&typeof onDiagnostic==='function'){
+    const messages=[],eventTypes=[];
+    for(const line of String(last?.stdout??'').split('\n'))try{const v=JSON.parse(line);
+      if(['thread.started','turn.started','turn.completed','turn.failed','error','item.started','item.completed','item.updated'].includes(v.type))eventTypes.push(v.type);
+      if(v.type==='error'&&typeof v.message==='string')messages.push(v.message);
+      if(v.type==='turn.failed'&&typeof v.error?.message==='string')messages.push(v.error.message);
+    }catch{}
+    onDiagnostic({diagnostic:result.diagnostic??'provider-failure',exitCode:last?.status??null,signal:last?.signal??null,
+      errorCode:typeof last?.error?.code==='string'?last.error.code:null,eventTypes:eventTypes.slice(0,128),messages,
+      stderr:String(last?.stderr??'')});
+  }
   return result;
 }
 export async function runCodexEntry() {
@@ -67,7 +79,12 @@ try {
     const request = prepareReadonlyVerification(JSON.parse(readCodexFile('/input/request.json')));
     const auth=JSON.parse(readCodexFile('/tmp/home/.codex/auth.json'));
     const secrets=Object.values(auth.tokens??{}).filter(v=>typeof v==='string'&&v);
-    let result;try{result=executeCodex(request,secrets);}finally{stageCodexCredentials(original);}
+    let diagnostic=null,result;try{result=executeCodex(request,secrets,spawnSync,{onDiagnostic:value=>{diagnostic=value;}});}finally{stageCodexCredentials(original);}
+    if(diagnostic){const current=JSON.parse(readCodexFile('/tmp/home/.codex/auth.json'));
+      const all=[...secrets,...Object.values(current.tokens??{}).filter(v=>typeof v==='string'&&v)];
+      const safe=JSON.parse(redactCredentials(JSON.stringify(diagnostic),all));
+      safe.stderr=safe.stderr.slice(-4096);safe.messages=safe.messages.map(v=>v.slice(0,2048)).slice(0,8);
+      writeFileSync('/verification/codex-diagnostic.json',JSON.stringify(safe),{flag:'wx',mode:0o600});}
     if(request.sessionOutput) {
       if(request.sessionOutput!=='/verification/role-session.json'||!result.session||!request.context?.memberId)throw Error('Session observation missing');
       writeFileSync(request.sessionOutput,JSON.stringify({...result.session,execution:request.context.execution.id,memberId:request.context.memberId}),{flag:'wx',mode:0o600});

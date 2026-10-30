@@ -166,6 +166,7 @@ export function codexFixture(role='shape', custom, agent='codex') {
     process:processBoundary,timeout:1000,task:()=>({prompt:'SYNTHETIC task; hostile repo $(touch /escape); no credentials',inputs})};
   const backend=(agent==='gemini'?createLinuxGeminiBackend:agent==='claude'?createLinuxClaudeBackend:createLinuxCodexBackend)(config);
   const life=createAgentLifecycle({environment,instanceId:'instance-0',backend,current:()=>structuredClone(current)});
+  const cleanupInput={environment:environment.id,instance:environment.instances[0].id,resources:['workspace','registration','service'].map(k=>environment.instances[0][k])};
   const input={execution,binding,instructions:{identity:instructions.identity,content:instructions.content},visibility:'public',ownership:'personal'};
   const wait=()=>new Promise(resolveWait=>setTimeout(resolveWait,10));
   async function collect() {
@@ -173,7 +174,7 @@ export function codexFixture(role='shape', custom, agent='codex') {
     throw Error('Fixture did not finish');
   }
   async function dispose() {for(const child of children)child.kill('SIGKILL');while(children.size)await wait();
-    try{await backend.cleanup({environment:environment.id,instance:environment.instances[0].id,resources:['workspace','registration','service'].map(k=>environment.instances[0][k])});}
+    try{await backend.cleanup(cleanupInput);}
     finally{rmSync(root,{recursive:true,force:true});}}
   return {root,environment,expected,current,input,config,backend,life,calls,flags,containers,collect,wait,dispose};
 }

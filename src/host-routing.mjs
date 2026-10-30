@@ -9,10 +9,12 @@ const same=(a,b)=>canonicalJSON(a)===canonicalJSON(b);
  * identity adapter; event/input/environment fields are never Runner evidence.
  * Construction does no reads. The current Core plan owns registration records.
  */
-export function createHostRouting({adapters,current,mode,maxCheckpointMs,now=Date.now,executionPool}={}) {
+export function createHostRouting({adapters,current,mode,maxCheckpointMs,now=Date.now,executionPool,poolReadiness}={}) {
   need(typeof adapters?.routing?.provider?.request==='function' && typeof current==='function' && typeof adapters?.memberEligibility==='function'
     && typeof adapters?.observeExecution==='function' && ['resolve','execute','compute'].includes(mode));
+  need(poolReadiness===undefined||mode==='resolve'&&executionPool?.version===2&&typeof poolReadiness==='function');
   const selector=createAssigneeSelector({provider:adapters.routing.provider,now,maxCheckpointMs,
+    ...(poolReadiness?{executionPool,poolReadiness}:{}),
     authorizationFor:member=>({eligibility:(intent,settings)=>adapters.memberEligibility(member,intent,settings)})});
   const memberMode=mode!=='resolve';
   const pool=executionPool===undefined?null:validateExecutionPool(executionPool);

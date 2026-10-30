@@ -47,9 +47,13 @@ export function validateHostOptions(options, mode,validatePool) {
  */
 export function configure({core,mode,context,deployment}={}) {
   try {
-    fields(deployment,['options','capabilities'],['identity','custody','registration','roles','recovery']);
+    fields(deployment,['options','capabilities'],['identity','custody','registration','roles','recovery','runnerPool']);
     const roleHost=deployment.roles ? (need(['execute','compute'].includes(mode) && typeof core?.createProtectedRoleHost==='function'),core.createProtectedRoleHost(deployment.roles)) : null;
     const options=validateHostOptions(deployment.options,mode,core.validateExecutionPool), capabilities=deployment.capabilities;
+    if(deployment.runnerPool){
+      fields(deployment.runnerPool,['readiness']);
+      need(mode==='resolve'&&options.executionPool?.version===2&&typeof deployment.runnerPool.readiness==='function');
+    }
     need(typeof core?.createWorkflowEntry==='function' && typeof core?.createCore==='function'
       && typeof core?.createEventRelay==='function' && typeof core?.createRegistrationHost==='function');
     // Project only public context. Never forward an embedding context's secrets/env.
@@ -118,6 +122,7 @@ export function configure({core,mode,context,deployment}={}) {
           need(!routing);
           routing=core.createHostRouting({adapters,current:config?.current,mode,
             maxCheckpointMs:deployment.identity.authorization.maxCheckpointMs,now:deployment.identity.now,
+            ...(deployment.runnerPool?{poolReadiness:deployment.runnerPool.readiness}:{}),
             ...(options.executionPool?{executionPool:options.executionPool}:{})});
           config={...config,provider:adapters.routing.provider,authorization:{eligibility:adapters.routing.eligibility},
             selector:routing.selector,...(mode==='resolve'?{}:{checkpoint:routing.checkpoint})};

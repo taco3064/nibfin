@@ -248,16 +248,16 @@ test('repository-local physical pools queue a native member Job before any Runne
  const pool={version:2,id:'member-default',capacity:6,targets};
  for(const target of targets){
   const plan=workflowInstallation({commit:'a'.repeat(40),hostRepository:'taco3064/nibfin',hostCommit:'b'.repeat(40),executionPool:pool,repository:target.repository});
-  const caller=parse(plan.files.get('.github/workflows/nibfin-stage.yml')),member=parse(plan.files.get(delivery));
-  assert.deepEqual(Object.keys(caller.jobs),['stage']);assert.equal(caller.jobs.stage.uses,'./'+delivery);
-  assert.equal(caller.jobs.stage.with.nibfin_member,'${{ inputs.nibfin_member }}');
+  const caller=parse(plan.files.get('.github/workflows/nibfin-stage.yml'));assert.equal(plan.files.size,1);assert.equal(plan.files.has(delivery),false);
+  assert.deepEqual(Object.keys(caller.jobs),['stage']);assert.equal(caller.jobs.stage.name,'stage / execute');assert.equal(caller.jobs.stage.uses,undefined);
+  assert.equal(caller.jobs.stage.steps[0].env.NIBFIN_MEMBER,'${{ inputs.nibfin_member }}');
   assert.equal(caller['run-name'],"#${{ inputs.nibfin_issue }} | ${{ inputs.nibfin_stage }} | op:${{ inputs.nibfin_correlation }}");
-  assert.deepEqual(Object.keys(member.jobs),['execute']);assert.deepEqual(member.permissions,{});
-  const job=member.jobs.execute;assert.deepEqual(job.permissions,{});
+  assert.deepEqual(caller.permissions,{});
+  const job=caller.jobs.stage;assert.deepEqual(job.permissions,{});
   assert.deepEqual(job['runs-on'],['self-hosted','linux','x64','nibfin-user-${{ inputs.nibfin_member }}','nibfin-request-${{ inputs.nibfin_request }}']);
   assert.equal(job.steps.length,1);assert.equal(job.steps[0].run,'/usr/local/bin/node "$HOME/.local/share/nibfin/control/runtime/client/native-stage-main.mjs"');
   assert.equal(job.steps[0].env.NIBFIN_REPOSITORY,'${{ github.repository }}');
-  assert.equal(member.concurrency['cancel-in-progress'],false);assert.equal(member.concurrency.queue,'max');
-  assert.equal(JSON.stringify(member).includes('secrets.'),false);assert.equal(JSON.stringify(caller).includes('ubuntu-latest'),false);
+  assert.equal(caller.concurrency['cancel-in-progress'],false);assert.equal(caller.concurrency.queue,'max');
+  assert.equal(JSON.stringify(caller).includes('secrets.'),false);assert.equal(JSON.stringify(caller).includes('ubuntu-latest'),false);
  }
 });

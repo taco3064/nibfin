@@ -16,14 +16,9 @@ function nativePoolWorkflows(){
  const fields=inputs.map(name=>'      '+name+': {type: string, required: true}').join('\n');
  const caller=['name: Nibfin independent stage v2',
   "run-name: '#"+input('nibfin_issue')+' | '+input('nibfin_stage')+' | op:'+input('nibfin_correlation')+"'",
-  'on:','  workflow_dispatch:','    inputs:',fields,'permissions: {}','jobs:','  stage:',
-  '    uses: ./.github/workflows/nibfin-delivery.yml','    with:',
-  ...inputs.map(name=>'      '+name+': '+input(name)),''
- ].join('\n');
- const member=['name: Nibfin single stage v2','on:','  workflow_call:','    inputs:',fields,
-  'permissions: {}','concurrency:',
+  'on:','  workflow_dispatch:','    inputs:',fields,'permissions: {}','concurrency:',
   '  group: nibfin-v2-'+expression('github.repository_id')+'-issue-'+input('nibfin_issue'),
-  '  cancel-in-progress: false','  queue: max','jobs:','  execute:',
+  '  cancel-in-progress: false','  queue: max','jobs:','  stage:','    name: stage / execute',
   '    runs-on: [self-hosted, linux, x64, "nibfin-user-'+input('nibfin_member')+'", "nibfin-request-'+input('nibfin_request')+'"]',
   '    timeout-minutes: 60','    permissions: {}','    steps:',
   '      - name: Execute the authenticated Issue stage','        shell: bash','        env:',
@@ -32,8 +27,9 @@ function nativePoolWorkflows(){
   '          NIBFIN_RUN_ID: '+expression('github.run_id'),
   '          NIBFIN_RUN_ATTEMPT: '+expression('github.run_attempt'),
   '        run: /usr/local/bin/node "$HOME/.local/share/nibfin/control/runtime/client/native-stage-main.mjs"',''
+
  ].join('\n');
- return new Map([['.github/workflows/nibfin-stage.yml',caller],['.github/workflows/nibfin-delivery.yml',member]]);
+ return new Map([['.github/workflows/nibfin-stage.yml',caller]]);
 }
 
 /** Pure installation plan; consumers must compare existing bytes before authorized writes. */
@@ -56,7 +52,9 @@ export function workflowInstallation({commit,hostRepository,hostCommit,execution
       if(!target)throw Error('workflow:pool-repository-required');
       // Runner capacity belongs to the member. Workflow/Run/Job ownership never
       // leaves this repository, regardless of which physical slot is leased.
-      for(const [path,bytes]of nativePoolWorkflows())files.set(path,bytes);
+      // Native execution needs one project-local entry. Preserve the public
+      // package's reusable files and avoid installing dormant hosted dispatchers.
+      files.clear();for(const [path,bytes]of nativePoolWorkflows())files.set(path,bytes);
       return {version:1,coreVersion:manifest.version,commit,inventory,files,
         repository:target.repository,executionPool:pool,
         variables:{NIBFIN_BUNDLE_COMMIT:commit,NIBFIN_HOST_REPOSITORY:hostRepository,NIBFIN_HOST_COMMIT:hostCommit}};

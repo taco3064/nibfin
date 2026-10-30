@@ -1,3 +1,4 @@
+import{workflowInstallation}from'../../src/workflow-install.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
@@ -115,12 +116,29 @@ test('configuration CLI consumes Fetch responses and rejects denied reads or sta
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test('four maintained entries retain reusable onboarding and delivery interfaces',()=>{
-  assert.deepEqual(readdirSync('../.github/workflows').filter(n=>n.endsWith('.yml')).sort(),['ci.yml','core-release.yml','nibfin-delivery.yml','nibfin-registration.yml']);
+const packagedEntries=['ci.yml','core-release.yml','nibfin-delivery.yml','nibfin-registration.yml'];
+function checkEntryInventory(names,read){
+ assert.deepEqual(names.filter(n=>n!=='nibfin-stage.yml').sort(),packagedEntries);
+ if(names.includes('nibfin-stage.yml')){
+  const pool={version:2,id:'member-default',capacity:2,targets:[{version:1,repository:'example/project',repositoryId:'42',ownerId:'7',ownerType:'User'}]};
+  const plan=workflowInstallation({commit:'a'.repeat(40),hostCommit:'a'.repeat(40),hostRepository:'taco3064/nibfin',executionPool:pool,repository:'example/project'});
+  assert.equal(read('nibfin-stage.yml'),plan.files.get('.github/workflows/nibfin-stage.yml'));
+ }
+}
+test('four package entries and the optional exact installed native stage retain their separate purposes',()=>{
+  checkEntryInventory(readdirSync('../.github/workflows').filter(n=>n.endsWith('.yml')),name=>readFileSync('../.github/workflows/'+name,'utf8'));
   for(const name of ['nibfin-delivery','nibfin-registration']) {
     const entry=parse(readFileSync('../.github/workflows/'+name+'.yml','utf8'));
     assert.deepEqual(Object.keys(entry.on),['workflow_call']);
   }
   assert.equal(workflow.jobs['owner-pr'].steps[0].name,'Require repository owner as PR author');
   for(const [name,job] of Object.entries(workflow.jobs))if(name!=='deploy')assert.equal(job.permissions,undefined);
+});
+
+test('installed native stage inventory rejects unknown workflows and altered stage source',()=>{
+ const pool={version:2,id:'member-default',capacity:2,targets:[{version:1,repository:'example/project',repositoryId:'42',ownerId:'7',ownerType:'User'}]},
+  source=workflowInstallation({commit:'a'.repeat(40),hostCommit:'a'.repeat(40),hostRepository:'taco3064/nibfin',executionPool:pool,repository:'example/project'}).files.get('.github/workflows/nibfin-stage.yml');
+ checkEntryInventory([...packagedEntries,'nibfin-stage.yml'],()=>source);
+ assert.throws(()=>checkEntryInventory([...packagedEntries,'extra-ci.yml'],()=>source));
+ assert.throws(()=>checkEntryInventory([...packagedEntries,'nibfin-stage.yml'],()=>source+'# altered source\n'));
 });

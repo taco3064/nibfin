@@ -54,9 +54,12 @@ export async function observeClosure({provider,target,mergeIntent,signal}={}) {
  * attests newness with the requested identity. Missing history is never newness.
  */
 export function createCompletionFlow({current,authorization,dependencies,dependencyInput,provider,observe,
-  operations,custody,publication,locate,stageCurrent,postMerge,now=Date.now}={}) {
+  operations,custody,publication,completionRecords,locate,stageCurrent,postMerge,now=Date.now}={}) {
   need([current,authorization?.eligibility,dependencies?.evaluate,provider?.request,observe,operations,
-    custody?.retrieve,publication,locate,stageCurrent,postMerge].every(f=>typeof f==='function'),'capabilities');
+    locate,stageCurrent,postMerge].every(f=>typeof f==='function'),'capabilities');
+  need(completionRecords===undefined?typeof custody?.retrieve==='function'&&typeof publication==='function':
+    completionRecords&&Object.keys(completionRecords).sort().join(' ')==='retain retrieve'
+      &&typeof completionRecords.retain==='function'&&typeof completionRecords.retrieve==='function','capabilities');
   let busy=false;
   async function run(mode,{signal}={}) {
     if(busy)return {outcome:'blocked',finding:'completion:busy'};busy=true;
@@ -143,22 +146,34 @@ export function createCompletionFlow({current,authorization,dependencies,depende
         const entry=await locate({identity:key,phase,target:copy(t)});await stable();
         if(entry?.outcome==='new'&&entry.identity===key)return null;
         need(entry?.outcome==='found','history');
-        const r=await custody.retrieve({ref:entry.ref,expected:expected(phase,entry.source),signal});
-        need(r.outcome==='retrieved'&&r.payloads.size===1,'custody');
-        const bytes=r.payloads.get('completion.json');need(bytes,'custody');
-        const v=JSON.parse(Buffer.from(bytes).toString('utf8'));
-        need(Buffer.from(bytes).equals(Buffer.from(canonicalJSON(v)))&&v.key===key&&v.phase===phase,'custody-bytes');
+        const exp=expected(phase,entry.source);let v;
+        if(completionRecords){
+          need(entry.ref&&Object.keys(entry.ref).sort().join(' ')==='identity kind'&&entry.ref.kind==='native-completion-record','native-reference');
+          const r=await completionRecords.retrieve({ref:copy(entry.ref),expected:exp,signal});
+          need(r?.outcome==='retrieved'&&same(r.expected,exp),'custody');v=copy(r.value);
+          need(entry.ref.identity===contentIdentity({version:1,kind:'native-completion-record',expected:exp,value:v}),'custody-bytes');
+        }else{
+          const r=await custody.retrieve({ref:entry.ref,expected:exp,signal});
+          need(r.outcome==='retrieved'&&r.payloads.size===1,'custody');const bytes=r.payloads.get('completion.json');need(bytes,'custody');
+          v=JSON.parse(Buffer.from(bytes).toString('utf8'));need(Buffer.from(bytes).equals(Buffer.from(canonicalJSON(v))),'custody-bytes');
+        }
+        need(v.key===key&&v.phase===phase,'custody-bytes');
         await stable();return v.value;
       }
       async function save(phase,value,guard) {
         const prior=await load(phase);
         if(prior!==null){need(same(prior,value),'conflict');return prior;}
-        const exp=expected(phase,p.source),payloads=new Map([['completion.json',Buffer.from(canonicalJSON({key,phase,value}))]]);
-        const facilities=await publication({phase,identity:key,expected:exp});
-        const client={uploadArtifact:async(...args)=>{await guard();return facilities.client.uploadArtifact(...args);}};
-        const result=await publishCustody({...facilities,client,expected:exp,payloads,
-          manifest:prepareCustodyManifest(exp,payloads),custody,name:phase+'-'+key,retentionDays:7,signal});
-        need(result.outcome==='retained','publication-unconfirmed');
+        const exp=expected(phase,p.source);let result;
+        if(completionRecords){
+          await guard();result=await completionRecords.retain({expected:exp,value:{key,phase,value:copy(value)},signal});
+        }else{
+          const payloads=new Map([['completion.json',Buffer.from(canonicalJSON({key,phase,value}))]]);
+          const facilities=await publication({phase,identity:key,expected:exp});
+          const client={uploadArtifact:async(...args)=>{await guard();return facilities.client.uploadArtifact(...args);}};
+          result=await publishCustody({...facilities,client,expected:exp,payloads,
+            manifest:prepareCustodyManifest(exp,payloads),custody,name:phase+'-'+key,retentionDays:7,signal});
+        }
+        need(result?.outcome==='retained','publication-unconfirmed');
         // Core's durable locator must resolve even an interrupted/lost upload response.
         const read=await load(phase);need(read!==null&&same(read,value),'receipt-readback');return read;
       }

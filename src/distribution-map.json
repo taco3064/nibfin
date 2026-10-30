@@ -533,7 +533,7 @@
     },
     {
       "path": "src/completion.mjs",
-      "sha256": "19df457dc16d507cc82864441b257376aca614bf053e3aabc768576981ab0371"
+      "sha256": "2a93a7c11109ef502cf03e0a1e0776a8052a1225ae77414a054256e7b4c30173"
     },
     {
       "path": "src/concurrency.mjs",

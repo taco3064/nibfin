@@ -222,7 +222,7 @@
     },
     {
       "path": "docs/codex.md",
-      "sha256": "7d4d4aad0bb5ca8ca33b0c257509acb77280c97c12f0572fb4660d2875a1383b"
+      "sha256": "e39b360a9277f5438ba2f19d065d3ea54b4c8cb3a04b80c605a807d423aa9a3b"
     },
     {
       "path": "docs/collaboration.md",
@@ -522,7 +522,7 @@
     },
     {
       "path": "src/codex-entry.mjs",
-      "sha256": "51d38550fdedb77e5c8270b76c4dc87467bb67a6cbb809aff1039ee9c5e34221"
+      "sha256": "c2078535c8592f72b837cfdd5769f71f4cce0472b799c9207c5fe22d256f16ad"
     },
     {
       "path": "src/codex.mjs",

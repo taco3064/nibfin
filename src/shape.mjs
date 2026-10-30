@@ -199,7 +199,9 @@ export function createShapeFlow({provider, authorization, dependencies, dependen
           bodyResult,labelResult,readback,binding:pin.binding};
         require(typeof pin.decision==='string' && /^[a-f0-9]{64}$/.test(pin.decision),'decision');
         return {outcome:'published',publication,identity:contentIdentity(publication)};
-      } catch(e) {return {outcome:'blocked',phase,finding:finding(e),bodyResult,labelResult};}
+      } catch(e) {return {outcome:'blocked',phase,finding:finding(e),
+        diagnostic:typeof e?.message==='string'&&/^(?:shape|core|operations|evidence|lifecycle):[a-z-]{1,100}$/.test(e.message)?e.message:'shape:unavailable',
+        ...(bodyResult===undefined?{}:{bodyResult}),...(labelResult===undefined?{}:{labelResult})};}
     }
   };
   return Object.freeze(flow);

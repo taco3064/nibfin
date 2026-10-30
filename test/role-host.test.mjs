@@ -454,3 +454,18 @@ test('Agent CLI and Core verification share the same lane and CLI evidence reach
   assert(records.filter(r=>r.record.schemaVersion===1).every(r=>r.record.execution===p.input.execution.id&&r.record.logDigest));
  }finally{await f.close();}
 });
+
+
+test('native collection awaits the original real process once, preserving lifecycle checkpoint identity and role evidence',async()=>{
+ const f=roleFixture();try{
+  const selected=f.fixtures.get('shape-validator');selected.flags.delay=60;let checkpoints=0;
+  const host=core.createProtectedRoleHost({...f.options,collectUntilTerminal:true,checkpoint:async()=>{checkpoints++;}});
+  const task={role:'shape-validator',skill:'shape',instructions:core.selectInstructions({role:'shape-validator',skill:'shape'}),task:{}};
+  const prepared=await host.prepareRole(task);assert.equal((await import('../src/lifecycle.mjs')).supportsStartCheckpoint(prepared.lifecycle),true);
+  assert.equal((await prepared.lifecycle.start(prepared.input)).start.status,'started');
+  const result=await prepared.lifecycle.collect(prepared.input.execution.id);
+  assert.equal(result.result.status,'valid');assert.ok(checkpoints>0);
+  assert.equal(selected.calls.filter(c=>c.args[2]==='start'&&c.args.includes('--attach')&&!c.args.at(-1).includes('probe')).length>=1,true);
+  assert.equal((await prepared.lifecycle.termination(prepared.input.execution.id)).termination.status,'terminated');
+ }finally{await f.close();}
+});

@@ -7,6 +7,14 @@ N08 evidence expectations. Only Deliver has a writable workspace. Every other
 role (including Shape Validator, Diagnosis, Final Shaper Review and Accept) gets
 a read-only bind. Repository ownership has no effect on this boundary.
 
+The fixed container entry uses Codex's `danger-full-access` sandbox mode inside
+the verified rootless Docker boundary. Docker retains the read-only root and
+reviewer workspace mounts, dropped capabilities, seccomp, resource limits and
+restricted egress. Codex must not attempt a second namespace sandbox inside that
+container: the capabilities it needs are deliberately absent. The same fixed
+policy applies when resuming an original role session. This does not authorize
+running that entry directly on a host outside its verified container.
+
 ## Explicit profile: linux-amd64-codex-v1
 
 This is an implemented profile, **Unverified for native/model support** until

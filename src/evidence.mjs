@@ -1,5 +1,6 @@
 import {createHash} from 'node:crypto';
-import {canonicalJSON, bodyDigest, githubId} from './index.mjs';
+import {canonicalJSON, bodyDigest} from './canonical.mjs';
+import {githubId} from './identity.mjs';
 
 const fail = name => { throw new TypeError(`evidence:${name}`); };
 const copy = v => JSON.parse(canonicalJSON(v));

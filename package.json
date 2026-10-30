@@ -15,6 +15,7 @@
   },
   "packageManager": "npm@10.9.9",
   "files": [
+    "src/action-display.mjs",
     "docs/runner-pools.md",
     "src/runner-pool-capacity.mjs",
     "src/codex-credentials.mjs",

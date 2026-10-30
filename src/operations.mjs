@@ -1,5 +1,6 @@
 import {deliveryWriteRequest,requireMergeIdentity} from './github.mjs';
 import {randomUUID} from 'node:crypto';
+import {actionRunName,validDisplayStage} from './action-display.mjs';
 import {validateExecutionPool,validatePoolDispatch} from './execution-pool.mjs';
 import {githubId, repositoryCoordinates, canonicalJSON, bodyDigest, contentIdentity, prepareCustodyManifest, publishCustody} from './index.mjs';
 
@@ -63,10 +64,11 @@ export function controlledIntent(input) {
       const parts=p.executionSource.repository?.split('/');
       if(parts?.length!==2||repositoryCoordinates(...parts).key!==p.executionSource.repository)fail();
     }
-    if(p.display&&(!exact(p.display,'repository issue')||p.display.repository!==b.repository
+    if(p.display&&(!exact(p.display,'repository issue'+(p.display.stage!==undefined?' stage':''))||p.display.repository!==b.repository
       ||p.display.issue!==b.number||p.inputs.nibfin_issue!==b.number))fail();
+    if(p.display?.stage!==undefined&&(!validDisplayStage(p.display.stage)||p.inputs.nibfin_stage!==p.display.stage))fail();
     if (p.handoff && (!p.refIdentity || !exact(p.handoff, 'source origin target workflow')
-        || canonicalJSON(p.handoff).length>8192 || !exact(p.inputs,'nibfin_request nibfin_correlation')
+        || canonicalJSON(p.handoff).length>8192 || !exact(p.inputs,'nibfin_request nibfin_correlation'+(p.display?.stage!==undefined?' nibfin_issue nibfin_stage':''))
         || p.inputs.nibfin_request!==v.correlation || v.source.request!==v.correlation
         || v.correlation!=='fanout-'+contentIdentity({...p.handoff,binding:b})
         || !hash(p.handoff.origin?.identity) || !name(p.handoff.origin?.cycle)
@@ -111,6 +113,8 @@ export function controlledIntent(input) {
 }
 const requestFor=deliveryWriteRequest;
 function dispatchTitleMatches(title,v) {
+  if(v.payload.display?.stage!==undefined)return title===actionRunName({issue:v.payload.display.issue,stage:v.payload.display.stage,
+    correlation:v.correlation,rescue:v.payload.inputs.request_id!==undefined,mode:v.payload.inputs.mode});
   const prefix=`nibfin-operation:${v.correlation}`;
   return v.payload.display?typeof title==='string'&&title.startsWith(prefix+' ')
     &&title.slice(prefix.length+1).toLowerCase()===`${v.payload.display.repository}#${v.payload.display.issue}`

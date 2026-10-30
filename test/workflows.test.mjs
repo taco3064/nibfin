@@ -20,7 +20,7 @@ test('shared pool installation fixes each target namespace, dispatch entry and l
   const issueGuards=new Set(),writerGuards=new Set();
   for(const deployment of result.deployments){
     const stage=parse(result.files.get(deployment.stagePath)),delivery=parse(result.files.get(deployment.deliveryPath));
-    assert.deepEqual(Object.keys(stage.on.workflow_dispatch.inputs),['nibfin_request','nibfin_correlation']);
+    assert.deepEqual(Object.keys(stage.on.workflow_dispatch.inputs),['nibfin_request','nibfin_correlation','nibfin_issue','nibfin_stage']);
     assert.equal(stage.jobs.stage.uses,'./'+deployment.deliveryPath);
     const lookup=stage.jobs.lookup.steps.at(-1);
     assert.equal(lookup.with.deployment_key,'TARGET_'+deployment.repositoryId);
@@ -75,9 +75,9 @@ test('real YAML schemas, expressions, outputs, immutable acquisition and native 
   const d=docs.get(delivery),r=docs.get(registration),stage=docs.get('workflow/templates/nibfin-stage.yml');
   assert.equal(d.jobs.resolve['runs-on'],'ubuntu-latest');assert.equal(r.jobs.registration['runs-on'],'ubuntu-latest');
   assert.equal(r.concurrency,undefined);assert.equal(stage.concurrency,undefined);
-  assert.deepEqual(Object.keys(stage.on.workflow_dispatch.inputs),['nibfin_request','nibfin_correlation']);
-  assert.equal(resolveYAML(stage['run-name'],{inputs:{nibfin_correlation:'abc'}}),'nibfin-operation:abc');
-  const inputs=callInputs(d,'workflow_call',{issue:'101',nibfin_request:'req',nibfin_correlation:'corr'});
+  assert.deepEqual(Object.keys(stage.on.workflow_dispatch.inputs),['nibfin_request','nibfin_correlation','nibfin_issue','nibfin_stage']);
+  assert.equal(resolveYAML(stage['run-name'],{inputs:{nibfin_correlation:'abc',nibfin_issue:'101',nibfin_stage:'accept'}}),'#101 | accept | op:abc');
+  const inputs=callInputs(d,'workflow_call',{issue:'101',nibfin_request:'req',nibfin_correlation:'corr',nibfin_issue:'101',nibfin_stage:'shape'});
   assert.equal(inputs.issue,'101');assert.throws(()=>callInputs(d,'workflow_call',{...inputs,role:'merge'}));
   assert.throws(()=>callInputs(d,'workflow_call',{...inputs,issue:101}));assert.throws(()=>callInputs(d,'workflow_call',{}));
   assert.equal(callInputs(r,'workflow_call',{nibfin_registration:'req',public_key:'pem'}).level,'repository');

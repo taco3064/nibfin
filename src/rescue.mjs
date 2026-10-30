@@ -76,7 +76,7 @@ export function createRescueController({policy,records,provenance,current,author
       &&v.binding.issueId===c.target.issueId&&v.binding.scopeHash===c.target.scopeHash
       &&v.binding.shapeHash===c.target.shapeHash&&v.binding.cycle===c.target.cycle,'dispatch-binding');
     if(kind==='notification')need(same(v.payload.inputs,{request_id:c.id,source_run_id:c.source.runId,source_attempt:c.source.attempt,
-      mode:c.continuation?'verify':'repair',nibfin_correlation:v.correlation,nibfin_issue:c.target.number}),'notification-inputs');
+      mode:c.continuation?'verify':'repair',nibfin_correlation:v.correlation,nibfin_issue:c.target.number,nibfin_stage:c.target.role}),'notification-inputs');
     else need(v.payload.inputs.nibfin_request===proof.next?.request&&typeof proof.next?.request==='string'
       &&v.payload.inputs.nibfin_correlation===v.correlation,'continuation-inputs');
     const owner=await operations({case:structuredClone(c),intent:structuredClone(v),
@@ -236,10 +236,10 @@ export function createRescueDispatch({policy,load,provenance}) {
     need(workflow.path===descriptor.workflow.path&&workflow.id===descriptor.workflow.id,'dispatch-workflow');
     const correlation='rescue-'+contentIdentity({caseId:c.id,kind,proof,workflow});
     const inputs=kind==='notification'?{request_id:c.id,source_run_id:c.source.runId,source_attempt:c.source.attempt,
-      mode:c.continuation?'verify':'repair',nibfin_correlation:correlation,nibfin_issue:c.target.number}
-      :{nibfin_request:proof.next?.request,nibfin_correlation:correlation};
+      mode:c.continuation?'verify':'repair',nibfin_correlation:correlation,nibfin_issue:c.target.number,nibfin_stage:c.target.role}
+      :{nibfin_request:proof.next?.request,nibfin_correlation:correlation,nibfin_issue:c.target.number,nibfin_stage:c.target.role};
     return controlledIntent({version:1,kind:'dispatch',correlation,source:{...descriptor.source,request:correlation},binding:b,
       target:{id:workflow.id,number:null,workflow:workflow.id},payload:{ref:workflow.ref,refIdentity:workflow.refIdentity,inputs,
-        ...(kind==='notification'?{display:{repository:p.repository,issue:b.number}}:{})}});
+        display:{repository:p.repository,issue:b.number,stage:c.target.role}}});
   };
 }

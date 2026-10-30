@@ -1,5 +1,5 @@
 name: Nibfin Rescue
-run-name: 'nibfin-operation:${{ inputs.nibfin_correlation }} ${{ github.repository }}#${{ inputs.nibfin_issue }}'
+run-name: 'Rescue | #${{ inputs.nibfin_issue }} | ${{ inputs.nibfin_stage }} | ${{ inputs.mode }} | op:${{ inputs.nibfin_correlation }}'
 on:
   workflow_dispatch:
     inputs:
@@ -8,6 +8,7 @@ on:
       source_attempt: {type: string, required: true, description: Original source Attempt}
       nibfin_correlation: {type: string, required: true, description: Immutable dispatch operation}
       nibfin_issue: {type: string, required: true, description: Display only; checked against the retained case}
+      nibfin_stage: {type: string, required: true, description: Blocked stage verified against the retained case}
       mode: {type: choice, required: true, default: repair, options: [repair, diagnose, verify]}
 permissions: {}
 jobs:

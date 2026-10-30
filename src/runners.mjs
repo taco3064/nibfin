@@ -35,9 +35,9 @@ async function observe(provider, input, matchJob) {
     registration = input.registration;
     if (!['repository', 'organization'].includes(registration.level)) fail('registration_scope');
     if (registration.level === 'repository') {
-      if (registration.id !== (pool?.source.repositoryId??target.id)) fail('registration_scope');
+      if (registration.id !== (pool?.version===1?pool.source.repositoryId:target.id)) fail('registration_scope');
     } else {
-      if(pool)fail('registration_scope');
+      if(pool?.version===1)fail('registration_scope');
       const org = repositoryCoordinates(registration.organization, 'unused').owner;
       githubId(registration.id);
       if (org !== coordinates.owner || target.ownerType !== 'Organization' || registration.id !== target.ownerId)
@@ -122,7 +122,7 @@ async function observe(provider, input, matchJob) {
       fail('pagination_limit', 'unavailable');
     }
     let prefix = repoPath;
-    if(pool){
+    if(pool?.version===1){
       prefix='/repos/'+pool.source.repository;
       const source=await provider.request({...request,endpoint:prefix,expectedId:pool.source.repositoryId});
       if(source.outcome!=='read')throw {code:'execution_source_unavailable',kind:'unavailable',provider:publicDiagnostic(source).diagnostic};

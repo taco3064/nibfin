@@ -38,7 +38,8 @@ export function callInputs(workflow,event,input) {
 }
 export async function workflowFixture() {
   const f=coreFixture(),request=await f.queued(),saved=new Map(),records=[];
-  const input={issue:request.target.number,nibfin_request:request.request,nibfin_correlation:'correlation-1'};
+  const input={issue:request.target.number,nibfin_request:request.request,nibfin_correlation:'correlation-1',
+    nibfin_issue:request.target.number,nibfin_stage:request.expected.stage};
   const identity={repository:request.target.repository,repositoryId:request.target.repositoryId,run:request.run,visibility:'public',ownership:'organization'};
   const context=structuredClone(identity),state=Object.assign(f.state,{runner:true,source:true});
   const config={provider:f.provider,current:()=>structuredClone(f.pin),authorization:f.authorization,

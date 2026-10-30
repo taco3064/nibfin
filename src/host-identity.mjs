@@ -23,7 +23,9 @@ export function hostedGithubTransport({getCredential, repository, repositoryId, 
   githubId(repositoryId);
   need(repositoryCoordinates(...repository.split('/')).key===repository);
   need(organization===undefined || organization===repository.split('/')[0]);
-  const pool=executionPool===undefined?null:poolLogicalTarget(executionPool,{repository,repositoryId});
+  const configuredPool=executionPool===undefined?null:poolLogicalTarget(executionPool,{repository,repositoryId});
+  const pool=configuredPool?.version===1?configuredPool:null;
+  need(poolDispatch===undefined||pool!==null);
   const dispatchPolicy=poolDispatch===undefined?null:validatePoolDispatch(pool,poolDispatch);
   need(!dispatchPolicy||dispatchPolicy.repository===repository&&dispatchPolicy.repositoryId===repositoryId);
   const dispatch = async (request, credential, prepared=false) => {
@@ -103,7 +105,8 @@ function compose(configuration, testFacility) {
     &&(['resolve','execute','compute'].includes(mode)||mode==='lookup'&&options.executionPool!==undefined));
   githubId(options.repositoryId);
   need(repositoryCoordinates(...options.repository.split('/')).key===options.repository);
-  const pool=options.executionPool===undefined?null:poolLogicalTarget(options.executionPool,options);
+  const configuredPool=options.executionPool===undefined?null:poolLogicalTarget(options.executionPool,options);
+  const pool=configuredPool?.version===1?configuredPool:null;
   if(pool)need(options.groupId===undefined&&(mode==='wake'&&options.routing===undefined
     ||options.routing==='authenticated'&&['lookup','resolve','execute','compute'].includes(mode)));
   exact(source,['policy','getToken','continuation'],['getAssociation','timeoutMs']);
@@ -221,7 +224,7 @@ function compose(configuration, testFacility) {
       if(target.outcome!=='read')return {ok:false,...publicDiagnostic(target)};
       need(!signal.aborted);
       const t=target.data;
-      verifyRepositoryIdentity(t,pool?.targets.find(v=>v.repositoryId===options.repositoryId)
+      verifyRepositoryIdentity(t,configuredPool?.targets.find(v=>v.repositoryId===options.repositoryId)
         ??{version:1,repository:options.repository,repositoryId:options.repositoryId});
       if(pool){
         const executionSource=await reader.request({endpoint:'/repos/'+pool.source.repository,target:options.repositoryId,

@@ -7,6 +7,8 @@ on:
       issue: {type: string, required: true}
       nibfin_request: {type: string, required: true}
       nibfin_correlation: {type: string, required: true}
+      nibfin_issue: {type: string, required: true}
+      nibfin_stage: {type: string, required: true}
     outputs:
       status:
         value: ${{ jobs.execute.outputs.status || jobs.compute.outputs.status }}

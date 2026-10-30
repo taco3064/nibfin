@@ -75,7 +75,8 @@ export function projectExecutionContext({options,mode,context}){
  * collaborator reads, arbitrary source content and other repositories do not.
  */
 export function poolInventoryRead(pool,request){
-  const p=validateExecutionPool(pool),prefix='/repos/'+p.source.repository;
+  const p=validateExecutionPool(pool);if(p.version===2)return false;
+  const prefix='/repos/'+p.source.repository;
   if((request.method??'GET')!=='GET'||typeof request.endpoint!=='string')return false;
   if(request.endpoint===prefix)return true;
   const [pathname,query,...rest]=request.endpoint.split('?');
@@ -102,7 +103,8 @@ export function validatePoolDispatch(pool,value){
 }
 /** Narrow physical-source access. The logical Grant/checkpoint still owns POST. */
 export function poolDispatchAccess(pool,policy,request){
-  const p=validateExecutionPool(pool),d=validatePoolDispatch(p,policy),root='/repos/'+p.source.repository;
+  const p=validateExecutionPool(pool);if(p.version===2)return false;
+  const d=validatePoolDispatch(p,policy),root='/repos/'+p.source.repository;
   // Provider HTTP transport intentionally strips authorization metadata. When
   // supplied by the host allowlist, it must agree; HTTP scope uses pinned routes.
   if(request.operation!==undefined&&request.operation!=='dispatch'

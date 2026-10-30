@@ -234,10 +234,12 @@ async function observe(provider, v, signal, allowAbsent = false, reconcilePR = f
  * traceable custody references, or positively attests a new request. Never infer
  * newness from a missing artifact. Writes must use createAuthorizationBoundary.
  */
-export function createControlledOperations({authorization, provider, custody, publication, locate, execution, executionPool, poolDispatch, beforeSubmit = async () => {}, reconcileExistingPR = false, causalClose = false, timeoutMs = 30000} = {}) {
+export function createControlledOperations({authorization, provider, custody, publication, operationRecords, locate, execution, executionPool, poolDispatch, beforeSubmit = async () => {}, reconcileExistingPR = false, causalClose = false, timeoutMs = 30000} = {}) {
   if (typeof authorization?.request !== 'function' || typeof provider?.request !== 'function'
-      || typeof provider?.collection !== 'function' || typeof custody?.retrieve !== 'function'
-      || typeof publication !== 'function' || typeof locate !== 'function') throw Error('operations:capability');
+      || typeof provider?.collection !== 'function' || typeof locate !== 'function'
+      || (operationRecords===undefined ? typeof custody?.retrieve !== 'function'||typeof publication !== 'function'
+        : !operationRecords||Object.keys(operationRecords).sort().join(' ')!=='retain retrieve'
+          ||typeof operationRecords.retain!=='function'||typeof operationRecords.retrieve!=='function')) throw Error('operations:capability');
   if (typeof causalClose !== 'boolean') fail();
   const pool=executionPool===undefined?null:validateExecutionPool(executionPool);
   const dispatch=poolDispatch===undefined?null:validatePoolDispatch(pool,poolDispatch);
@@ -249,14 +251,31 @@ export function createControlledOperations({authorization, provider, custody, pu
   async function recover(entry, v, phase, signal) {
     if (!exact(entry, 'ref source') || !exact(entry.source, 'runId attempt')) fail();
     githubId(entry.source.runId); githubId(entry.source.attempt);
-    const r = await bounded(custody.retrieve({ref: entry.ref, expected: custodyBinding(v, phase, entry.source), signal}), signal);
-    if (r.outcome !== 'retrieved') throw Error('custody');
-    const value = JSON.parse(r.payloads.get('operation.json').toString());
+    const expected=custodyBinding(v,phase,entry.source);
+    let value;
+    if(operationRecords){
+      needNativeRef(entry.ref);
+      const result=await bounded(operationRecords.retrieve({ref:structuredClone(entry.ref),expected,signal}),signal);
+      if(result?.outcome!=='retrieved'||!same(result.expected,expected))throw Error('custody');
+      value=structuredClone(result.value);
+      if(entry.ref.identity!==contentIdentity({version:1,kind:'native-operation-record',expected,value}))throw Error('custody');
+    }else{
+      const r=await bounded(custody.retrieve({ref:entry.ref,expected,signal}),signal);
+      if(r.outcome!=='retrieved')throw Error('custody');
+      value=JSON.parse(r.payloads.get('operation.json').toString());
+    }
     if (!same(value.intent, v) || value.phase !== phase || value.version !== 1) throw Error('binding');
     return value;
   }
+  const needNativeRef=ref=>{if(!exact(ref,'kind identity')||ref.kind!=='native-operation-record'||!hash(ref.identity))fail();};
   async function retain(v, phase, value, signal) {
     const expected = custodyBinding(v, phase, execution);
+    if(operationRecords){
+      const result=await bounded(operationRecords.retain({expected,value:{version:1,phase,intent:structuredClone(v),...structuredClone(value)},signal}),signal);
+      if(result?.outcome!=='retained')throw Error('retention');needNativeRef(result.ref);
+      const entry={ref:structuredClone(result.ref),source:structuredClone(execution)};
+      await recover(entry,v,phase,signal);return entry;
+    }
     const payloads = new Map([['operation.json', Buffer.from(canonicalJSON({version: 1, phase, intent: v, ...value}))]]);
     const manifest = prepareCustodyManifest(expected, payloads);
     const facilities = await bounded(publication({intent: v, phase, expected}), signal);

@@ -98,6 +98,15 @@ Official Actions concurrency/queue semantics apply: no cross-repository lock,
 atomic graph snapshot, instant revocation or guaranteed execution of every trigger.
 No Webhook receiver, polling controller or Runner registration is installed here.
 
+An installed native host may provide the protected `notifyTarget` capability and
+return a `native-core-wakeup` descriptor from `currentTarget`. Core still verifies
+the source Completion receipt, public target, live dependency membership and the
+before-submit checkpoint. The host durably retains the notification and returns
+its content identity. This route does not create a hosted `resolve` Job or select
+a stage. The recipient must run normal fresh Core authorization, dependency and
+member selection before dispatch. `distributionAPI.nativeNotifications` identifies
+this optional contract; existing workflow dispatch remains unchanged.
+
 `tooling/fanout-fixture.mjs` exercises production orchestration, dependency evaluation,
 signed authorization and artifact custody using disposable synthetic transports.
 `test/fanout.test.mjs` also consumes the first-completion/recovery producer fixture.

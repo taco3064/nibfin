@@ -163,3 +163,9 @@ The mandatory `out/nibfin-core.tgz` is verified byte-for-byte against source;
 independent reviewers consume it without rebuilding the protected Candidate.
 
 The fixed donor origin, API adapters and ownership boundaries are recorded in [upstream source reuse](nibfin-reuse.md).
+# Native diagnostics
+
+A protected host may supply `onDiagnostic` to receive the stage, intake/owner
+phase and a bounded internal error code after an exception. Raw provider/model
+error text is never forwarded. Diagnostic failure cannot change the original
+blocked or unresolved disposition, grant permission, or restart a role.

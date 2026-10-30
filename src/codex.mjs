@@ -334,7 +334,7 @@ export function createLinuxBackend(config, profile = null) {
       if (typeof context.prompt !== 'string' || !context.prompt.trim() || !context.inputs) fail('task');
       const shapeAuthor=context.outputFormat==='shape-author-v1';
       if(context.outputFormat!==undefined&&(!shapeAuthor||e.role!=='shape'||diagnosticMode))fail('output-format');
-      const properties = diagnosticMode ? {outcome:{type:'string',enum:['ready','blocked']},failureClass:{type:'string',enum:['implementation_defect','external_failure','authority_gap','shape_defect']},body:{type:'string'},rootCause:{type:'string'},summary:{type:'string'},evidenceReferences:{type:'array',items:{type:'string'}},contractConflicts:{type:'array',maxItems:0,items:{type:'object'}}} : {version:{type:'integer',enum:[1]},outcome:{type:'string',enum:outcomesForRole(e.role)},
+      const properties = diagnosticMode ? {outcome:{type:'string',enum:['ready','blocked']},failureClass:{type:'string',enum:['implementation_defect','external_failure','authority_gap','shape_defect']},body:{type:'string'},rootCause:{type:'string'},summary:{type:'string'},evidenceReferences:{type:'array',items:{type:'string'}},contractConflicts:{type:'array',maxItems:0,items:{type:'object',properties:{},required:[],additionalProperties:false}}} : {version:{type:'integer',enum:[1]},outcome:{type:'string',enum:outcomesForRole(e.role)},
         failureClass:{type:'string',enum:['none','implementation_defect','shape_defect','authority_gap','external_failure']},
         summary:{type:'string'},conflicts:{type:'array',items:{type:'object',additionalProperties:false,
           properties:Object.fromEntries(['scopeHash','shapeHash','scopeQuote','shapeQuote','evidenceReference'].map(k=>[k,{type:'string'}])),

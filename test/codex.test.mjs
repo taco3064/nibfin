@@ -11,6 +11,25 @@ const roles=['shape','shape-validator','shape-diagnosis','shaper-review','delive
 const id=f=>f.input.execution.id;
 const operations=f=>f.calls.map(c=>c.args[2]);
 
+test('rescue diagnostic output schema declares closed object properties at every nesting level',async()=>fixture(async f=>{
+  const backend=createLinuxCodexBackend({...f.config,diagnostic:true});
+  const e={...f.input.execution,role:'rescue-diagnosis',skill:'rescue'},instance=f.environment.instances[0];
+  const q={environment:f.environment.id,instance:instance.id,agent:'codex',execution:e.id,request:e.request};
+  try{
+    assert.equal((await backend.readiness()).login,'available');
+    assert.equal((await backend.start({...q,executionIdentity:e,workspace:{path:instance.workspace,access:'read'},
+      agentLogin:{owner:f.environment.id,space:f.environment.loginSpace},processEnvironment:{},instructions:f.input.instructions,binding:f.input.binding})).status,'started');
+    const create=f.calls.find(c=>c.args[2]==='create'&&c.args.at(-1)==='execute');
+    const mount=create.args.find(v=>typeof v==='string'&&v.includes('dst=/input,')),root=mount.match(/src=([^,]+)/)[1];
+    const schema=JSON.parse(readFileSync(join(root,'schema.json')));
+    const visit=s=>{if(s.type==='object'){assert(s.properties&&typeof s.properties==='object');assert.equal(s.additionalProperties,false);
+      assert.deepEqual([...s.required].sort(),Object.keys(s.properties).sort());for(const child of Object.values(s.properties))visit(child);}
+      if(s.items)visit(s.items);};visit(schema);
+    while((await backend.collect(q)).status==='pending')await f.wait();
+    assert.equal((await backend.termination(q)).status,'terminated');
+  }finally{assert.equal((await backend.cleanup({environment:q.environment,instance:q.instance,resources:['workspace','registration','service'].map(k=>instance[k])})).status,'completed');}
+}));
+
 test('refreshed credentials are published after termination and filtered before model evidence is accepted',async()=>fixture(async f=>{
   const fresh=()=> 'fixture.'+Buffer.from(JSON.stringify({exp:Math.floor(Date.now()/1000)+86400})).toString('base64url')+'.fixture';
   const auth=join(f.environment.loginSpace,'auth.json');

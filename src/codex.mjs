@@ -11,6 +11,7 @@ import {resolve, join, dirname, sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createAgentEnvironments} from './lifecycle.mjs';
 import {bodyDigest, canonicalJSON} from './grants.mjs';
+import {prepareCodexCredentials} from './codex-credentials.mjs';
 import {skillForRole, outcomesForRole} from './evidence.mjs';
 
 export const linuxCodexProfile = Object.freeze({id:'linux-amd64-codex-v1', docker:'28.5.1',
@@ -81,7 +82,7 @@ export function createLinuxBackend(config, profile = null) {
     try {
       ms=Math.min(ms,deadlineAt-(workPhase?reserveMs:0)-Date.now());if(ms<=0)return {ok:false,output:''};
       const response = await run(Object.freeze({file:'/usr/bin/docker',args:Object.freeze(dockerArguments(socket,args)),
-        env:cleanEnv,timeout:ms,limit,...(profile?{failureOutput:true}:{})}));
+        env:cleanEnv,timeout:ms,limit,failureOutput:true}));
       if (!response || typeof response.ok !== 'boolean' || typeof response.output !== 'string'
           || Buffer.byteLength(response.output) > limit) return {ok:false,output:''};
       return response;
@@ -160,17 +161,19 @@ export function createLinuxBackend(config, profile = null) {
   }
   const mount = (source,target,write=false) => ['--mount',
     `type=bind,src=${source},dst=${target},bind-propagation=rprivate,bind-recursive=disabled${write?'':',readonly'}`];
-  function base(name, auth) {
+  function base(name, auth, credentialOutput=null) {
     return ['create','--name',name,'--label',`nibfin.execution=${name}`,'--pull','never','--platform','linux/amd64',
       '--read-only','--user','0:0','--no-healthcheck','--ipc','private','--cgroupns','private','--cap-drop','ALL','--security-opt','no-new-privileges','--pids-limit','128',
       '--memory','1g','--cpus','2','--network',network.network,'--dns','127.0.0.1','--dns-search','.','--log-driver','none',
       '--tmpfs','/tmp:rw,nosuid,nodev,size=64m,mode=1777','--workdir','/work',
       '--env','HOME=/tmp/home','--env',`NIBFIN_NODE_WORKLOAD=${egress?.node?'1':'0'}`,...(profile?.agent === 'claude' ? ['--env','CLAUDE_CONFIG_DIR=/tmp/home/.claude'] : profile ? [] : ['--env','CODEX_HOME=/tmp/home/.codex']),
       '--env','PATH=/usr/local/bin:/usr/bin:/bin',...imageEnvironment.flatMap(value=>['--env',value]),
-      ...Object.entries(network.environment).flatMap(([key,value])=>['--env',`${key}=${value}`]),...brokerMounts(),...mount(auth,profile?.authTarget ?? '/tmp/home/.codex/auth.json'),
+      ...Object.entries(network.environment).flatMap(([key,value])=>['--env',`${key}=${value}`]),...brokerMounts(),...mount(auth,profile?.authTarget ?? '/auth/auth.json'),
+      ...(credentialOutput?mount(credentialOutput,'/credential-update',true):[]),
       ...(durableSession?mount(durableSession.directory,'/tmp/home/.codex/sessions',true):[]),
       ...mount(selectedEntry,'/entry.mjs'),...mount(fileURLToPath(new URL('./agent-session.mjs',import.meta.url)),'/agent-session.mjs'),
       ...mount(fileURLToPath(new URL('./credential-output.mjs',import.meta.url)),'/credential-output.mjs'),
+      ...(!profile?mount(fileURLToPath(new URL('./codex-credentials.mjs',import.meta.url)),'/codex-credentials.mjs'):[]),
       ...['readonly-tools.mjs','verification-runner.mjs','verification-prepare.mjs','node-verification.mjs','canonical.mjs','role-session.mjs'].flatMap(name=>mount(fileURLToPath(new URL('./'+name,import.meta.url)),'/'+name)),
       ...mount(fileURLToPath(new URL('./verification-child.mjs',import.meta.url)),'/verification-child.mjs'),
       ...mount(fileURLToPath(new URL('./verification-supervisor.py',import.meta.url)),'/verification-supervisor.py'),
@@ -307,6 +310,7 @@ export function createLinuxBackend(config, profile = null) {
     },
     async start(v) {
       workPhase=true;
+      let credentialOwner=null;
       try {
       if (!ready || retired || states.has(v.execution)) fail('not-ready');
       ready = false;
@@ -351,16 +355,20 @@ export function createLinuxBackend(config, profile = null) {
       mkdirSync(verificationRoot,{recursive:true,mode:0o700});
       const verificationStat=lstatSync(verificationRoot);if(!verificationStat.isDirectory()||verificationStat.isSymbolicLink())fail('verification-root');
       verificationPin=`${verificationStat.dev}:${verificationStat.ino}`;
-      const s = await reserve(name=>[...base(name,auth),...mount(verificationRoot,'/verification',true),...mount(instance.workspace,'/work',e.role === 'deliver'),
+      if(!profile){const credentialRoot=join(dir,'credentials');mkdirSync(credentialRoot,{mode:0o700});
+        credentialOwner=await prepareCodexCredentials({login:auth,root:credentialRoot,execution:e.id,deadlineAt});}
+      const s = await reserve(name=>[...base(name,credentialOwner?.source??auth,credentialOwner?.output),...mount(verificationRoot,'/verification',true),...mount(instance.workspace,'/work',e.role === 'deliver'),
         ...mount(input,'/input'),image,'/entry.mjs','execute'],'role',s=>{
-          Object.assign(s,{request:v.request,dir,secrets}); states.set(v.execution,s); });
+          Object.assign(s,{request:v.request,dir,secrets,credentialOwner}); states.set(v.execution,s); });
       if (s.failed) throw Error('codex:start-unresolved');
       s.launched = true;
+      credentialOwner?.markLaunched();
       // Attach is a tracked promise, not a detached host process. Timeout kills only the CLI;
       // container inspection and stop are still required before reuse/cleanup.
       s.pending = command(['start','--attach',s.name],Math.min(timeout+5000,deadlineAt-Date.now())).then(r=>{s.output=r;s.pending=null;});
       return {status:'started'};
       } catch {
+        if(credentialOwner&&!states.has(v.execution))await credentialOwner.settle();
         if (states.has(v.execution)) throw Error('codex:start-unresolved');
         return {status:'rejected'};
       } finally {workPhase=false;}
@@ -371,12 +379,17 @@ export function createLinuxBackend(config, profile = null) {
         return !s.pending && await missing(s) ? {status:'complete',exitCode:1,evidence:null} : {status:'pending',exitCode:null,evidence:null};
       }
       if (c.State.Running || s.pending) return {status:'pending',exitCode:null,evidence:null};
+      if(s.credentialOwner){
+        const authResult=await s.credentialOwner.settle({successful:!s.failed&&s.output?.ok&&c.State.ExitCode===0});
+        s.secrets=[...new Set([...s.secrets,...authResult.secrets])];
+        if(authResult.status!=='completed'){diagnostic='login-reconciliation-required';return{status:'complete',exitCode:1,evidence:null};}
+      }
       let evidence = null;
-      if (profile && !s.failed && (!s.output?.ok || c.State.ExitCode !== 0)) {
+      if (!s.failed && (!s.output?.ok || c.State.ExitCode !== 0)) {
         diagnostic='provider-failure';
         try {
           const failure=JSON.parse(s.output.output);
-          if (Object.keys(failure).join(',') === 'diagnostic' && ['login-rejected','provider-failure','invalid-result'].includes(failure.diagnostic))
+          if (Object.keys(failure).join(',') === 'diagnostic' && ['login-rejected','provider-failure','invalid-result','capacity-exhausted','budget-exhausted'].includes(failure.diagnostic))
             diagnostic=failure.diagnostic;
         } catch { /* Never forward raw CLI output. */ }
       }
@@ -466,6 +479,12 @@ export function createLinuxBackend(config, profile = null) {
     },
     async cleanup(v) {
       if (!same(v.resources,resources) || v.environment !== environment.id || v.instance !== instanceId) fail('cleanup');
+      for(const s of states.values())if(s.credentialOwner){
+        if(s.pending)return{status:'unresolved',residuals:resources};
+        try{if((await inspect(s)).State.Running)return{status:'unresolved',residuals:resources};}catch{return{status:'unresolved',residuals:resources};}
+        const authResult=await s.credentialOwner.settle({successful:!s.failed&&s.output?.ok});
+        if(authResult.status!=='completed')return{status:'unresolved',residuals:resources};
+      }
       try {for(const execution of states.keys())if(verificationEvidence(execution).length)return {status:'unresolved',residuals:resources};}catch{return {status:'unresolved',residuals:resources};}
       for (const s of containers.values()) if (!await remove(s)) return {status:'unresolved',residuals:resources};
       if (network && (await network.cleanup()).status !== 'completed') return {status:'unresolved',residuals:resources};

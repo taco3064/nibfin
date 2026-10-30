@@ -1,6 +1,7 @@
 import {hasSessionData,sessionIdFromEvents} from './role-session.mjs';
 import {prepareReadonlyVerification,decodeRoleOutput} from './agent-session.mjs';
 import {probeVerificationSupervisor} from './verification-child.mjs';
+import {initializeCodexCredentials,stageCodexCredentials} from './codex-credentials.mjs';
 // Fixed container entrypoint. No repository code is loaded by this module.
 import {probeGateway,dependencyProbeEndpoints,executeSession,codexEvents,capacityError} from './agent-session.mjs';
 import {spawnSync} from 'node:child_process';
@@ -53,6 +54,7 @@ export function executeCodex(request,secrets=[],run=spawnSync,{sessionDirectory=
 }
 export async function runCodexEntry() {
 try {
+  const original=initializeCodexCredentials();
   if (process.argv[2] === 'probe') {
     const version = spawnSync(tool, ['--version'], {env, encoding:'utf8', timeout:10000, killSignal:'SIGKILL', maxBuffer:4096});
     const login = spawnSync(tool, ['login','status'], {env, stdio:'ignore', timeout:10000, killSignal:'SIGKILL'});
@@ -65,7 +67,7 @@ try {
     const request = prepareReadonlyVerification(JSON.parse(readCodexFile('/input/request.json')));
     const auth=JSON.parse(readCodexFile('/tmp/home/.codex/auth.json'));
     const secrets=Object.values(auth.tokens??{}).filter(v=>typeof v==='string'&&v);
-    const result=executeCodex(request,secrets);
+    let result;try{result=executeCodex(request,secrets);}finally{stageCodexCredentials(original);}
     if(request.sessionOutput) {
       if(request.sessionOutput!=='/verification/role-session.json'||!result.session||!request.context?.memberId)throw Error('Session observation missing');
       writeFileSync(request.sessionOutput,JSON.stringify({...result.session,execution:request.context.execution.id,memberId:request.context.memberId}),{flag:'wx',mode:0o600});

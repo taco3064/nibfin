@@ -15,6 +15,7 @@
   },
   "packageManager": "npm@10.9.9",
   "files": [
+    "src/codex-credentials.mjs",
     "src/index.mjs",
     "docs/package.md",
     "src/grants.mjs",

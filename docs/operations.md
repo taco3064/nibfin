@@ -236,7 +236,9 @@ operation marker, pinned workflow/head and repository ID. Only the displayed
 repository spelling is case-normalized; display text cannot select a request or
 grant authority. Older dispatches retain their original exact title contract.
 
-For a personal-account shared execution pool, an installed `poolDispatch` policy
+The following version 1 centralized `poolDispatch` contract is historical and
+must not be used for new onboarding; see [repository-owned Actions](runner-pools.md).
+For that historical personal-account shared execution pool, an installed `poolDispatch` policy
 pins one logical repository/ID, actual source workflow ID, named ref, commit SHA
 and workflow digest. `createControlledOperations` requires both `executionPool`
 and that policy. A dispatch intent additionally retains `payload.executionSource`

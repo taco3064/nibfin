@@ -7,9 +7,9 @@ function fields(value,names){
   need(Reflect.ownKeys(value).length===names.length&&names.every(k=>Object.hasOwn(descriptors,k)
     &&Object.hasOwn(descriptors[k],'value')));
 }
-function identity(value){
+function identity(value,{shared=false}={}){
   fields(value,['version','repository','repositoryId','ownerId','ownerType']);
-  need(value.version===1&&value.ownerType==='User');githubId(value.repositoryId);githubId(value.ownerId);
+  need(value.version===1&&(shared?['User','Organization'].includes(value.ownerType):value.ownerType==='User'));githubId(value.repositoryId);githubId(value.ownerId);
   need(typeof value.repository==='string'&&value.repository.split('/').length===2
     &&repositoryCoordinates(...value.repository.split('/')).key===value.repository);
   return {...value};
@@ -20,6 +20,15 @@ const freeze=value=>{Object.values(value).forEach(v=>{if(v&&typeof v==='object')
  * still has exactly the actual repository-level registrations at source.
  */
 export function validateExecutionPool(value){
+  if(value?.version===2){
+    fields(value,['version','id','capacity','targets']);
+    need(typeof value.id==='string'&&/^[a-z][a-z0-9-]{0,47}$/.test(value.id)
+      &&Number.isSafeInteger(value.capacity)&&value.capacity>=1&&value.capacity<=128
+      &&Array.isArray(value.targets)&&value.targets.length>=1&&value.targets.length<=128);
+    const targets=value.targets.map(t=>identity(t,{shared:true})),ids=new Set(),names=new Set();
+    for(const t of targets){need(!ids.has(t.repositoryId)&&!names.has(t.repository));ids.add(t.repositoryId);names.add(t.repository);}
+    return freeze({version:2,id:value.id,capacity:value.capacity,targets});
+  }
   fields(value,['version','source','targets']);need(value.version===1);
   const source=identity(value.source);need(Array.isArray(value.targets)&&value.targets.length>0&&value.targets.length<=32);
   const targets=value.targets.map(identity),ids=new Set(),names=new Set();
@@ -51,7 +60,9 @@ export function projectExecutionContext({options,mode,context}){
   if(options.executionPool!==undefined){
     const pool=poolLogicalTarget(options.executionPool,options);
     need(options.authentication==='actions-oidc');
-    if(mode==='wake')need(options.routing===undefined&&context.repository===options.repository
+    if(pool.version===2)need(context.repository===options.repository&&context.repositoryId===options.repositoryId
+      &&(mode==='wake'?context.eventName==='issues':context.eventName==='workflow_dispatch'));
+    else if(mode==='wake')need(options.routing===undefined&&context.repository===options.repository
       &&context.repositoryId===options.repositoryId&&context.eventName==='issues');
     else need(['lookup','resolve','execute','compute'].includes(mode)&&options.routing==='authenticated'
       &&context.eventName==='workflow_dispatch'&&context.repository===pool.source.repository&&context.repositoryId===pool.source.repositoryId);

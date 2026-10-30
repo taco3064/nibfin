@@ -90,6 +90,8 @@ ordered set, exact Git blob identity and original bytes; a missing, replaced or
 unreadable callee denies the Worker before any workflow steps. Older policies
 without this field retain their existing single-workflow contract.
 
-Shared-pool source installations bind each generated stage caller to its own
+The following centralized version 1 source layout is historical. Current
+[shared capacity](runner-pools.md) must admit the actual project-owned Job.
+Historical shared-pool source installations bind each generated stage caller to its own
 fixed delivery callee. These policy entries still describe one physical source
 registration; they do not create per-logical-repository Runner registrations.

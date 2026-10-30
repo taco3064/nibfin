@@ -1,5 +1,9 @@
 # Protected host v1
 
+The current shared-capacity target is [repository-owned Actions](runner-pools.md).
+The version 1 source/target projection described below is historical; it is not
+the onboarding design. Version 2 native registration/host assembly remains pending.
+
 The maintained entry is `host/entry.mjs` in `taco3064/nibfin`. It has a separate,
 dependency-free package and lock. Install that directory with `npm ci
 --ignore-scripts --no-audit --no-fund`. It is also shipped in the Core package;

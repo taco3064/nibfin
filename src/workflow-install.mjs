@@ -7,7 +7,7 @@ export const workflowFiles=Object.freeze(['.github/workflows/nibfin-delivery.yml
   'workflow/templates/nibfin-rescue.yml','workflow/templates/nibfin-stage.yml','workflow/templates/nibfin-wakeup.yml','workflow/templates/nibfin-register.yml',
   'workflow/action/action.yml','src/workflow.mjs','src/workflow-entry.mjs','src/workflow-install.mjs','docs/workflows.md','src/host-source.mjs','docs/protected-host.md',...protectedHostFiles]);
 /** Pure installation plan; consumers must compare existing bytes before authorized writes. */
-export function workflowInstallation({commit,hostRepository,hostCommit,executionPool}) {
+export function workflowInstallation({commit,hostRepository,hostCommit,executionPool,repository}) {
   if (![commit,hostCommit].every(s=>typeof s==='string'&&/^[a-f0-9]{40}$/.test(s))) throw Error('workflow:immutable-pin');
   if (typeof hostRepository!=='string') throw Error('workflow:host-repository');
   const parts=hostRepository.split('/');
@@ -21,6 +21,15 @@ export function workflowInstallation({commit,hostRepository,hostCommit,execution
   let deployments;
   if(executionPool!==undefined){
     const pool=validateExecutionPool(executionPool);
+    if(pool.version===2){
+      const target=pool.targets.find(t=>t.repository===repository);
+      if(!target)throw Error('workflow:pool-repository-required');
+      // Runner capacity belongs to the member. Workflow/Run/Job ownership never
+      // leaves this repository, regardless of which physical slot is leased.
+      return {version:1,coreVersion:manifest.version,commit,inventory,files,
+        repository:target.repository,executionPool:pool,
+        variables:{NIBFIN_BUNDLE_COMMIT:commit,NIBFIN_HOST_REPOSITORY:hostRepository,NIBFIN_HOST_COMMIT:hostCommit}};
+    }
     const stage=files.get('.github/workflows/nibfin-stage.yml'),delivery=files.get('.github/workflows/nibfin-delivery.yml');
     files.delete('.github/workflows/nibfin-stage.yml');files.delete('.github/workflows/nibfin-delivery.yml');
     deployments=pool.targets.map(target=>{

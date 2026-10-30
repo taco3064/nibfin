@@ -99,9 +99,9 @@ consumer=$(mktemp -d)
 
 Root tooling does not aggregate a workspace or install/govern website dependencies.
 The separate website project owns `website/package.json`, its lockfile and local
-configuration. `.github/workflows/core-ci.yml` checks the root package on relevant
+configuration. `.github/workflows/ci.yml` checks the root package on relevant
 PRs and main pushes using GitHub-hosted runners and read-only contents permission.
-The separately owned `website-ci.yml` handles website checks/deployment. Package
+Separate `website` and restricted `deploy` jobs in that entry handle website checks/deployment. Package
 verification does not certify a website deployment. Root ignore rules cover only root generated output
 and node_modules. The coexistence fixture includes failing website tests and
 uninstallable website dependencies to detect accidental coupling.
@@ -721,7 +721,7 @@ See [workflow bundle v1](workflows.md) for `workflowInstallation`, shipped YAML/
 
 ## PR-scoped staged CI
 
-The `Core package` workflow keeps the required `core` check. On pull requests,
+The `CI` workflow keeps required `owner-pr`, `core` and `website` check names. Its owner policy/classifier job always runs, verifies the change planner and selects Core, Controller and website jobs before allocating their runners. Shared or unknown changes retain every gate. On pull requests,
 `tooling/ci-tests.mjs` compares the exact PR base/head merge-base diff, checks
 changed module syntax, then runs changed suites and transitive module/fixture
 consumers. Public barrel exports are mapped to their defining modules; namespace
@@ -735,9 +735,8 @@ suites (`archive.test.mjs` and `release.test.mjs`) run for direct suite changes
 or full gates; ordinary module changes defer that integration stage to main.
 SDK consumers run when their
 dependencies change. Website-only PRs need no root suite; core-only PRs retain a
-successful `website` scope check without rebuilding the site. Documentation
-changes also exercise the website. Both workflow names and completion wakeups
-remain stable for upstream and branch protection.
+skipped `website` job without allocating its runner. Documentation
+changes also exercise the website. Required job contexts remain stable for branch protection. Reusable delivery and registration interfaces and the standalone release entry are unchanged. Main retains full verification and protected Pages deployment.
 
 Shared package settings, the public barrel, host/skill/workflow assets, shared
 tooling, removed suites/modules and unclassified or uncovered inputs select full

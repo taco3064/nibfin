@@ -21,7 +21,7 @@ export function inventory() {
     }
   }
   walk(process.cwd());
-  for (const name of readdirSync('../.github/workflows').filter(n => n.startsWith('website-')).sort()) {
+  for (const name of readdirSync('../.github/workflows').filter(n => n === 'ci.yml').sort()) {
     const p = `.github/workflows/${name}`; inputs[p] = hash(readFileSync(`../${p}`));
   }
   return inputs;

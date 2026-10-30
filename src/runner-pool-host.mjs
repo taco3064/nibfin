@@ -123,7 +123,7 @@ export function createRunnerPoolHost({configuration,memberId,capacity,records,so
    // A crash during preparation/registration never becomes permission to replay.
    need(false,'original-intent-reconciliation-required');
   }catch(error){
-   const diagnostic=/^(?:runner-pool-host|native-pool-source|native-pool-runtime):[a-z-]+$/.test(error?.message??'')
+   const diagnostic=/^(?:runner-pool-host|runner-work-custody|native-work-custody|native-pool-source|native-pool-runtime):[a-z-]+$/.test(error?.message??'')
     ?error.message:'runner-pool-host:capability-unavailable';
    let notification='unavailable';try{const r=await source.blocked({request:id,phase:record?.phase??'source',
     reason:'registration-or-execution-unconfirmed',diagnostic,...(providerFailure?{provider:providerFailure}:{}),

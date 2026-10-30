@@ -1,6 +1,6 @@
 // Disposable provider-contract proof, never a real provider observation.
 import {generateKeyPairSync} from 'node:crypto';
-import {actionRunName} from '../src/action-display.mjs';
+import {actionRunName} from '../src/index.mjs';
 import {grantFixture, grantContext} from './grant-fixture.mjs';
 import {readFile} from 'node:fs/promises';
 import {relative} from 'node:path';

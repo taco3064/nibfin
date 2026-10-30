@@ -516,7 +516,7 @@
     },
     {
       "path": "src/codex.mjs",
-      "sha256": "a97d5e32ca186845485c21c7bc0b1052c205c625432cab8568414faf8f6e4234"
+      "sha256": "d983914ecb90a2120d0873c17a711c14b955a82add2ff680588294769665ca41"
     },
     {
       "path": "src/collaboration.mjs",

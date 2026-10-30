@@ -55,13 +55,14 @@ export async function prepareCodexCredentials({login,root,execution,deadlineAt,n
  try{
   if(expiry(value(original))<=deadlineAt+120000){held=await lease(directory);privateFile(login);original=bytes(login);saveIntent();}
   write(source,original);
- }catch(e){await release();throw e;}
+ }catch(e){if(intent&&fs.existsSync(pending)&&JSON.stringify(JSON.parse(bytes(pending)))===JSON.stringify(intent))fs.unlinkSync(pending);await release();throw e;}
  return{
-  source,output,markLaunched:()=>{launched=true;},unresolved:()=>unresolved,
+  source,output,markLaunched:()=>{launched=true;},unresolved:()=>unresolved,releaseLease:release,
   async settle({successful=false}={}){
    if(settled)return{status:unresolved?'unresolved':'completed',secrets:[]};
    let secrets=[];
    try{
+    if(intent&&!held)held=await lease(directory);
     const entries=fs.readdirSync(output).sort();need(entries.length===0||entries.join(' ')==='auth.json receipt.json','update-inventory');
     if(entries.length){
      if(!held)held=await lease(directory);saveIntent();privateFile(join(output,'auth.json'));privateFile(join(output,'receipt.json'));

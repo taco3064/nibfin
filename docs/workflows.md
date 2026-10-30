@@ -163,3 +163,21 @@ Independent Acceptance consumes the submitted archive with
 `node tooling/archive.mjs --verify out/nibfin-core.tgz` (no protected rebuild).
 Live collaborators, OS/Runner support, events, queues and release remain unverified
 here and belong to the designated integration/release Issues and independent gates.
+
+
+For a version-2 repository-local execution pool, the maintained installation
+renderer replaces the stage caller and its reusable delivery entry with the
+native member variant. It queues the member Job directly with one authenticated
+member selector and one unique request selector, before any JIT registration
+exists. The control host verifies the exact installed sources and actual project
+Run/Job before allocating a physical slot. Capacity is independent of project
+count; the caller, Job and logs remain in the project that owns the Issue.
+
+This variant invokes only the installed first-party native stage client. It does
+not use a hosted lookup/resolve job, a configurable JavaScript binding, checkout
+commands, a shared execution repository or an Owner token in Actions secrets.
+Issue, stage, member and request inputs are selectors that require fresh host
+verification, not authority. The run title remains Issue/stage/correlation.
+A running daemon, rendered YAML and an allocated slot are distinct from verified
+stage completion; native stage composition and its retained outcome are required
+before activation.

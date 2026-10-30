@@ -10,7 +10,7 @@ import { coreDigest, signGrant, verifyGrant } from '../src/authority.mjs';
 import { digest } from '../src/core.mjs';
 import { Store } from '../src/store.mjs';
 import { fixture, SHA } from './fixtures.mjs';
-import { KAIRO_REPOSITORY, KAIRO_REPOSITORY_ID } from '../src/owner-identity.mjs';
+import { UPSTREAM_REPOSITORY, UPSTREAM_REPOSITORY_ID } from '../src/owner-identity.mjs';
 import { dispatchGrantIdentity } from '../src/dispatch.mjs';
 import { createRoot, readBindings, signDispatch } from '../src/runner-binding.mjs';
 
@@ -62,7 +62,7 @@ export class FakeGitHub {
   }
 }
 export async function setup(t) {
-  const root = await mkdtemp(join(tmpdir(), 'kairo-runtime-'));
+  const root = await mkdtemp(join(tmpdir(), 'nibfin-runtime-'));
   t.after(() => rm(root, { recursive: true }));
   const { publicKey, privateKey } = generateKeyPairSync('ed25519');
   const config = { runnerId: 'trusted-runner', stateDirectory: join(root, 'state'), publicKeyPath: join(root, 'owner.pem'), agent: { image: `example/codex@sha256:${'a'.repeat(64)}` }, grantSource: { repository: 'example/control', ref: 'main', path: 'grant.json' } };
@@ -80,7 +80,7 @@ export async function setup(t) {
   let count = 0;
   const agent = { login: async () => {}, execute: async (stage, context) => {
     calls.push([stage, context.issue.id]);
-    return { executionId: `execution-${++count}`, result: { outcome: stage === 'shape' || stage === 'deliver' ? 'ready' : stage === 'accept' ? 'accepted' : 'approved', body: stage === 'shape' ? `Contract ${context.issue.id}\n` + '```kairo-candidate\n{"artifacts":[],"hooks":[]}\n```\n' : '', summary: 'Fixture evidence only', rootCause: '', evidenceReferences: ['fixture://observed'], blockingFindings: [] }, resultHash: 'result-hash', skill: { mode: 'default', hash: 'skill-hash', path: 'fixture' }, evidencePath: 'fixture://execution' };
+    return { executionId: `execution-${++count}`, result: { outcome: stage === 'shape' || stage === 'deliver' ? 'ready' : stage === 'accept' ? 'accepted' : 'approved', body: stage === 'shape' ? `Contract ${context.issue.id}\n` + '```nibfin-candidate\n{"artifacts":[],"hooks":[]}\n```\n' : '', summary: 'Fixture evidence only', rootCause: '', evidenceReferences: ['fixture://observed'], blockingFindings: [] }, resultHash: 'result-hash', skill: { mode: 'default', hash: 'skill-hash', path: 'fixture' }, evidencePath: 'fixture://execution' };
   } };
   const factory = (path, issue) => withRepairSnapshot({ work: path, prepare: async () => {}, provenance: async base => ({repository:issue.repository,base,tree:SHA('b'),entries:[]}), diff: async () => 'complete fixture diff', captureAttempt: async base => ({repository:issue.repository,base,tree:SHA('b'),diffHash:digest(issue.id),paths:['src/feature.mjs']}), capture: async base => ({ repository: issue.repository, base, tree: SHA('b'), diffHash: digest(issue.id), paths: ['src/feature.mjs'],obligations:{artifacts:[],hooks:[]},artifacts:[],hookSources:[] }), commit: async () => (manifest.issues.findIndex(i => i.id === issue.id) + 1).toString(16).repeat(40), push: async (commit,branch) => { gh.pendingHeads ||= {}; gh.pendingHeads[branch]=commit; } });
   return { runtime: new Runtime(config, process.cwd(), gh, agent, factory, {}), gh, calls, config, payload, publicKey, privateKey };

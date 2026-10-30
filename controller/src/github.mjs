@@ -175,7 +175,7 @@ export class GitHub {
   async verifyRunner(repository, ids, name) {
     if (!Array.isArray(ids) || !ids.length || !ids.every(id => Number.isSafeInteger(id) && id > 0)) throw new Error(`Missing approved runner registrations: ${repository}`);
     const runners = await this.list(`${repoPath(repository)}/actions/runners`, 'runners');
-    const matched = runners.filter(r => ids.includes(r.id) && r.name === name && r.status === 'online' && r.labels?.some(l => l.name === 'kairo-private') && r.labels?.some(l => l.name.toLowerCase() === 'linux'));
+    const matched = runners.filter(r => ids.includes(r.id) && r.name === name && r.status === 'online' && r.labels?.some(l => l.name === 'nibfin-private') && r.labels?.some(l => l.name.toLowerCase() === 'linux'));
     if (matched.length !== 1) throw new Error(`Approved private runner is absent, offline or ambiguous: ${repository}`);
     return { repository, id: matched[0].id, name: matched[0].name };
   }
@@ -200,7 +200,7 @@ export class GitHub {
     return pulls[0];
   }
   async createPull(issue, branch, base) {
-    return this.api(`${repoPath(issue.repository)}/pulls`, 'POST', { title: `Kairo: deliver #${issue.number}`, head: branch, base, body: `Implements #${issue.number}.\n\nManaged by the approved Kairo cohort. Closure follows verified delivery gates.` });
+    return this.api(`${repoPath(issue.repository)}/pulls`, 'POST', { title: `upstream: deliver #${issue.number}`, head: branch, base, body: `Implements #${issue.number}.\n\nManaged by the approved upstream cohort. Closure follows verified delivery gates.` });
   }
   async merge(repository, number, head, method) {
     const result = await this.api(`${repoPath(repository)}/pulls/${number}/merge`, 'PUT', { sha: head, merge_method: method });

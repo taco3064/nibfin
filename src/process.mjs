@@ -1,4 +1,4 @@
-// Adapted from Kairo d1b47d5e073cf15bdcdc1fbbec098401649878d9 src/process.mjs.
+// Adapted from upstream d1b47d5e073cf15bdcdc1fbbec098401649878d9 src/process.mjs.
 // One Linux process owner; retain Nibfin's subreaper for escaped descendants.
 import {runVerificationChild} from './verification-child.mjs';
 export async function command(executable,args,{cwd='/',env=process.env,timeout=120000,limit=16777216,signal}={}) {

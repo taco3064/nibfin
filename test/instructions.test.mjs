@@ -156,7 +156,7 @@ test('AC4/5 retained instruction contract guards for independent semantic review
   const shape=selected('shape').content, deliver=selected('deliver').content, accept=selected('accept').content;
   // These are regression alarms, not a substitute for semantic review or live behavior.
   for (const term of ['one existing original Scope Issue','shape-validator','shape-diagnosis','shaper-review',
-    'exactly one fenced kairo-candidate JSON block','artifacts (path, purpose)','hooks (path, event)',
+    'exactly one fenced nibfin-candidate JSON block','artifacts (path, purpose)','hooks (path, event)',
     'Only authorized Core publishes','Scope and Shape identities','repository-managed hook configuration']) {
     assert.ok(shape.includes(term),term);
   }

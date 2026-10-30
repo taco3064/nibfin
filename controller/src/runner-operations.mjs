@@ -5,7 +5,7 @@ import { dynamicStoreIds } from './dynamic.mjs';
 import { Store } from './store.mjs';
 import { canonical, digest } from './core.mjs';
 import { signGrant } from './authority.mjs';
-import { verifyKairoOwner } from './owner-identity.mjs';
+import { verifyupstreamOwner } from './owner-identity.mjs';
 import { revokeBinding, validatePublicPolicy, rootIdentity } from './runner-binding.mjs';
 import { repoPath } from './github.mjs';
 import { transientDispatchRead } from './dispatch.mjs';
@@ -45,14 +45,14 @@ export async function disablePublicRunner(config, github, privateKeyPath) {
   if (key.asymmetricKeyType !== 'ed25519' || !verify(null, Buffer.from(canonical(bundle.payload)), key, Buffer.from(bundle.signature, 'base64'))) throw new Error('Invalid owner grant signature');
   const grant = bundle.payload;
   validatePublicPolicy(grant.policy);
-  const id = await verifyKairoOwner(github, config, grant.policy, grant.actor);
+  const id = await verifyupstreamOwner(github, config, grant.policy, grant.actor);
   if (grant.actorGitHubUserId !== id || !grant.policy.publicRunner) throw new Error('Public grant Owner mismatch');
   const root = (await readFile(config.publicRunner.rootKeyPath, 'utf8')).trim();
   if (!/^[a-f0-9]{64}$/.test(root) || grant.policy.runnerId !== config.runnerId || rootIdentity(Buffer.from(root, 'hex')) !== grant.policy.publicRunner.rootId) throw new Error('Disable target belongs to another runner identity');
   const privateKey = await readFile(privateKeyPath, 'utf8');
   if (!createPublicKey(privateKey).export({ type: 'spki', format: 'der' }).equals(key.export({ type: 'spki', format: 'der' }))) throw new Error('Revocation signing key mismatch');
   const control = await github.repository(source.repository);
-  if (control.owner?.type !== 'User' || String(control.owner.id) !== id) throw new Error('Grant source is not controlled by Kairo Owner');
+  if (control.owner?.type !== 'User' || String(control.owner.id) !== id) throw new Error('Grant source is not controlled by upstream Owner');
   const report = { status: 'DISABLED', localBindings: 'pending', grant: 'pending', wakeups: {}, errors: [] };
   for (const repository of Object.keys(grant.policy.publicRunner.bindings)) {
     try { await revokeBinding(config, repository); }
@@ -73,7 +73,7 @@ export async function disablePublicRunner(config, github, privateKeyPath) {
     try {
       const repo = await github.repository(repository);
       if (repo.owner?.type !== 'User' || String(repo.owner.id) !== id || String(repo.id) !== grant.policy.publicRunner.bindings[repository].repositoryId) throw new Error('Repository identity changed');
-      const path = `${repoPath(repository)}/actions/secrets/KAIRO_RUNNER_KEY`;
+      const path = `${repoPath(repository)}/actions/secrets/UPSTREAM_RUNNER_KEY`;
       try { await github.api(path, 'DELETE'); } catch (error) { if (error.status !== 404) throw error; }
       let absent = false;
       try { await github.api(path); } catch (error) { if (error.status === 404) absent = true; else throw error; }

@@ -2,7 +2,7 @@ import {createPublicKey,verify} from 'node:crypto';
 import {canonicalJSON} from './grants.mjs';
 import {validateExecutionPool} from './execution-pool.mjs';
 
-// Adapted from Kairo d1b47d5: owner-identity, authority, runner-binding,
+// Adapted from upstream d1b47d5: owner-identity, authority, runner-binding,
 // dynamic and owner-issue-session. See docs/collaboration.md for the mapping.
 const need=ok=>{if(!ok)throw Error('collaboration:contract');};
 const id=v=>typeof v==='string'&&/^[1-9][0-9]*$/.test(v);

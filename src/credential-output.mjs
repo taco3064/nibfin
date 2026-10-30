@@ -1,4 +1,4 @@
-// Reused from Kairo d1b47d5e073cf15bdcdc1fbbec098401649878d9.
+// Reused from upstream d1b47d5e073cf15bdcdc1fbbec098401649878d9.
 export function credentialStrings(value) {
   if (typeof value === 'string') return value.length >= 20 ? [value] : [];
   if (value && typeof value === 'object') return Object.values(value).flatMap(credentialStrings);

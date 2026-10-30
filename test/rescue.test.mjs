@@ -1,4 +1,4 @@
-// Kairo PR54 runCase/AI/result/dead-lock tests adapted to the existing Nibfin
+// upstream PR54 runCase/AI/result/dead-lock tests adapted to the existing Nibfin
 // authorization, custody, completion and controlled-operation interfaces.
 import test from 'node:test';
 import assert from 'node:assert/strict';

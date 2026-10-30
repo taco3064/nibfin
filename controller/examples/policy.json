@@ -31,7 +31,7 @@
   "repositories": {
     "example/one": {
       "baseBranch": "main",
-      "branchPrefix": "kairo/",
+      "branchPrefix": "nibfin/",
       "mergeMethod": "squash",
       "requiredChecks": [
         "test"
@@ -40,7 +40,7 @@
     },
     "example/two": {
       "baseBranch": "main",
-      "branchPrefix": "kairo/",
+      "branchPrefix": "nibfin/",
       "mergeMethod": "squash",
       "requiredChecks": [
         "test"

@@ -1,4 +1,4 @@
-// Adapted from src/core.mjs, taco3064/kairo@d1b47d5e073cf15bdcdc1fbbec098401649878d9.
+// Adapted from src/core.mjs, retired-private-source@d1b47d5e073cf15bdcdc1fbbec098401649878d9.
 // Nibfin's authorization/dependency/routing owners validate the public member
 // boundary before execution. This module owns delivery progression only: one
 // Issue, no cohort scheduler, owner-only identity or global Shape barrier.

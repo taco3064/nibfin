@@ -1,4 +1,4 @@
-// Adapted from Kairo rescue-policy.mjs (PR54), completion routing at PR57.
+// Adapted from upstream rescue-policy.mjs (PR54), completion routing at PR57.
 import {createHmac,timingSafeEqual} from 'node:crypto';
 import {contentIdentity,byteDigest} from './evidence.mjs';
 import {repositoryCoordinates,githubId,canonicalJSON} from './index.mjs';

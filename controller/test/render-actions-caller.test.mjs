@@ -9,7 +9,7 @@ test('enrollment caller listens to the approved project workflow name', async ()
   assert.match(result, /workflows: \["Fixture checks"\]/);
   assert.ok(!result.includes('workflows: [Project CI, Deployment]'));
   assert.ok(!/^\s*schedule:/m.test(result));
-  for (const workflows of [[], [{name: '*', path: '.github/workflows/ci.yml'}], [{name: 'Kairo', path: '.github/workflows/kairo.yml'}], [{name: 'CI', path: '.github/workflows/a.yml'}, {name: 'CI', path: '.github/workflows/b.yml'}]]) {
+  for (const workflows of [[], [{name: '*', path: '.github/workflows/ci.yml'}], [{name: 'upstream', path: '.github/workflows/nibfin.yml'}], [{name: 'CI', path: '.github/workflows/a.yml'}, {name: 'CI', path: '.github/workflows/b.yml'}]]) {
     assert.throws(() => renderActionsCaller(template, workflows));
   }
 });

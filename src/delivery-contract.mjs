@@ -1,4 +1,4 @@
-// Candidate/evidence guards reused from Kairo src/core.mjs at
+// Candidate/evidence guards reused from upstream src/core.mjs at
 // d1b47d5e073cf15bdcdc1fbbec098401649878d9. The Nibfin adapter below projects
 // independently checked v1 custody receipts; it cannot authenticate Agent claims.
 import {createHash} from 'node:crypto';

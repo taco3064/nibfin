@@ -6,20 +6,20 @@ permissions:
 jobs:
   smoke:
     if: github.event.repository.private == true && github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, linux, kairo-private]
+    runs-on: [self-hosted, linux, nibfin-private]
     timeout-minutes: 10
     steps:
       - name: Verify installed controller and isolated agent image
         # Exercise the operator-installed code without checking out caller content.
-        working-directory: /opt/kairo/core
+        working-directory: /opt/nibfin/core
         run: |
           set -euo pipefail
           node --version
           docker --version
-          node bin/kairo.mjs digest
+          node bin/controller.mjs digest
           npm run check
           npm test
-          image=$(cat /etc/kairo/agent-image)
+          image=$(cat /etc/nibfin/agent-image)
           [[ "$image" =~ ^sha256:[a-f0-9]{64}$ ]]
           docker run --rm --read-only --network none --cap-drop ALL \
             --security-opt no-new-privileges --user 1000:1000 "$image" codex --version

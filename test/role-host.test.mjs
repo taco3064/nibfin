@@ -52,7 +52,7 @@ test('native reviewers receive independently materialized files and retained cus
     git('init','--object-format=sha1');git('config','user.name','Fixture');git('config','user.email','fixture@example.invalid');
     writeFileSync(join(source,'code'),'base');git('add','.');git('-c','core.hooksPath=/dev/null','commit','-qm','base');
     const base=git('rev-parse','HEAD').toString().trim();writeFileSync(join(source,'code'),'actual candidate');
-    const scopeBody='Original scope',shapeBody='Candidate artifacts applicability: No additional artifacts.\nCandidate hooks applicability: No hooks apply.\n```kairo-candidate\n{"artifacts":[],"hooks":[]}\n```';
+    const scopeBody='Original scope',shapeBody='Candidate artifacts applicability: No additional artifacts.\nCandidate hooks applicability: No hooks apply.\n```nibfin-candidate\n{"artifacts":[],"hooks":[]}\n```';
     const capture=core.captureWorkspace({root:source,base,scopeBody,shapeBody,permittedPaths:['code'],
       binding:{repository:'example/public',cycle:'cycle-1',policy:'a'.repeat(64),scopeHash:core.bodyDigest(scopeBody),shapeHash:core.bodyDigest(shapeBody)}});
     for(const role of ['accept','shaper-review']){

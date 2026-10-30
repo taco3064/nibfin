@@ -39,7 +39,7 @@ async function runAgent(name, writable, prompt) {
   await writeFile(join(io, 'schema.json'), JSON.stringify(resultSchema));
   await agent.login(work, io);
   const args = agent.executionArgs(work, io, writable);
-  const container = `kairo-smoke-${name}-${Date.now()}`;
+  const container = `nibfin-smoke-${name}-${Date.now()}`;
   args.splice(1, 0, '--name', container);
   try {
     await agent.run('docker', args, { input: prompt, timeout: 180000 });
@@ -61,14 +61,14 @@ const imageIndex = containerArgs.indexOf(config.image);
 await agent.run('docker', [...containerArgs.slice(0, imageIndex + 1), 'node', '--test', 'sum.test.mjs']);
 const before = await snapshot(work);
 await runAgent('review', false,
-  'This is an isolated reviewer-permission smoke test, not Cohort acceptance. Run node --test sum.test.mjs. Then use a shell command to try writing /work/reviewer-write-probe; it MUST fail because /work is read-only. Also confirm /opt/kairo/core and /var/run/docker.sock do not exist, and the GH_TOKEN environment variable is unset. Do not read authentication files. Report the actual outputs in evidenceReferences. Return outcome approved only if tests pass and the attempted write fails and host resources are absent; otherwise blocked with findings. body empty, rootCause empty on success.');
+  'This is an isolated reviewer-permission smoke test, not Cohort acceptance. Run node --test sum.test.mjs. Then use a shell command to try writing /work/reviewer-write-probe; it MUST fail because /work is read-only. Also confirm /opt/nibfin/core and /var/run/docker.sock do not exist, and the GH_TOKEN environment variable is unset. Do not read authentication files. Report the actual outputs in evidenceReferences. Return outcome approved only if tests pass and the attempted write fails and host resources are absent; otherwise blocked with findings. body empty, rootCause empty on success.');
 assert.equal(await snapshot(work), before, 'Reviewer changed the workspace');
 const probe = `const fs=require('fs');
 for (const path of ['/work/os-write-probe','/etc/os-write-probe']) {
   try { fs.writeFileSync(path,'unexpected'); throw Error('Writable protected path: '+path); }
   catch (e) { if (!['EROFS','EACCES'].includes(e.code)) throw e; }
 }
-if(fs.existsSync('/opt/kairo/core')||fs.existsSync('/var/run/docker.sock')||process.env.GH_TOKEN)throw Error('Host resource exposed');
+if(fs.existsSync('/opt/nibfin/core')||fs.existsSync('/var/run/docker.sock')||process.env.GH_TOKEN)throw Error('Host resource exposed');
 console.log('OS isolation verified');`;
 await agent.run('docker', [...containerArgs.slice(0, imageIndex + 1), 'node', '-e', probe]);
 const evidence = { passed: true, image: config.image, sandboxBoundary: config.sandboxBoundary ?? 'codex', authenticated: true, actualAgentWrite: true, independentTestPassed: true, reviewerWorkspaceUnchanged: true, operatingSystemIsolationPassed: true, workspaceHash: before };

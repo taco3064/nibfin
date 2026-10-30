@@ -32,7 +32,7 @@ Compare repository, base commit, tree, binary diff digest, paths, Shape hash,
 artifact contents/digests and hook sources/digests with the trusted Candidate.
 Reject missing required files, path escapes, symlinks and identity mismatches.
 
-Check the single kairo-candidate inventory and hook applicability evidence. Core
+Check the single nibfin-candidate inventory and hook applicability evidence. Core
 runs pre-commit, prepare-commit-msg, commit-msg in supported event order, offline,
 credential-free and isolated. Verify the pre-Accept hook receipt against index tree,
 paths, original commit message and Candidate. Missing tools, unsupported required

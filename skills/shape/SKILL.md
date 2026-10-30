@@ -33,7 +33,7 @@ than discard required behavior when it cannot fit. Surface unresolved material
 product choices as decision_required and product authority conflicts as
 proposal_update_required. Do not silently reshape requirements.
 
-Every ready Shape body includes exactly one fenced kairo-candidate JSON block.
+Every ready Shape body includes exactly one fenced nibfin-candidate JSON block.
 Its object has artifacts (path, purpose) and hooks (path, event) arrays. Explain
 empty arrays explicitly in the body. Include mandatory ignored artifacts and all
 applicable repository-managed hooks. Inspect supported pre-commit,

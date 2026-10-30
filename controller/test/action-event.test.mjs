@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { canonical } from '../src/core.mjs';
 import { verifyActionEnvelope, verifyActionEvent } from '../src/action-event.mjs';
-import { KAIRO_REPOSITORY_ID } from '../src/owner-identity.mjs';
+import { UPSTREAM_REPOSITORY_ID } from '../src/owner-identity.mjs';
 import { mkdtemp, readFile, writeFile, rm, readdir } from 'node:fs/promises';
 import { relayActionEvent } from '../src/action-relay.mjs';
 import { tmpdir } from 'node:os';
@@ -13,12 +13,12 @@ import { execFileSync } from 'node:child_process';
 const now = Date.parse('2026-10-22T00:00:00Z');
 
 test('actual hosted lifecycle signer script emits verifier-compatible bounded hints without Issue text', async t => {
-  const dir = await mkdtemp(join(tmpdir(), 'kairo-event-script-')); t.after(() => rm(dir, { recursive: true }));
+  const dir = await mkdtemp(join(tmpdir(), 'nibfin-event-script-')); t.after(() => rm(dir, { recursive: true }));
   const workflow = (await readFile('examples/workflows/actions-public-caller.yml', 'utf8')).replaceAll('\r\n', '\n');
   const script = workflow.split("node <<'NODE'\n")[1].split('\n          NODE')[0].split('\n').map(line => line.slice(10)).join('\n');
   const path = join(dir, 'sign.cjs'), eventPath = join(dir, 'event.json'), outputPath = join(dir, 'output');
   await writeFile(path, script);
-  const f = fixture(), env = { ...process.env, KAIRO_RUNNER_KEY: JSON.stringify(f.entry), GITHUB_EVENT_PATH: eventPath,
+  const f = fixture(), env = { ...process.env, UPSTREAM_RUNNER_KEY: JSON.stringify(f.entry), GITHUB_EVENT_PATH: eventPath,
     GITHUB_OUTPUT: outputPath, GITHUB_REPOSITORY: f.entry.binding.repository, GITHUB_EVENT_NAME: 'issues', GITHUB_RUN_ID: '50', GITHUB_RUN_ATTEMPT: '1' };
   for (const action of ['opened', 'labeled', 'closed', 'reopened']) {
     const body = '$(never execute) `private instruction`';
@@ -34,8 +34,8 @@ test('actual hosted lifecycle signer script emits verifier-compatible bounded hi
   assert.ok(!workflow.includes('${{ github.event.issue.body }}'));
 });
 function fixture() {
-  const b = { repository: 'owner/app', repositoryId: '123', runnerId: 'private-core', bindingId: 'a'.repeat(32), ownerId: '7', workflowPath: '.github/workflows/kairo.yml', workflowBlob: 'b'.repeat(40) };
-  const entry = { binding: b, secret: 'c'.repeat(64), kairoOwnerGitHubUserId: '7' };
+  const b = { repository: 'owner/app', repositoryId: '123', runnerId: 'private-core', bindingId: 'a'.repeat(32), ownerId: '7', workflowPath: '.github/workflows/nibfin.yml', workflowBlob: 'b'.repeat(40) };
+  const entry = { binding: b, secret: 'c'.repeat(64), nibfinOwnerGitHubUserId: '7' };
   const payload = { schemaVersion: 3, repository: b.repository, repositoryId: b.repositoryId, runnerId: b.runnerId, bindingId: b.bindingId,
     runId: '50', runAttempt: 1, nonce: 'd'.repeat(32), issuedAt: now, expiresAt: now + 600000,
     eventName: 'issues', eventAction: 'opened', issueId: 'I_A', issueNumber: 1, relatedRunId: null };
@@ -43,7 +43,7 @@ function fixture() {
   const run = { id: 50, run_attempt: 1, event: 'issues', path: b.workflowPath, repository: { id: 123 }, head_repository: { id: 123 }, head_branch: 'main', head_sha: 'e'.repeat(40), actor: { id: 7 }, triggering_actor: { id: 7 }, status: 'in_progress' };
   const jobs = [{ name: 'sign-event', status: 'completed', conclusion: 'success', labels: ['ubuntu-latest'] }, { name: 'relay', status: 'in_progress', labels: ['ubuntu-latest'] }];
   const issue = { node_id: 'I_A', number: 1, user: { id: 7 } };
-  const gh = { repository: async name => name === 'taco3064/kairo' ? { id: KAIRO_REPOSITORY_ID, owner: { id: 7, type: 'User' } } : { id: 123, private: false, owner: { id: 7 }, default_branch: 'main' },
+  const gh = { repository: async name => name === 'retired-private-source' ? { id: UPSTREAM_REPOSITORY_ID, owner: { id: 7, type: 'User' } } : { id: 123, private: false, owner: { id: 7 }, default_branch: 'main' },
     api: async path => path.includes('/contents/') ? { sha: b.workflowBlob } : path.includes('/issues/') ? issue : run,
     list: async () => jobs };
   const policy = { actorIds: ['7'], reconcileWorkflowPaths: ['.github/workflows/ci.yml'] };
@@ -95,12 +95,12 @@ test('unfinished or missing signer waits without granting execution; terminal an
 });
 
 test('pending relay creates no write intent and fresh completion dispatches exactly once',async t=>{
-  const f=fixture(),stateDirectory=await mkdtemp(join(tmpdir(),'kairo-relay-readback-'));t.after(()=>rm(stateDirectory,{recursive:true}));
+  const f=fixture(),stateDirectory=await mkdtemp(join(tmpdir(),'nibfin-relay-readback-'));t.after(()=>rm(stateDirectory,{recursive:true}));
   f.payload.issuedAt=Date.now();f.payload.expiresAt=f.payload.issuedAt+600000;
   let writes=0,fresh=0;const original=f.gh.api;
   f.gh.api=async(path,method)=>{if(method==='POST'){writes++;return null;}return original(path);};
   f.gh.freshReadObservation=async work=>{fresh++;return work();};
-  const context={github:f.gh,entry:f.entry,policy:f.policy,stateDirectory,execution:{repository:'taco3064/kairo',workflowPath:'.github/workflows/action-stage.yml',ref:'main'}};
+  const context={github:f.gh,entry:f.entry,policy:f.policy,stateDirectory,execution:{repository:'retired-private-source',workflowPath:'.github/workflows/action-stage.yml',ref:'main'}};
   f.jobs[0].status='queued';f.jobs[0].conclusion=null;
   await assert.rejects(relayActionEvent(context,f.sign()),{code:'ACTION_EVENT_SIGNER_PENDING'});
   assert.equal(writes,0);assert.deepEqual(await readdir(stateDirectory),[]);

@@ -1,4 +1,4 @@
-// Adapted Kairo d1b47d5 runner tests with stronger descendant reconciliation.
+// Adapted upstream d1b47d5 runner tests with stronger descendant reconciliation.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import{mkdtemp,readFile,access,rm}from'node:fs/promises';
@@ -7,7 +7,7 @@ import{join}from'node:path';
 import{verificationBudget,validateBudget,runVerification}from'../src/verification-runner.mjs';
 
 
-async function fixture(t){const directory=await mkdtemp(join(tmpdir(),'kairo-verification-'));t.after(()=>rm(directory,{recursive:true,force:true}));return{directory,budget:verificationBudget(15000),stdout:null,stderr:null,killGraceMs:40};}
+async function fixture(t){const directory=await mkdtemp(join(tmpdir(),'nibfin-verification-'));t.after(()=>rm(directory,{recursive:true,force:true}));return{directory,budget:verificationBudget(15000),stdout:null,stderr:null,killGraceMs:40};}
 async function waitFile(path){for(let n=0;n<200;n++){try{await access(path);return;}catch{}await new Promise(r=>setTimeout(r,10));}throw Error('Fixture did not start');}
 test('budget reserves five minutes without changing the exact Agent timeout',()=>{
  const b=verificationBudget(3600000,1000);assert.equal(b.deadlineAt,3601000);assert.equal(b.stopVerificationAt,3301000);assert.equal(b.reserveMs,300000);validateBudget(b);

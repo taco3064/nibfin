@@ -15,9 +15,9 @@ export async function loadRescueWakeupGrant(runtime){
  const bundle=await runtime.github.grant(runtime.config.grantSource),key=await readFile(runtime.config.publicKeyPath,'utf8'),grant=verifyGrant(bundle,key),installed=await coreDigest(runtime.root);
  const amendment=[bundle.coreUpgrade,...(bundle.coreUpgrades??[])].find(a=>a?.payload?.toCoreDigest===installed);
  const approval=verifyCoreUpgrade(amendment,grant,installed,key);
- if(!approval.rescue||grant.policy.executionMode!=='actions-v1'||grant.policy.actionExecution?.repository!=='taco3064/kairo'||digest(grant.policy.actionExecution)!==digest(runtime.config.actionExecution))throw Error('Rescue notification transport is not enrolled');
+ if(!approval.rescue||grant.policy.executionMode!=='actions-v1'||grant.policy.actionExecution?.repository!=='retired-private-source'||digest(grant.policy.actionExecution)!==digest(runtime.config.actionExecution))throw Error('Rescue notification transport is not enrolled');
  runtime.coreUpgrade=approval;
- const [repository,file]=await Promise.all([runtime.github.repository('taco3064/kairo'),runtime.github.api('/repos/taco3064/kairo/contents/'+rescueWorkflow+'?ref=main')]);
+ const [repository,file]=await Promise.all([runtime.github.repository('retired-private-source'),runtime.github.api('/repos/retired-private-source/contents/'+rescueWorkflow+'?ref=main')]);
  if(repository.private!==true||file.sha!==approval.rescue.workflowBlob)throw Error('Rescue notification workflow pin changed');
  return grant;
 }
@@ -65,7 +65,7 @@ export async function wakeCase(runtime,grant,id){
    if(current.outcome==='DEFERRED'&&Date.parse(current.nextCheckAt)>Date.now())return{caseId:id,outcome:'WAITING'};
    s=await outbox.transaction(s.revision,v=>({...v,observation,attempts:{...v.attempts,[key]:{status:'attempted',at:new Date().toISOString()}}}));
    try{
-    const result=await runtime.github.api('/repos/taco3064/kairo/actions/workflows/kairo-rescue.yml/dispatches','POST',{ref:'main',inputs:{request_id:id,source_run_id:c.request.sourceRunId,issue_ref:c.request.issueRef,reason_code:'PENDING_WAKEUP',mode:'repair'},return_run_details:true},'2022-11-28');
+    const result=await runtime.github.api('/repos/retired-private-source/actions/workflows/nibfin-rescue.yml/dispatches','POST',{ref:'main',inputs:{request_id:id,source_run_id:c.request.sourceRunId,issue_ref:c.request.issueRef,reason_code:'PENDING_WAKEUP',mode:'repair'},return_run_details:true},'2022-11-28');
     if(!positive(result?.workflow_run_id))throw rescueStop('RESCUE_DISPATCH_UNKNOWN','Pending notification returned no Run ID');
     await outbox.transaction(s.revision,v=>({...v,attempts:{...v.attempts,[key]:{...v.attempts[key],status:'confirmed',runId:String(result.workflow_run_id)}}}));
     return{caseId:id,outcome:'NOTIFIED',rescueRunId:String(result.workflow_run_id)};
@@ -83,10 +83,10 @@ export async function wakeRescueCases(runtime,grant){
   if(c.nextCheckAt&&Date.parse(c.nextCheckAt)>Date.now())continue;
   results.push(await wakeCase(runtime,grant,id));if(results.length>=10)break;
  }
- for(const result of results)console.log(JSON.stringify({kind:'kairo-rescue-host-wakeup',caseId:result.caseId,outcome:result.outcome,rescueRunId:result.rescueRunId??null}));
+ for(const result of results)console.log(JSON.stringify({kind:'nibfin-rescue-host-wakeup',caseId:result.caseId,outcome:result.outcome,rescueRunId:result.rescueRunId??null}));
  return{outcome:results.some(r=>r.outcome==='UNRESOLVED')?'UNRESOLVED':'RECHECKED',results};
 }
-export async function startRescueWakeups(runtime,loadGrant=()=>loadRescueWakeupGrant(runtime),{watchDirectory=watch,setTimer=setTimeout,clearTimer=clearTimeout,onError=error=>console.error(JSON.stringify({kind:'kairo-rescue-host-error',reason:cleanRescueText(error.message)}))}={}){
+export async function startRescueWakeups(runtime,loadGrant=()=>loadRescueWakeupGrant(runtime),{watchDirectory=watch,setTimer=setTimeout,clearTimer=clearTimeout,onError=error=>console.error(JSON.stringify({kind:'nibfin-rescue-host-error',reason:cleanRescueText(error.message)}))}={}){
  const grant=await loadGrant(),index=rescueIndexStore(runtime,grant),watchers=new Map();let timer=null,closed=false,running=false,again=false;
  await mkdir(index.directory,{recursive:true});
  const refresh=async()=>{

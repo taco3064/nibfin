@@ -1,4 +1,4 @@
-// Adapted from Kairo d1b47d5e073cf15bdcdc1fbbec098401649878d9.
+// Adapted from upstream d1b47d5e073cf15bdcdc1fbbec098401649878d9.
 // Exact-copy/locked-install responsibility delegates to Nibfin's one preparation
 // owner, retaining stronger cache identity and explicit nested-project checks.
 import {prepareNodeVerification} from './node-verification.mjs';

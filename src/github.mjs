@@ -1,5 +1,5 @@
 // Read-observation owner adapted from src/github.mjs at
-// taco3064/kairo@d1b47d5e073cf15bdcdc1fbbec098401649878d9.
+// retired-private-source@d1b47d5e073cf15bdcdc1fbbec098401649878d9.
 // Nibfin retains its permission-checked transport, lossless IDs, endpoint policy
 // and safe diagnostics. No credentials, private-runner gate or mutation retry
 // capability is introduced by the observation owner.

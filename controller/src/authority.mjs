@@ -13,7 +13,7 @@ export function verifyGrant(bundle, publicKey, now = Date.now()) {
   validateManifest(payload.manifest);
   if (payload.manifest.schemaVersion === 2) validateDynamic(payload);
   validatePublicPolicy(payload.policy);
-  if (payload.policy.publicRunner && payload.actorGitHubUserId !== payload.policy.kairoOwnerGitHubUserId) throw new Error('Signed actor GitHub identity differs from Kairo Owner');
+  if (payload.policy.publicRunner && payload.actorGitHubUserId !== payload.policy.nibfinOwnerGitHubUserId) throw new Error('Signed actor GitHub identity differs from upstream Owner');
   if (!payload.recordId || !payload.actor || payload.revoked !== false || payload.policy.manifestHash !== digest(payload.manifest)) throw new Error('Grant revoked or scope binding invalid');
   if (payload.policy.controlMode !== 'owner-project' && !(Date.parse(payload.policy.validFrom) <= now && now < Date.parse(payload.policy.expiresAt))) throw new Error('Grant expired or not yet active');
   if (!payload.proposal || digest(payload.proposal) !== payload.manifest.proposalHash) throw new Error('Proposal content does not match frozen hash');

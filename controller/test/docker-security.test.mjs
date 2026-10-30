@@ -9,7 +9,7 @@ import {runtimeConfigurationHash,verifyRuntimeHardening} from '../src/runtime-co
 import {digest,canonical} from '../src/core.mjs';
 import {resolve} from 'node:path';
 
-const rootless=()=>({image:'sha256:'+'a'.repeat(64),network:'kairo-agent-private',user:'0:0',authDirectory:'/operator/login',dockerSecurity:{mode:'rootless',socket:'/run/user/1000/docker.sock'}});
+const rootless=()=>({image:'sha256:'+'a'.repeat(64),network:'nibfin-agent-private',user:'0:0',authDirectory:'/operator/login',dockerSecurity:{mode:'rootless',socket:'/run/user/1000/docker.sock'}});
 const info=()=>({SecurityOptions:['name=rootless','name=seccomp,profile=builtin'],CgroupVersion:'2',CgroupDriver:'systemd',MemoryLimit:true,PidsLimit:true,CpuCfsPeriod:true,CpuCfsQuota:true});
 test('rootless mode pins every command to a local socket, clears ambient Docker overrides and never falls back',async()=>{
  const config=rootless(),calls=[],run=dockerCommand(config,async(...args)=>{calls.push(args);return{stdout:JSON.stringify(info())};});

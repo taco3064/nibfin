@@ -162,4 +162,4 @@ Node 22/npm 10, locked `npm ci`, `npm run check`, `npm run test:artifact-sdk` an
 The mandatory `out/nibfin-core.tgz` is verified byte-for-byte against source;
 independent reviewers consume it without rebuilding the protected Candidate.
 
-The fixed donor origin, API adapters and ownership boundaries are recorded in [Kairo source reuse](kairo-reuse.md).
+The fixed donor origin, API adapters and ownership boundaries are recorded in [upstream source reuse](nibfin-reuse.md).

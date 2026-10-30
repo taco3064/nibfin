@@ -1,7 +1,7 @@
 # Public collaboration adapter, version 1
 
 Nibfin owns the maintained public implementation. The approved source reference
-is `taco3064/kairo` at `d1b47d5e073cf15bdcdc1fbbec098401649878d9`.
+is `retired-private-source` at `d1b47d5e073cf15bdcdc1fbbec098401649878d9`.
 No private repository is needed to install or run the package. This mapping names
 source and adapted assertions, not inherited test verdicts.
 

@@ -35,7 +35,7 @@ async function registerCase(runtime,grant,source,issue,failure){
  return id;
 }
 async function updateCase(runtime,id,update){const store=caseStore(runtime,id);return store.metadataLease(async()=>{const state=await store.read();return store.transaction(state.revision,update);});}
-function baseReport(state){const r=state.request;return{caseId:r.id,nextCaseId:state.nextCaseId??null,issueRef:r.issueRef,sourceRunId:r.sourceRunId,sourceUrl:'https://github.com/taco3064/kairo/actions/runs/'+r.sourceRunId,code:r.code,reason:r.reason,actions:state.actions??[],aiDiagnosis:state.aiDiagnosis??null,resolutionSource:state.resolutionSource??null,outcome:state.outcome??'UNRESOLVED',nextCheckAt:state.nextCheckAt??null,resumeRunId:state.resumeRunId??null,resumeUrl:state.resumeRunId?'https://github.com/taco3064/kairo/actions/runs/'+state.resumeRunId:null,verification:state.verification??'Not verified'};}
+function baseReport(state){const r=state.request;return{caseId:r.id,nextCaseId:state.nextCaseId??null,issueRef:r.issueRef,sourceRunId:r.sourceRunId,sourceUrl:'https://github.com/retired-private-source/actions/runs/'+r.sourceRunId,code:r.code,reason:r.reason,actions:state.actions??[],aiDiagnosis:state.aiDiagnosis??null,resolutionSource:state.resolutionSource??null,outcome:state.outcome??'UNRESOLVED',nextCheckAt:state.nextCheckAt??null,resumeRunId:state.resumeRunId??null,resumeUrl:state.resumeRunId?'https://github.com/retired-private-source/actions/runs/'+state.resumeRunId:null,verification:state.verification??'Not verified'};}
 async function emitCase(runtime,id){return rescueLog(baseReport(await caseStore(runtime,id).read()));}
 async function dispatchRun(runtime,workflow,inputs){
  const result=await runtime.github.api('/repos/'+runtime.config.actionExecution.repository+'/actions/workflows/'+workflow+'/dispatches','POST',{ref:'main',inputs,return_run_details:true},'2022-11-28');
@@ -45,7 +45,7 @@ export async function dispatchRescue(runtime,grant,id){
  const store=caseStore(runtime,id);
  return store.metadataLease(async()=>{let state=await store.read();if(state.rescueDispatch)return state.rescueDispatch;
   state=await store.transaction(state.revision,v=>({...v,rescueDispatch:{status:'attempted',at:new Date().toISOString()}}));
-  try{const runId=await dispatchRun(runtime,'kairo-rescue.yml',{request_id:id,source_run_id:state.request.sourceRunId,issue_ref:state.request.issueRef,reason_code:state.request.code,mode:'repair'});
+  try{const runId=await dispatchRun(runtime,'nibfin-rescue.yml',{request_id:id,source_run_id:state.request.sourceRunId,issue_ref:state.request.issueRef,reason_code:state.request.code,mode:'repair'});
    await store.transaction(state.revision,v=>({...v,rescueDispatch:{...v.rescueDispatch,status:'confirmed',runId}}));return{status:'confirmed',runId};
   }catch(error){await store.transaction(state.revision,v=>({...v,rescueDispatch:{...v.rescueDispatch,status:'unknown',code:stopCode(error)},outcome:'UNRESOLVED',verification:'Rescue dispatch outcome unknown; automatic replay is disabled'}));throw error;}
  });
@@ -59,7 +59,7 @@ export async function queueActionRescues(runtime,output,event,error=null){
    let c=await updateCase(runtime,id,s=>({...s,coreReturn:{runId:String(runtime.actionIdentity.runId),status:error?'ERROR':output.status??'UNKNOWN',code:error?stopCode(error):null,at:new Date().toISOString()}}));
 
   }
-  console.error(JSON.stringify({kind:'kairo-rescue-resume-observed',runId:String(runtime.actionIdentity.runId),cases:resumed.map(([id])=>id),verification:'Completion sentinel must independently verify the completed Run and state'}));return[];
+  console.error(JSON.stringify({kind:'nibfin-rescue-resume-observed',runId:String(runtime.actionIdentity.runId),cases:resumed.map(([id])=>id),verification:'Completion sentinel must independently verify the completed Run and state'}));return[];
  }
  const failures=error?[{status:'BLOCKED',code:stopCode(error),reason:cleanRescueText(error.message)}]:(output.results??[output]).filter(r=>r.status==='BLOCKED'||r.status==='WAITING'&&['EEXIST','ACTION_PREDECESSOR_PENDING','MERGE_REQUIREMENTS_PENDING'].includes(r.code));
  const ids=[];
@@ -70,7 +70,7 @@ export async function queueActionRescues(runtime,output,event,error=null){
   const source={id:runtime.actionIdentity.runId,run_attempt:runtime.actionIdentity.runAttempt};
   const id=await registerCase(runtime,grant,source,issue,failure);ids.push(id);
   await emitCase(runtime,id);
-  console.error(JSON.stringify({kind:'kairo-rescue-request',runId:String(runtime.actionIdentity.runId),caseId:id,issueRef:issue?issue.repository.split('/')[1]+'#'+issue.number:'Run '+runtime.actionIdentity.runId,code:failure.code??'UNKNOWN'}));
+  console.error(JSON.stringify({kind:'nibfin-rescue-request',runId:String(runtime.actionIdentity.runId),caseId:id,issueRef:issue?issue.repository.split('/')[1]+'#'+issue.number:'Run '+runtime.actionIdentity.runId,code:failure.code??'UNKNOWN'}));
  }
  return ids;
 }

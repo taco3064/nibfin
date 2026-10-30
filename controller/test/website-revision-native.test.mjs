@@ -5,7 +5,7 @@ import{digest}from'../src/core.mjs';import{signGrant,verifyGrant,coreDigest}from
 import{verifyRequirementRevision,attachRequirementRevision,revisionStore}from'../src/requirement-revision.mjs';import{verifyAssigneeRevision,attachAssigneeRevision,assigneeRevisionStore}from'../src/assignee-revision.mjs';
 import{verifyWebsiteRevision,rawBodyHash,migrateWebsiteRequirements}from'../src/website-revision.mjs';import{createWebsiteRevisionHost}from'../src/website-revision-host.mjs';
 test('Linux trusted website adapter authenticates all compatibility appends, fsyncs archives and performs exactly two Body PATCHes', {skip:process.platform!=='linux'},async t=>{
- const root=await mkdtemp(join(tmpdir(),'kairo-website-native-'));t.after(()=>rm(root,{recursive:true,force:true}));const stateDirectory=join(root,'state');await mkdir(stateDirectory);
+ const root=await mkdtemp(join(tmpdir(),'nibfin-website-native-'));t.after(()=>rm(root,{recursive:true,force:true}));const stateDirectory=join(root,'state');await mkdir(stateDirectory);
  const f=await assigneeFixture(root),p=structuredClone(f.d.parentBundle.payload),pub=f.d.publicKey,key=f.d.privateKey;
  const config={runnerId:'trusted',stateDirectory,publicKeyPath:join(root,'owner.pem'),agent:{authDirectory:join(root,'auth')},grantSource:{repository:'test/private',path:'grant.json'},proposalSource:{repository:'test/private',path:'proposal.txt'}};await writeFile(config.publicKeyPath,pub);
  for(const i of p.manifest.issues)if(i.repository==='taco3064/nibfin')i.repositoryId='1427838662';p.policy.repositories['taco3064/nibfin'].repositoryId='1427838662';p.policy.stateDirectory=stateDirectory;p.policy.actionExecution.repositoryId='99';p.policy.runtimeHash=runtimeConfigurationHash(config);p.actorGitHubUserId='77';

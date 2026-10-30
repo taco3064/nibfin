@@ -23,7 +23,7 @@ test('never falls back to an earlier valid file when the terminal message is inv
  assert.equal(selectAgentResult(JSON.stringify(valid),'',false).source,'last-message-file');
 });
 async function fixture(t,finalText){
- const root=await mkdtemp(join(tmpdir(),'kairo-final-result-'));t.after(()=>rm(root,{recursive:true}));
+ const root=await mkdtemp(join(tmpdir(),'nibfin-final-result-'));t.after(()=>rm(root,{recursive:true}));
  await mkdir(join(root,'skills','deliver'),{recursive:true});await writeFile(join(root,'skills','deliver','SKILL.md'),'---\nname: deliver\n---\nProduce verified evidence.\n');
  const agent=new CodexAgent({},root,root,async()=>{const execution=(await readdir(join(root,'executions')))[0];await writeFile(join(root,'executions',execution,'result.json'),'Earlier progress');return{stdout:encode(stream(finalText)),stderr:''};});
  agent.login=async()=>{};agent.credentialValues=async()=>['synthetic-credential-for-test'];agent.executionArgs=()=>['run'];

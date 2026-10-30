@@ -1,4 +1,4 @@
-import { KAIRO_REPOSITORY_ID } from '../src/owner-identity.mjs';
+import { UPSTREAM_REPOSITORY_ID } from '../src/owner-identity.mjs';
 import { eventSource } from '../src/native-wakeup.mjs';
 import { Store } from '../src/store.mjs';
 
@@ -8,9 +8,9 @@ export function nativeFixture(root,{grant=null,issue=null}={}) {
   grant ||= {recordId:'parent',policy:{grantId:'g',actionEvents:{}}};
   grant.policy.actionEvents ||= {};
   grant.policy.actionEvents[issue.repository]={actorIds:['7'],signerVerification:'hmac-workflow-pin'};
-  const binding={repository:issue.repository,repositoryId:issue.repositoryId,ownerId:'7',workflowPath:'.github/workflows/kairo.yml',workflowBlob:'b'.repeat(40)};
+  const binding={repository:issue.repository,repositoryId:issue.repositoryId,ownerId:'7',workflowPath:'.github/workflows/nibfin.yml',workflowBlob:'b'.repeat(40)};
   const runs=new Map(),inbox={seen:{}},calls=[];
-  const github={repository:async r=>r==='taco3064/kairo'?{id:KAIRO_REPOSITORY_ID,owner:{id:7,type:'User'}}:
+  const github={repository:async r=>r==='retired-private-source'?{id:UPSTREAM_REPOSITORY_ID,owner:{id:7,type:'User'}}:
     {id:Number(issue.repositoryId),private:false,owner:{id:7},default_branch:'main'},
     api:async(path,method)=>{
       calls.push({path,method});if(method)throw Error('Read-only fixture');
@@ -20,7 +20,7 @@ export function nativeFixture(root,{grant=null,issue=null}={}) {
       if(match && runs.has(match[1]))return structuredClone(runs.get(match[1]));
       throw Error('Unexpected provider read '+path);
     },list:async()=>{throw Error('No Jobs reads in approved HMAC mode');}};
-  const runtime={config:{stateDirectory:root},github,publicBindings:{[issue.repository]:{binding,kairoOwnerGitHubUserId:'7'}}};
+  const runtime={config:{stateDirectory:root},github,publicBindings:{[issue.repository]:{binding,nibfinOwnerGitHubUserId:'7'}}};
   const state={actionReceipts:[{operation:'publish-shape',transition:{startedAt:'2026-10-23T18:56:54Z',completedAt:'2026-10-23T18:56:56Z'}}]};
   let serial=50;
   function add({createdAt='2026-10-23T18:56:55Z',issuedAt=Date.parse('2026-10-23T18:56:55Z'),action='labeled',attempt=1,...patch}={}) {

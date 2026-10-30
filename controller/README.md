@@ -2,7 +2,7 @@
 
 This is the executable development controller for Nibfin, gh-nibfin and
 nibfin-action. Its initial maintained source is transplanted from the working
-Kairo implementation at the revision recorded in `origin.json`, including the
+upstream implementation at the revision recorded in `origin.json`, including the
 deferred-notification correction. Source hashes retain the exact origin of each
 copied file. Further fixes belong here and run through protected PRs and CI.
 
@@ -14,15 +14,15 @@ role sessions, restricted Agents, event outbox and verified downstream gates.
 
 Users continue through the official gh-nibfin init, runner create/register and
 upgrade interfaces. Members use their own model logins and Runner identities.
-The localhost dashboard remains in scope. No private Kairo access, maintainer
+The localhost dashboard remains in scope. No private upstream access, maintainer
 keys, private grant, fixed host layout, new mandatory command, manual signing or
 second controller setup is added to user onboarding.
 
 During this development cutover the existing private Actions transport and
 protected host configuration remain infrastructure. They execute these Nibfin
 source bytes; they are not a public installation dependency or evidence that
-external onboarding is complete. `bin/kairo.mjs` and the nested workflow samples
-are retained compatibility interfaces for that transport. `bin/nibfin.mjs`
+external onboarding is complete. `bin/controller.mjs` and the nested workflow samples
+are retained compatibility interfaces for that transport. `bin/controller.mjs`
 provides the Nibfin entry point. Nested workflows are source fixtures, not
 additional active workflows.
 

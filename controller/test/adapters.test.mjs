@@ -93,7 +93,7 @@ test('explicit Docker sandbox boundary preserves reviewer and container isolatio
 
 test('runner registration is checked independently for each repository', async () => {
   const gh = new GitHub('fixture');
-  gh.list = async path => path.includes('/one/') ? [{ id: 1, name: 'host', status: 'online', labels: [{name:'linux'},{name:'kairo-private'}] }] : [];
+  gh.list = async path => path.includes('/one/') ? [{ id: 1, name: 'host', status: 'online', labels: [{name:'linux'},{name:'nibfin-private'}] }] : [];
   assert.equal((await gh.verifyRunner('owner/one', [1], 'host')).id, 1);
   await assert.rejects(gh.verifyRunner('owner/two', [1], 'host'), /absent/);
   await assert.rejects(gh.verifyRunner('owner/one', [], 'host'), /Missing approved/);

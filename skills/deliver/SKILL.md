@@ -29,7 +29,7 @@ skip checks, introduce stubs or claim unavailable tests succeeded.
 Core captures full Candidate identities: repository, base commit, tree, binary
 diff digest, paths, Shape hash, artifact contents/digests and hook sources/digests.
 Deliver every declared artifact, including mandatory ignored artifacts; caches are
-not substitutes. Follow the single Shape kairo-candidate inventory. Reject path
+not substitutes. Follow the single Shape nibfin-candidate inventory. Reject path
 escape, symlink and unauthorized-path substitutions. Inspect the entire diff,
 deletions and relevant untracked/generated contents before handoff.
 

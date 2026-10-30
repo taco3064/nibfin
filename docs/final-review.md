@@ -143,4 +143,4 @@ Pending or absent CI permits fidelity review and remains unqualified; Merge is
 still conditional on GitHub's server enforcement and read-back. A GitHub-blocked PR with a known failed
 check blocks Merge. Omitted mode preserves the existing signed-policy observer;
 explicit signed configurations retain their required-check and provenance gates.
-See [the fixed source/API map](kairo-reuse.md).
+See [the fixed source/API map](nibfin-reuse.md).

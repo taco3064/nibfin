@@ -23,7 +23,7 @@ function git(root,args,input) {
       GIT_NO_REPLACE_OBJECTS:'1',GIT_NO_LAZY_FETCH:'1',GIT_ALLOW_PROTOCOL:'',GIT_TERMINAL_PROMPT:'0'},
     timeout:30000,maxBuffer:48*1024*1024,stdio:['pipe','pipe','pipe']});
 }
-// Reused Kairo runHooks() index/message protocol, adapted to Nibfin's
+// Reused upstream runHooks() index/message protocol, adapted to Nibfin's
 // disposable object-only repository and binary-safe message transport. Host-side
 // source/metadata comparisons below additionally reject any worktree mutation.
 function hookScript({tree,base,paths,message}) {

@@ -5,7 +5,7 @@ import {createShapeFlow,createAgentLifecycle,selectInstructions,bodyDigest,conte
 import {operationsFixture,operationInput} from './operations-fixture.mjs';
 export function shapeFixture() {
   const hash='a'.repeat(64), original='Original raw Scope';
-  const body='Candidate artifacts applicability: No extra artifacts.\nCandidate hooks applicability: No hooks configured.\n```kairo-candidate\n{"artifacts":[],"hooks":[]}\n```';
+  const body='Candidate artifacts applicability: No extra artifacts.\nCandidate hooks applicability: No hooks configured.\n```nibfin-candidate\n{"artifacts":[],"hooks":[]}\n```';
   const target={repository:'example-org/core',repositoryId:'42',issueId:'I_101',databaseId:'61',number:'101'};
   const binding={authority:hash,grant:hash,policy:hash,core:hash,runtime:hash,instructions:hash,
     repositoryId:'42',issueId:'I_101',scopeHash:bodyDigest(original),shapeHash:null};

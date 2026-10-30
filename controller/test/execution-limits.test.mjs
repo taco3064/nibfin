@@ -32,7 +32,7 @@ test('display workflow approval retains original and timeout-era receipt pins wi
 });
 for(const[name,change]of Object.entries({oldPin:p=>p.executionLimits.previousWorkflowBlob='f'.repeat(40),newPin:p=>p.executionLimits.workflowBlob='main',unboundedJob:p=>p.executionLimits.jobTimeoutMinutes=Infinity,oversizedJob:p=>p.executionLimits.jobTimeoutMinutes=361,shortAgent:p=>p.executionLimits.agentTimeoutMs=0,longAgent:p=>p.executionLimits.agentTimeoutMs=180*60000,extra:p=>p.executionLimits.runnerIds=[999],null:p=>p.executionLimits=null,parent:p=>p.policyHash='changed'}))test('signed timeout amendment rejects '+name,()=>{const p=payload();change(p);assert.throws(()=>verify(p));});
 test('Agent subprocess receives approved longer timeout while original runtime configuration remains unchanged',async t=>{
- const root=await mkdtemp(join(tmpdir(),'kairo-timeout-'));t.after(()=>rm(root,{recursive:true}));
+ const root=await mkdtemp(join(tmpdir(),'nibfin-timeout-'));t.after(()=>rm(root,{recursive:true}));
  await mkdir(join(root,'skills','accept'),{recursive:true});await writeFile(join(root,'skills','accept','SKILL.md'),'---\nname: accept\n---\nInspect evidence.\n');
  const c={timeoutMs:1200000},seen=[];
  const agent=new CodexAgent(c,root,root,async(exe,args,options)=>{

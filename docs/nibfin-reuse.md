@@ -1,12 +1,12 @@
-# Kairo source reuse
+# upstream source reuse
 
-The source baseline is `taco3064/kairo@d1b47d5e073cf15bdcdc1fbbec098401649878d9`.
+The source baseline is `retired-private-source@d1b47d5e073cf15bdcdc1fbbec098401649878d9`.
 The Owner-approved source archive is maintainer input, never an installation or runtime dependency.
 Nibfin's Issue Scope controls product behavior. Donor tests supply cases, not inherited passing verdicts.
 
 | Donor owner | Maintained destination and adapter | Responsibility and supporting dependencies | Material adaptations and tests |
 | --- | --- | --- | --- |
-| `src/core.mjs` | `src/delivery-planner.mjs`, `src/delivery-contract.mjs`; `src/core.mjs` public adapter | Per-Issue operation progression, result classification, complete Candidate/evidence guards; candidate contract, canonical identity and retained workspace sources | Nibfin v1 receipts and independent expectations remain normative. No owner-only/public-dispatch identity, global Shape barrier or cohort scheduler. Distinct CI observation, deployment disposition and completion stages. `test/kairo-reuse.test.mjs`, Core owner/process tests and `test/delivery-composition.test.mjs`. |
+| `src/core.mjs` | `src/delivery-planner.mjs`, `src/delivery-contract.mjs`; `src/core.mjs` public adapter | Per-Issue operation progression, result classification, complete Candidate/evidence guards; candidate contract, canonical identity and retained workspace sources | Nibfin v1 receipts and independent expectations remain normative. No owner-only/public-dispatch identity, global Shape barrier or cohort scheduler. Distinct CI observation, deployment disposition and completion stages. `test/nibfin-reuse.test.mjs`, Core owner/process tests and `test/delivery-composition.test.mjs`. |
 | `src/runtime.mjs` | `src/runtime.mjs`; Core instantiates trusted operation adapters | Selected operation dispatch; pre/post-hook recapture refuses mutation or missing outputs | The Runtime has no private controller bootstrap, grant loading, GitHub credentials, arbitrary module loader or process command dispatch. Nibfin lifecycle/custody and permission owners implement the transports. Failed Candidate checks require Deliver repair and new evidence. Core owner tests and reuse checkpoint tests. |
 | `src/workspace.mjs` | `src/workspace-sources.mjs`, `src/workspace.mjs` | Declared artifact/source manifests with exact SHA-256 and byte sizes; immutable capture dependency | Retain Nibfin v1 immutable object/source wire format and bounds. Do not mutate the Candidate's real index or expose controller Git metadata. The donor's credential-bearing fetch/push/commit workspace is replaced by Nibfin's credential-free capture and separate publication transport. Workspace, Candidate-publication and ignored-output tests. |
 | `src/candidate-contract.mjs` | `src/candidate-contract.mjs`, `src/candidate-schema.mjs`; `src/obligations.mjs` adapter | Strict nested inventory schema and safe paths | Nibfin additionally owns robust top-level fence parsing, empty-inventory explanations and independent hook configuration reconciliation. Candidate schema tests adapted from the donor; obligations tests. |

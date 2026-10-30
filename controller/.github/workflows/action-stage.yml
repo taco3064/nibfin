@@ -1,5 +1,5 @@
-name: Kairo action stage
-run-name: Kairo | ${{ inputs.issue_ref || (inputs.event_envelope && format('{0}#{1}', fromJSON(inputs.event_envelope).payload.repository, fromJSON(inputs.event_envelope).payload.issueNumber || 'events')) || 'Request' }} | ${{ inputs.request_id || github.run_id }}
+name: upstream action stage
+run-name: upstream | ${{ inputs.issue_ref || (inputs.event_envelope && format('{0}#{1}', fromJSON(inputs.event_envelope).payload.repository, fromJSON(inputs.event_envelope).payload.issueNumber || 'events')) || 'Request' }} | ${{ inputs.request_id || github.run_id }}
 on:
   workflow_dispatch:
     inputs:
@@ -23,7 +23,7 @@ permissions:
   contents: read
 jobs:
   resolve:
-    runs-on: [self-hosted, linux, kairo-actions]
+    runs-on: [self-hosted, linux, nibfin-actions]
     timeout-minutes: 5
     steps:
       - name: Validate routing shape without participant checkout
@@ -33,7 +33,7 @@ jobs:
           const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
           const i = event.inputs || {};
           if (i.issue_ref && (!/^[\w.-]+(?:#[1-9]\d*(?:\+[1-9]\d*)*)?$/.test(i.issue_ref) || i.issue_ref.length > 128)) throw Error('Invalid Issue display reference');
-          if (process.env.GITHUB_REPOSITORY !== 'taco3064/kairo' || process.env.GITHUB_EVENT_NAME !== 'workflow_dispatch') throw Error('Wrong execution origin');
+          if (process.env.GITHUB_REPOSITORY !== 'retired-private-source' || process.env.GITHUB_EVENT_NAME !== 'workflow_dispatch') throw Error('Wrong execution origin');
           if (i.request_id && !/^[a-f0-9]{64}$/.test(i.request_id)) throw Error('Invalid durable request identity');
           if (i.issue_id && !/^[\w-]+$/.test(i.issue_id)) throw Error('Invalid Issue identity');
           if (Buffer.byteLength(i.event_envelope || '') > 8192) throw Error('Event envelope too large');
@@ -41,7 +41,7 @@ jobs:
           NODE
   execute:
     needs: resolve
-    runs-on: [self-hosted, linux, kairo-actions]
+    runs-on: [self-hosted, linux, nibfin-actions]
     # Signed execution-limits amendment pins these exact workflow bytes.
     timeout-minutes: 180
     outputs:
@@ -51,11 +51,11 @@ jobs:
         id: core
         # No caller checkout. Arguments and trusted paths are fixed; event input
         # is read as JSON by the installed Core, never interpolated into shell.
-        run: node /opt/kairo/core/bin/kairo.mjs action-run /etc/kairo/actions-runtime.json
+        run: node /opt/nibfin/core/bin/controller.mjs action-run /etc/nibfin/actions-runtime.json
   handoff:
     needs: execute
     if: needs.execute.outputs.handoffs != '' && needs.execute.outputs.handoffs != '[]'
-    runs-on: [self-hosted, linux, kairo-actions]
+    runs-on: [self-hosted, linux, nibfin-actions]
     timeout-minutes: 5
     steps:
       - name: Dispatch persisted intents after the execution job succeeded
@@ -69,8 +69,8 @@ jobs:
             const hints = JSON.parse(process.env.HANDOFFS);
             if (!Array.isArray(hints) || hints.length > 100) throw Error('Invalid handoff list');
             for (const h of hints) {
-              const privateStage = h.repository === 'taco3064/kairo' && h.workflow === 'action-stage.yml';
-              const participant = /^taco3064\/[\w.-]+$/.test(h.repository) && h.repository !== 'taco3064/kairo' && h.workflow === 'kairo.yml' && /^[\w-]+$/.test(h.issueId || '');
+              const privateStage = h.repository === 'retired-private-source' && h.workflow === 'action-stage.yml';
+              const participant = /^taco3064\/[\w.-]+$/.test(h.repository) && h.repository !== 'retired-private-source' && h.workflow === 'nibfin.yml' && /^[\w-]+$/.test(h.issueId || '');
               if ((!privateStage && !participant) || !/^[a-f0-9]{64}$/.test(h.requestId) || h.ref !== 'main') throw Error('Foreign dispatch target');
               if (h.issueRef && (!/^[\w.-]+#[1-9]\d*$/.test(h.issueRef) || h.issueRef.length > 128)) throw Error('Invalid display-only Issue reference');
               execFileSync('gh', ['api', '--method', 'POST', '/repos/' + h.repository + '/actions/workflows/' + h.workflow + '/dispatches', '--input', '-'], {

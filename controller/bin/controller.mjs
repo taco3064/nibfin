@@ -79,7 +79,7 @@ try {
       try { output = await runActionLifecycle(runtime,event); }
       catch(error){failure=error;}
       finally { console.error(JSON.stringify({ kind: 'action-read-metrics', elapsedMs: Math.round(performance.now() - started), ...runtime.github.metrics })); }
-      try{await queueActionRescues(runtime,output??{},event,failure);}catch(error){console.error(JSON.stringify({kind:'kairo-rescue-enqueue-failed',code:error.code??'UNCLASSIFIED',reason:cleanRescueText(error.message)}));}
+      try{await queueActionRescues(runtime,output??{},event,failure);}catch(error){console.error(JSON.stringify({kind:'nibfin-rescue-enqueue-failed',code:error.code??'UNCLASSIFIED',reason:cleanRescueText(error.message)}));}
       if(failure)throw failure;
       if (process.env.GITHUB_OUTPUT) await appendFile(process.env.GITHUB_OUTPUT, 'handoffs=' + JSON.stringify(output.handoffs || []) + '\n');
       break;
@@ -172,7 +172,7 @@ try {
       break;
     }
     default:
-      throw new Error('Usage: node bin/kairo.mjs dispatch-service-check <config> | runner-disable <config> <owner-private.pem> | runner-keygen <new-key-file> | runner-bind <config> <owner/repo> <new-secret-file> | runner-revoke <config> <owner/repo> | dispatch-watch <config> | init <owner/repo> | doctor <trusted-config.json> | resume <trusted-config.json> | digest | sign <payload.json> <private.pem> <output.json> | verify <signed.json> <public.pem> | validate <manifest.json> | plan <manifest.json> <policy.json> <snapshot.json> | status <state-directory> <cohort-id>');
+      throw new Error('Usage: node bin/controller.mjs dispatch-service-check <config> | runner-disable <config> <owner-private.pem> | runner-keygen <new-key-file> | runner-bind <config> <owner/repo> <new-secret-file> | runner-revoke <config> <owner/repo> | dispatch-watch <config> | init <owner/repo> | doctor <trusted-config.json> | resume <trusted-config.json> | digest | sign <payload.json> <private.pem> <output.json> | verify <signed.json> <public.pem> | validate <manifest.json> | plan <manifest.json> <policy.json> <snapshot.json> | status <state-directory> <cohort-id>');
   }
   console.log(JSON.stringify(output, null, 2));
 } catch (error) {

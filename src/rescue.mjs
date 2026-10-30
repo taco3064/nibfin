@@ -1,5 +1,5 @@
 import {rescueWorkRestriction} from './owner-hold.mjs';
-// Recovery transitions adapted from Kairo PR54 rescue.mjs. Nibfin supplies its
+// Recovery transitions adapted from upstream PR54 rescue.mjs. Nibfin supplies its
 // existing custody/state, controlled operations, eligibility and normal Core
 // role owners; Rescue never executes a delivery stage or grants permissions.
 import {contentIdentity} from './evidence.mjs';

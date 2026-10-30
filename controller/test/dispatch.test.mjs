@@ -6,13 +6,13 @@ import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { createRoot, readBindings, rootIdentity, bindingSecret, signDispatch, verifyDispatch, enrollBinding } from '../src/runner-binding.mjs';
 import { dispatchFromZip, verifyOrigin, downloadDispatch, pollDispatch, dispatchGrantIdentity, watchDispatch } from '../src/dispatch.mjs';
-import { KAIRO_REPOSITORY, KAIRO_REPOSITORY_ID } from '../src/owner-identity.mjs';
+import { UPSTREAM_REPOSITORY, UPSTREAM_REPOSITORY_ID } from '../src/owner-identity.mjs';
 import { Store } from '../src/store.mjs';
 import { digest, plan } from '../src/core.mjs';
 import { fixture, NOW } from './fixtures.mjs';
 import { execFileSync } from 'node:child_process';
 
-const descriptor = (runnerId = 'trusted-runner') => ({ runnerId, repository: 'example/one', repositoryId: '123', ownerId: '77', bindingId: 'a'.repeat(32), workflowPath: '.github/workflows/kairo.yml', workflowBlob: 'b'.repeat(40) });
+const descriptor = (runnerId = 'trusted-runner') => ({ runnerId, repository: 'example/one', repositoryId: '123', ownerId: '77', bindingId: 'a'.repeat(32), workflowPath: '.github/workflows/nibfin.yml', workflowBlob: 'b'.repeat(40) });
 function envelope(entry, now = Date.now()) {
   const b = entry.binding;
   return signDispatch({ schemaVersion: 1, operation: 'reevaluate', runnerId: b.runnerId, repository: b.repository, repositoryId: b.repositoryId, bindingId: b.bindingId, runId: '456', runAttempt: 1, nonce: 'c'.repeat(32), issuedAt: now, expiresAt: now + 86400000 }, entry.secret);
@@ -25,18 +25,18 @@ function zip(value, name = 'dispatch.json') {
   return Buffer.concat([local, filename, data, central, filename, end]);
 }
 async function setup(t) {
-  const dir = await mkdtemp(join(tmpdir(), 'kairo-dispatch-')); t.after(() => rm(dir, { recursive: true, force: true }));
-  const config = { kairoOwnerGitHubUserId: '77', runnerId: 'trusted-runner', stateDirectory: join(dir, 'state'), publicRunner: { rootKeyPath: join(dir, 'root'), registryPath: join(dir, 'registry') } };
+  const dir = await mkdtemp(join(tmpdir(), 'nibfin-dispatch-')); t.after(() => rm(dir, { recursive: true, force: true }));
+  const config = { nibfinOwnerGitHubUserId: '77', runnerId: 'trusted-runner', stateDirectory: join(dir, 'state'), publicRunner: { rootKeyPath: join(dir, 'root'), registryPath: join(dir, 'registry') } };
   const { rootId } = await createRoot(config.publicRunner.rootKeyPath);
   const b = descriptor(), registry = { runnerId: config.runnerId, bindings: [{ binding: structuredClone(b), active: true }] };
   await writeFile(config.publicRunner.registryPath, JSON.stringify(registry));
-  const policy = { kairoOwnerGitHubUserId: '77', runnerId: config.runnerId, publicRunner: { rootId, bindings: { [b.repository]: b } } };
+  const policy = { nibfinOwnerGitHubUserId: '77', runnerId: config.runnerId, publicRunner: { rootId, bindings: { [b.repository]: b } } };
   const entry = (await readBindings(config, policy))[b.repository];
   const message = envelope(entry), bytes = zip(message);
-  const artifact = { id: 9, name: 'kairo-dispatch', expired: false, size_in_bytes: bytes.length, digest: `sha256:${createHash('sha256').update(bytes).digest('hex')}`, workflow_run: { id: 456, repository_id: 123, head_repository_id: 123 } };
+  const artifact = { id: 9, name: 'nibfin-dispatch', expired: false, size_in_bytes: bytes.length, digest: `sha256:${createHash('sha256').update(bytes).digest('hex')}`, workflow_run: { id: 456, repository_id: 123, head_repository_id: 123 } };
   const run = { event: 'workflow_dispatch', status: 'completed', conclusion: 'success', run_attempt: 1, repository: { id: 123 }, head_repository: { id: 123 }, head_branch: 'main', head_sha: 'd'.repeat(40), path: b.workflowPath, actor: { id: 77 }, triggering_actor: { id: 77 } };
   const github = {
-    token: 'controller-secret', repository: async name => name === KAIRO_REPOSITORY ? { id: KAIRO_REPOSITORY_ID, owner: { id: 77, type: 'User' } } : ({ private: false, id: 123, owner: { id: 77, type: 'User' }, default_branch: 'main' }),
+    token: 'controller-secret', repository: async name => name === UPSTREAM_REPOSITORY ? { id: UPSTREAM_REPOSITORY_ID, owner: { id: 77, type: 'User' } } : ({ private: false, id: 123, owner: { id: 77, type: 'User' }, default_branch: 'main' }),
     api: async path => path.includes('/contents/') ? { sha: b.workflowBlob } : run,
     list: async path => path.endsWith('/jobs') ? [{ name: 'preflight', status: 'completed', conclusion: 'success', labels: ['ubuntu-latest'] }] : [artifact],
     fetch: async (url, options) => {
@@ -247,10 +247,10 @@ test('public watcher waits for a proven rate reset then completes the same autho
 });
 test('Core requires public binding plus independent grant and preserves the normal first stage', () => {
   const f = fixture(), b = descriptor();
-  f.policy.kairoOwnerGitHubUserId = '77';
+  f.policy.nibfinOwnerGitHubUserId = '77';
   f.policy.publicRunner = { rootId: 'a'.repeat(64), bindings: { 'example/one': b } };
   for (const i of Object.values(f.snapshot.issues)) if (i.repository === b.repository) { i.visibility = 'public'; i.runnerBinding = b; i.creatorGitHubUserId = '77'; }
-  f.snapshot.runtime.publicDispatch = { kind: 'public-runner-dispatch', kairoOwnerGitHubUserId: '77', rootId: f.policy.publicRunner.rootId };
+  f.snapshot.runtime.publicDispatch = { kind: 'public-runner-dispatch', nibfinOwnerGitHubUserId: '77', rootId: f.policy.publicRunner.rootId };
   f.snapshot.policyHash = f.snapshot.approval.policyHash = digest(f.policy);
   assert.equal(plan(f.manifest, f.policy, f.snapshot, NOW).operation, 'shape');
   delete f.snapshot.runtime.publicDispatch;
@@ -264,11 +264,11 @@ test('actual hosted caller script emits nothing without key and interoperates wi
   const workflow = await readFile('examples/workflows/public-caller.yml', 'utf8');
   const code = workflow.split("node <<'NODE'\n")[1].split('\n          NODE')[0].split('\n').map(line => line.slice(10)).join('\n');
   const script = join(dir, 'caller.cjs'); await writeFile(script, code);
-  const env = { ...process.env, KAIRO_RUNNER_KEY: '', GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_REPOSITORY: 'example/one', REPOSITORY_ID: '123', OWNER_ID: '77', ACTOR_ID: '77', GITHUB_RUN_ID: '456', GITHUB_RUN_ATTEMPT: '1', GITHUB_OUTPUT: join(dir, 'output') };
+  const env = { ...process.env, UPSTREAM_RUNNER_KEY: '', GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_REPOSITORY: 'example/one', REPOSITORY_ID: '123', OWNER_ID: '77', ACTOR_ID: '77', GITHUB_RUN_ID: '456', GITHUB_RUN_ATTEMPT: '1', GITHUB_OUTPUT: join(dir, 'output') };
   const output = execFileSync(process.execPath, [script], { cwd: dir, env, encoding: 'utf8' });
   assert.match(output, /no dispatch/);
   await assert.rejects(readFile(join(dir, 'dispatch.json')), { code: 'ENOENT' });
-  env.KAIRO_RUNNER_KEY = JSON.stringify(f.entry);
+  env.UPSTREAM_RUNNER_KEY = JSON.stringify(f.entry);
   const stdout = execFileSync(process.execPath, [script], { cwd: dir, env, encoding: 'utf8' });
   assert.equal(stdout, '');
   const text = await readFile(join(dir, 'dispatch.json'), 'utf8');
@@ -287,7 +287,7 @@ test('actual Issue caller signs only owner updates of owner-created Issues and n
   assert.ok(!workflow.includes('${{ github.event.issue.body }}'));
   const code = workflow.split("node <<'NODE'\n")[1].split('\n          NODE')[0].split('\n').map(line => line.slice(10)).join('\n');
   const script = join(dir, 'issue-caller.cjs'), eventPath = join(dir, 'event.json'); await writeFile(script, code);
-  const env = { ...process.env, KAIRO_RUNNER_KEY: JSON.stringify(f.entry), GITHUB_EVENT_NAME: 'issues', GITHUB_EVENT_PATH: eventPath, GITHUB_REPOSITORY: 'example/one', REPOSITORY_ID: '123', OWNER_ID: '77', ACTOR_ID: '77', GITHUB_RUN_ID: '456', GITHUB_RUN_ATTEMPT: '1', GITHUB_OUTPUT: join(dir, 'output') };
+  const env = { ...process.env, UPSTREAM_RUNNER_KEY: JSON.stringify(f.entry), GITHUB_EVENT_NAME: 'issues', GITHUB_EVENT_PATH: eventPath, GITHUB_REPOSITORY: 'example/one', REPOSITORY_ID: '123', OWNER_ID: '77', ACTOR_ID: '77', GITHUB_RUN_ID: '456', GITHUB_RUN_ATTEMPT: '1', GITHUB_OUTPUT: join(dir, 'output') };
   const event = { action: 'edited', repository: { id: 123, owner: { id: 77 } }, sender: { id: 77 }, issue: { number: 12, node_id: 'I_owner_issue', user: { id: 77 }, body: '$(arbitrary shell) `unsafe`' } };
   const run = async value => { await rm(join(dir, 'dispatch.json'), { force: true }); await writeFile(eventPath, JSON.stringify(value)); return execFileSync(process.execPath, [script], { cwd: dir, env, encoding: 'utf8', stdio: 'pipe' }); };
   await run(event);
@@ -304,7 +304,7 @@ test('actual Issue caller signs only owner updates of owner-created Issues and n
 
 test('enrollment pins the exact caller, rotates per-repository secrets and never exports the root', async t => {
   const f = await setup(t), template = await readFile('examples/workflows/public-caller.yml', 'utf8');
-  const gh = { repository: async name => name === KAIRO_REPOSITORY ? { id: KAIRO_REPOSITORY_ID, owner: { id: 77, type: 'User' } } : ({ private: false, id: 123, owner: { id: 77, type: 'User' }, default_branch: 'main', permissions: { admin: true } }), api: async path => path === '/user' ? { id: 77, type: 'User' } : { sha: 'b'.repeat(40), encoding: 'base64', content: Buffer.from(template).toString('base64') } };
+  const gh = { repository: async name => name === UPSTREAM_REPOSITORY ? { id: UPSTREAM_REPOSITORY_ID, owner: { id: 77, type: 'User' } } : ({ private: false, id: 123, owner: { id: 77, type: 'User' }, default_branch: 'main', permissions: { admin: true } }), api: async path => path === '/user' ? { id: 77, type: 'User' } : { sha: 'b'.repeat(40), encoding: 'base64', content: Buffer.from(template).toString('base64') } };
   const secretFile = join(f.config.stateDirectory, '..', 'secret');
   const result = await enrollBinding(f.config, gh, 'example/one', secretFile, template);
   assert.equal(result.executionAuthorized, false);

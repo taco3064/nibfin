@@ -167,7 +167,7 @@
     "src/workspace-sources.mjs",
     "src/role-session.mjs",
     "src/delivery-contract.mjs",
-    "docs/kairo-reuse.md",
+    "docs/nibfin-reuse.md",
     "src/rescue-agent.mjs",
     "src/rescue-ai.mjs",
     "src/rescue-completion.mjs",

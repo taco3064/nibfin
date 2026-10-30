@@ -11,7 +11,7 @@ import { unitId, projectUnit, summarizeDynamicCompletion } from '../src/dynamic.
 import { assertRevisionExecution, revisionDependency, revisionEventBoundary } from '../src/requirement-revision.mjs';
 import { verifyAssigneeRevision, attachAssigneeRevision, migrateAssigneeRequirements, assigneeRetirement, isAssigneeRetirement } from '../src/assignee-revision.mjs';
 import { assigneeFixture } from './assignee-revision-fixture.mjs';
-async function fixture(t) { const root = await mkdtemp(join(tmpdir(), 'kairo-assignee-')); t.after(() => rm(root, { recursive: true, force: true })); return assigneeFixture(root); }
+async function fixture(t) { const root = await mkdtemp(join(tmpdir(), 'nibfin-assignee-')); t.after(() => rm(root, { recursive: true, force: true })); return assigneeFixture(root); }
 
 test('two-subject retirement preserves all 74 projections and old six-subject cycles without changing original history', async t => {
   const f = await fixture(t), before = f.grant.manifest.issues.map(i => ({ id: i.id, unit: unitId(f.grant, i), projection: canonical(projectUnit(f.grant, i)) }));

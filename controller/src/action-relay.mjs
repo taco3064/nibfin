@@ -60,7 +60,7 @@ export async function relayActionEvent({ github, entry, policy, execution, state
   const receivedAt = Date.now();
   const verify = () => verifyActionEvent(github, entry, envelope, policy, receivedAt);
   const p = await (github.freshReadObservation ? github.freshReadObservation(verify) : verify());
-  if (execution.repository !== 'taco3064/kairo' || execution.workflowPath !== '.github/workflows/action-stage.yml' || execution.ref !== 'main')
+  if (execution.repository !== 'retired-private-source' || execution.workflowPath !== '.github/workflows/action-stage.yml' || execution.ref !== 'main')
     throw new Error('Relay target must be the fixed private Actions entrypoint');
   const issueRef=await eventIssueReference(github,p,resolveIssueReferences);
   const id = digest({ repositoryId: p.repositoryId, runId: p.runId, attempt: p.runAttempt });
@@ -76,7 +76,7 @@ export async function relayActionEvent({ github, entry, policy, execution, state
       verifiedEnvelope: structuredClone(envelope) }));
     console.error(JSON.stringify({kind:'action-event-received',id,repository:p.repository,sourceRunId:p.runId,receivedAt}));
     // An uncertain write is never automatically retried, even after restart.
-    await github.api('/repos/taco3064/kairo/actions/workflows/action-stage.yml/dispatches', 'POST', {
+    await github.api('/repos/retired-private-source/actions/workflows/action-stage.yml/dispatches', 'POST', {
       ref: 'main', inputs: { event_envelope: JSON.stringify(envelope),issue_ref:issueRef },
     });
     await store.transaction(state.revision, s => ({ ...s, accepted: true }));

@@ -64,7 +64,7 @@ export function recoveryComment(record, secrets = []) {
   // A public diagnostic is allowlisted structured metadata, never arbitrary
   // Agent transcripts or authenticated job output. Reject likely auth material.
   if (/-----BEGIN [A-Z ]*PRIVATE KEY-----|github_pat_[\w]+|gh[pousr]_[\w]{20,}|(?:authorization|bearer)\s*[: ]\s*\S{10,}/i.test(json)) fail('RECOVERY_PUBLIC_UNSAFE', 'Recovery record contains possible authentication material');
-  return '# Kairo deployment recovery\n\nDiagnostic evidence only; this comment does not authorize repair.\n\n```kairo-recovery\n' + json + '\n```\n';
+  return '# upstream deployment recovery\n\nDiagnostic evidence only; this comment does not authorize repair.\n\n```nibfin-recovery\n' + json + '\n```\n';
 }
 
 export async function verifyRecoverySource(github, issue, expected, policy) {
@@ -73,7 +73,7 @@ export async function verifyRecoverySource(github, issue, expected, policy) {
   const comment = await github.api(`${root}/issues/comments/${expected.commentId}`);
   if (!policy.writerIds.map(String).includes(String(comment.user?.id)) || digest(comment.body) !== expected.commentHash ||
       comment.issue_url !== `https://api.github.com${root}/issues/${issue.number}`) fail('RECOVERY_COMMENT_INVALID', 'Recovery comment actor, Issue or body changed');
-  const match = comment.body.match(/```kairo-recovery\n([\s\S]*?)\n```/);
+  const match = comment.body.match(/```nibfin-recovery\n([\s\S]*?)\n```/);
   if (!match) fail('RECOVERY_COMMENT_INVALID', 'Missing structured recovery evidence');
   const record = JSON.parse(match[1]);
   recoveryComment(record); // Same strict allowlist, lengths and URL binding.

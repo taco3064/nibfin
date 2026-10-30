@@ -24,7 +24,7 @@ function fixture(empty=false, firstHook={path:'pre',script:'#!/bin/sh\nexit 0\n'
     {path:'prepare',event:'prepare-commit-msg'},{path:'msg',event:'commit-msg'}];
   for(const item of hooks) writeFileSync(join(root,item.path),item.path===firstHook.path?firstHook.script:'#!/bin/sh\nexit 0\n');
   const scopeBody='Scope',shapeBody=['Candidate artifacts applicability: Retained ignored artifact.',
-    'Candidate hooks applicability: Explicit empty configuration when empty.','```kairo-candidate',
+    'Candidate hooks applicability: Explicit empty configuration when empty.','```nibfin-candidate',
     JSON.stringify({artifacts:[{path:'ignored',purpose:'required'}],hooks}),'```'].join('\n');
   const workspace=captureWorkspace({root,base,scopeBody,shapeBody,
     permittedPaths:['tracked','.gitignore','ignored',...hooks.map(v=>v.path)],binding:{repository:'owner/public',

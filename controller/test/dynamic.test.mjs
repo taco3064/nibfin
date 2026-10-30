@@ -10,7 +10,7 @@ import { coreDigest, signGrant, verifyGrant } from '../src/authority.mjs';
 import { digest } from '../src/core.mjs';
 import { Store } from '../src/store.mjs';
 import { fixture, SHA } from './fixtures.mjs';
-import { KAIRO_REPOSITORY, KAIRO_REPOSITORY_ID } from '../src/owner-identity.mjs';
+import { UPSTREAM_REPOSITORY, UPSTREAM_REPOSITORY_ID } from '../src/owner-identity.mjs';
 import { dispatchGrantIdentity } from '../src/dispatch.mjs';
 import { createRoot, readBindings, signDispatch } from '../src/runner-binding.mjs';
 
@@ -62,7 +62,7 @@ class FakeGitHub {
   }
 }
 async function setup(t) {
-  const root = await mkdtemp(join(tmpdir(), 'kairo-runtime-'));
+  const root = await mkdtemp(join(tmpdir(), 'nibfin-runtime-'));
   t.after(() => rm(root, { recursive: true }));
   const { publicKey, privateKey } = generateKeyPairSync('ed25519');
   const config = { runnerId: 'trusted-runner', stateDirectory: join(root, 'state'), publicKeyPath: join(root, 'owner.pem'), agent: { image: `example/codex@sha256:${'a'.repeat(64)}` }, grantSource: { repository: 'example/control', ref: 'main', path: 'grant.json' } };
@@ -80,7 +80,7 @@ async function setup(t) {
   let count = 0;
   const agent = { login: async () => {}, execute: async (stage, context) => {
     calls.push([stage, context.issue.id]);
-    return { executionId: `execution-${++count}`, result: { outcome: stage === 'shape' || stage === 'deliver' ? 'ready' : stage === 'accept' ? 'accepted' : 'approved', body: stage === 'shape' ? `Contract ${context.issue.id}\n` + '```kairo-candidate\n{"artifacts":[],"hooks":[]}\n```\n' : '', summary: 'Fixture evidence only', rootCause: '', evidenceReferences: ['fixture://observed'], blockingFindings: [] }, resultHash: 'result-hash', skill: { mode: 'default', hash: 'skill-hash', path: 'fixture' }, evidencePath: 'fixture://execution' };
+    return { executionId: `execution-${++count}`, result: { outcome: stage === 'shape' || stage === 'deliver' ? 'ready' : stage === 'accept' ? 'accepted' : 'approved', body: stage === 'shape' ? `Contract ${context.issue.id}\n` + '```nibfin-candidate\n{"artifacts":[],"hooks":[]}\n```\n' : '', summary: 'Fixture evidence only', rootCause: '', evidenceReferences: ['fixture://observed'], blockingFindings: [] }, resultHash: 'result-hash', skill: { mode: 'default', hash: 'skill-hash', path: 'fixture' }, evidencePath: 'fixture://execution' };
   } };
   const factory = (path, issue) => withRepairSnapshot({ work: path, prepare: async () => {}, provenance: async base => ({repository:issue.repository,base,tree:SHA('b'),entries:[]}), diff: async () => 'complete fixture diff', captureAttempt: async base => ({repository:issue.repository,base,tree:SHA('b'),diffHash:digest(issue.id),paths:['src/feature.mjs']}), capture: async base => ({ repository: issue.repository, base, tree: SHA('b'), diffHash: digest(issue.id), paths: ['src/feature.mjs'],obligations:{artifacts:[],hooks:[]},artifacts:[],hookSources:[] }), commit: async () => (manifest.issues.findIndex(i => i.id === issue.id) + 1).toString(16).repeat(40), push: async (commit,branch) => { gh.pendingHeads ||= {}; gh.pendingHeads[branch]=commit; } });
   return { runtime: new Runtime(config, process.cwd(), gh, agent, factory, {}), gh, calls, config, payload, publicKey, privateKey };
@@ -90,23 +90,23 @@ async function setup(t) {
 async function publicSetup(t) {
   const f = await setup(t), config = f.config;
   const directory = config.publicKeyPath.replace(/owner\.pem$/, '');
-  config.kairoOwnerGitHubUserId = '77';
-  f.payload.policy.kairoOwnerGitHubUserId = '77';
+  config.nibfinOwnerGitHubUserId = '77';
+  f.payload.policy.nibfinOwnerGitHubUserId = '77';
   f.payload.actorGitHubUserId = '77';
   config.publicRunner = { rootKeyPath: join(directory, 'runner-root'), registryPath: join(directory, 'bindings.json') };
   const { rootId } = await createRoot(config.publicRunner.rootKeyPath);
-  const bindings = Object.fromEntries(Object.keys(f.payload.policy.repositories).map((repository, n) => [repository, { repository, runnerId: config.runnerId, repositoryId: String(n + 100), ownerId: '77', bindingId: String(n + 1).repeat(32), workflowPath: '.github/workflows/kairo.yml', workflowBlob: SHA('e') }]));
+  const bindings = Object.fromEntries(Object.keys(f.payload.policy.repositories).map((repository, n) => [repository, { repository, runnerId: config.runnerId, repositoryId: String(n + 100), ownerId: '77', bindingId: String(n + 1).repeat(32), workflowPath: '.github/workflows/nibfin.yml', workflowBlob: SHA('e') }]));
   await writeFile(config.publicRunner.registryPath, JSON.stringify({ runnerId: config.runnerId, bindings: Object.values(bindings).map(binding => ({ binding, active: true })) }));
   f.payload.policy.publicRunner = { rootId, bindings };
   f.payload.policy.runtimeHash = runtimeConfigurationHash(config);
-  f.gh.repository = async repository => repository === KAIRO_REPOSITORY ? { id: KAIRO_REPOSITORY_ID, owner: { id: 77, type: 'User' } } : ({ private: false, visibility: 'public', id: Number(bindings[repository].repositoryId), owner: { id: 77, type: 'User' }, default_branch: 'main', permissions: { push: true } });
+  f.gh.repository = async repository => repository === UPSTREAM_REPOSITORY ? { id: UPSTREAM_REPOSITORY_ID, owner: { id: 77, type: 'User' } } : ({ private: false, visibility: 'public', id: Number(bindings[repository].repositoryId), owner: { id: 77, type: 'User' }, default_branch: 'main', permissions: { push: true } });
   for (const issue of Object.values(f.gh.issues)) issue.user = { id: 77, type: 'User' };
   f.gh.verifyRunner = async () => { throw new Error('Public repo must not register the credential-bearing runner'); };
   const api = f.gh.api.bind(f.gh), list = f.gh.list.bind(f.gh);
   f.gh.api = async (path, ...rest) => {
     if (path === '/users/owner') return { id: 77, type: 'User' };
     if (path.includes('/contents/')) return { sha: SHA('e') };
-    if (path.includes('/actions/runs/')) return { event: 'workflow_dispatch', status: 'completed', conclusion: 'success', run_attempt: 1, repository: { id: path.includes('/example/one/') ? 100 : 101 }, head_repository: { id: path.includes('/example/one/') ? 100 : 101 }, head_branch: 'main', head_sha: SHA('f'), path: '.github/workflows/kairo.yml', actor: { id: 77 }, triggering_actor: { id: 77 } };
+    if (path.includes('/actions/runs/')) return { event: 'workflow_dispatch', status: 'completed', conclusion: 'success', run_attempt: 1, repository: { id: path.includes('/example/one/') ? 100 : 101 }, head_repository: { id: path.includes('/example/one/') ? 100 : 101 }, head_branch: 'main', head_sha: SHA('f'), path: '.github/workflows/nibfin.yml', actor: { id: 77 }, triggering_actor: { id: 77 } };
     return api(path, ...rest);
   };
   f.gh.list = async path => path.endsWith('/jobs') ? [{ name: 'preflight', status: 'completed', conclusion: 'success', labels: ['ubuntu-latest'] }] : list(path);
@@ -123,7 +123,7 @@ async function dynamicSetup(t, edges = {}, publicMode = false) {
   f.payload.policy.maxParallel = 3;
   f.payload.policy.stateDirectory = f.config.stateDirectory;
   const repository = f.gh.repository.bind(f.gh);
-  f.gh.repository = async name => name === KAIRO_REPOSITORY ? repository(name) : ({...await repository(name),id:name === 'example/one' ? 100 : 101});
+  f.gh.repository = async name => name === UPSTREAM_REPOSITORY ? repository(name) : ({...await repository(name),id:name === 'example/one' ? 100 : 101});
   for(const i of f.payload.manifest.issues) {
     i.repositoryId = i.repository === 'example/one' ? '100' : '101';
     f.payload.policy.repositories[i.repository].repositoryId = i.repositoryId;

@@ -1,4 +1,4 @@
-// Bound session mechanism adapted from Kairo src/role-session.mjs at
+// Bound session mechanism adapted from upstream src/role-session.mjs at
 // d1b47d5e073cf15bdcdc1fbbec098401649878d9. Continuity is confined to one
 // independent execution/container. Final Review never resumes the Author's
 // identity. This owns session identity only, never retry permission or evidence.

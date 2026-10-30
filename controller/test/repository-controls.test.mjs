@@ -10,7 +10,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 test('owner dependency scheduling uses delivered labels without reconstructing upstream execution history',async t=>{
- const stateDirectory=await mkdtemp(join(tmpdir(),'kairo-controls-'));t.after(()=>rm(stateDirectory,{recursive:true,force:true}));
+ const stateDirectory=await mkdtemp(join(tmpdir(),'nibfin-controls-'));t.after(()=>rm(stateDirectory,{recursive:true,force:true}));
  const upstream={id:'B',number:2,repository:'owner/repo',repositoryId:'1'},downstream={id:'D',number:4,repository:'owner/repo',repositoryId:'1'};
  const grant={recordId:'own',manifest:{issues:[upstream,downstream]},policy:{controlMode:'owner-project',repositories:{'owner/repo':{}}}};
  let delivered=true;

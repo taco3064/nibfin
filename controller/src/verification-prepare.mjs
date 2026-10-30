@@ -35,14 +35,14 @@ export async function prepareNodeVerification({source='/work',scratch='/tmp',ins
  if(await realpath(scratch)!==scratch||!(await lstat(scratch)).isDirectory())throw Error('verification preparation: scratch alias');
  const original=await sourceFiles(source);
  if(!original.files.some(f=>f.path==='package.json')||!original.files.some(f=>f.path==='package-lock.json'))throw Error('verification preparation: locked npm project required');
- const directory=await mkdtemp(join(scratch,'kairo-node-verification-'));
+ const directory=await mkdtemp(join(scratch,'nibfin-node-verification-'));
  for(const file of original.files){const target=join(directory,file.path);await mkdir(resolve(target,'..'),{recursive:true});await writeFile(target,await readFile(join(source,file.path)),{flag:'wx',mode:file.mode});await chmod(target,file.mode);}
  await verifyFiles(directory,original.files);
  await install(directory);
  await verifyFiles(directory,original.files);
  const after=await sourceFiles(source);if(after.digest!==original.digest)throw Error('verification preparation: source changed during preparation');
  const receipt={schemaVersion:1,status:'prepared',directory,source,sourceDigest:original.digest,files:original.files.length,dependencyScripts:false,sourceUnchanged:true,evidenceBoundary:'Prepared writable test input only; no test, Acceptance or CI success is implied.'};
- await writeFile(join(directory,'.kairo-verification-preparation.json'),JSON.stringify(receipt,null,2)+'\n',{flag:'wx',mode:0o600});return receipt;
+ await writeFile(join(directory,'.nibfin-verification-preparation.json'),JSON.stringify(receipt,null,2)+'\n',{flag:'wx',mode:0o600});return receipt;
 }
 export async function main(args=process.argv.slice(2)) {
  if(args.length>2)throw Error('Usage: node /verification-prepare.mjs [source=/work] [scratch=/tmp]');

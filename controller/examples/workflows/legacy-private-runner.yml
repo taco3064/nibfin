@@ -1,11 +1,11 @@
-name: Kairo private runner
+name: upstream private runner
 on:
   workflow_call:
 permissions:
   contents: read
 jobs:
   preflight:
-    runs-on: [self-hosted, linux, kairo-private]
+    runs-on: [self-hosted, linux, nibfin-private]
     outputs:
       private: ${{ steps.visibility.outputs.private }}
     steps:
@@ -18,12 +18,12 @@ jobs:
   resume:
     needs: preflight
     if: needs.preflight.outputs.private == 'true'
-    runs-on: [self-hosted, linux, kairo-private]
+    runs-on: [self-hosted, linux, nibfin-private]
     concurrency:
-      group: kairo-private-${{ github.repository }}
+      group: nibfin-private-${{ github.repository }}
       cancel-in-progress: false
     steps:
       - name: Resume installed pinned Core
         # No caller checkout and no event-selected executable/configuration path.
         # Enrollment installs this exact launcher and its trusted config.
-        run: node /opt/kairo/core/bin/kairo.mjs watch /etc/kairo/runtime.json
+        run: node /opt/nibfin/core/bin/controller.mjs watch /etc/nibfin/runtime.json

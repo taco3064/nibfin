@@ -1,4 +1,4 @@
-// Outcome semantics adapted from Kairo PR54 rescue-result.mjs.
+// Outcome semantics adapted from upstream PR54 rescue-result.mjs.
 import {rescueNeed as need} from './rescue-policy.mjs';
 const gray=['STAGE_RECOVERED','DEFERRED','PENDING_VERIFICATION','SUPERSEDED','NOT_NEEDED'];
 export function rescueConclusion(outcome) {

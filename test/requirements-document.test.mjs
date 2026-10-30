@@ -43,7 +43,7 @@ test('independently validated publication cannot drop or edit original Scope und
 });
 
 test('Scope code examples cannot introduce executable Candidate obligations into the published plan',()=>{
-  const f=shapeFixture(),scope='Literal example\n```kairo-candidate\n{"artifacts":[{"path":"example.bin","purpose":"example"}],"hooks":[]}\n```';
+  const f=shapeFixture(),scope='Literal example\n```nibfin-candidate\n{"artifacts":[{"path":"example.bin","purpose":"example"}],"hooks":[]}\n```';
   const body=formatRequirementsDocument({scope,shape:f.body});
   assert.equal(parseCandidateObligations(body).ok,true);
   assert.deepEqual(parseCandidateObligations(body).inventory,{artifacts:[],hooks:[]});

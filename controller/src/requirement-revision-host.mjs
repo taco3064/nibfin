@@ -150,5 +150,5 @@ async function githubLocalContainers(agent){
   const {command}=await import('./process.mjs');
   const {dockerCommand}=await import('./docker-security.mjs');
   const {stdout}=await dockerCommand(agent,command)('docker',['ps','--format','{{.Names}}']);
-  return stdout.split('\n').filter(n=>/^kairo-[a-f0-9]{8}-/i.test(n));
+  return stdout.split('\n').filter(n=>/^nibfin-[a-f0-9]{8}-/i.test(n));
 }

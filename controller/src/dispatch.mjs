@@ -6,7 +6,7 @@ import { digest } from './core.mjs';
 import { Store } from './store.mjs';
 import { continueCohort, resumableWait, rateLimitedRead, waitForReadRetry } from './continuation.mjs';
 import { setTimeout } from 'node:timers/promises';
-import { verifyKairoOwner } from './owner-identity.mjs';
+import { verifyupstreamOwner } from './owner-identity.mjs';
 
 export const dispatchGrantIdentity = grant => digest({ policy: grant.policy, manifest: grant.manifest, recordId: grant.recordId ?? null, actor: grant.actor ?? null, actorGitHubUserId: grant.actorGitHubUserId ?? null });
 export const transientDispatchRead = error => rateLimitedRead(error) || error.requestMethod === 'GET' && ([429, 502, 503, 504].includes(error.status) || error.name === 'TimeoutError' || ['ECONNRESET', 'ETIMEDOUT', 'EAI_AGAIN', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_SOCKET'].includes(error.cause?.code));
@@ -61,7 +61,7 @@ export async function downloadDispatch(github, repository, artifact) {
 
 export async function verifyOrigin(github, entry, envelope, { allowExpired = false, now = Date.now() } = {}) {
   const p = verifyDispatch(envelope, entry, now, true);
-  const ownerId = await verifyKairoOwner(github, { kairoOwnerGitHubUserId: entry.kairoOwnerGitHubUserId });
+  const ownerId = await verifyupstreamOwner(github, { nibfinOwnerGitHubUserId: entry.nibfinOwnerGitHubUserId });
   const b = entry.binding, repository = await github.repository(b.repository);
   if (b.ownerId !== ownerId || repository.private || repository.owner?.type !== 'User' || String(repository.id) !== b.repositoryId || String(repository.owner?.id) !== ownerId) throw new Error('Public repository identity or owner changed');
   const run = await github.api(`${repoPath(b.repository)}/actions/runs/${p.runId}`);
@@ -114,9 +114,9 @@ export async function pollDispatch(runtime, { continuationOptions } = {}) {
             state = await store.transaction(state.revision, s => { delete s.pendingDispatches[repository]; return s; });
           }
         }
-        const artifacts = await runtime.github.list(`${repoPath(repository)}/actions/artifacts?name=kairo-dispatch`, 'artifacts');
+        const artifacts = await runtime.github.list(`${repoPath(repository)}/actions/artifacts?name=nibfin-dispatch`, 'artifacts');
         for (const artifact of artifacts) {
-          if (artifact.name !== 'kairo-dispatch' || artifact.expired) continue;
+          if (artifact.name !== 'nibfin-dispatch' || artifact.expired) continue;
           let envelope, p;
           try {
             envelope = await downloadDispatch(runtime.github, repository, artifact);

@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { Store } from '../src/store.mjs';
 
 test('durable decisions, deduplication and compare-and-swap across restarts', async t => {
-  const root = await mkdtemp(join(tmpdir(), 'kairo-'));
+  const root = await mkdtemp(join(tmpdir(), 'nibfin-'));
   t.after(() => rm(root, { recursive: true }));
   const store = new Store(root, 'cohort');
   await store.recordDecision(0, { decisionId: 'd1' });
@@ -17,7 +17,7 @@ test('durable decisions, deduplication and compare-and-swap across restarts', as
   assert.equal((await store.read()).events.length, 2);
 });
 test('one cohort lock across callers and crash lock is never stolen', async t => {
-  const root = await mkdtemp(join(tmpdir(), 'kairo-'));
+  const root = await mkdtemp(join(tmpdir(), 'nibfin-'));
   t.after(() => rm(root, { recursive: true }));
   const store = new Store(root, 'cohort');
   let release, entered;
@@ -31,7 +31,7 @@ test('one cohort lock across callers and crash lock is never stolen', async t =>
   await assert.rejects(store.recordDecision(1, { decisionId: 'late' }), { code: 'EEXIST' });
 });
 test('detect corrupt state and isolate cohort storage', async t => {
-  const root = await mkdtemp(join(tmpdir(), 'kairo-'));
+  const root = await mkdtemp(join(tmpdir(), 'nibfin-'));
   t.after(() => rm(root, { recursive: true }));
   const store = new Store(root, 'cohort');
   await store.recordDecision(0, { decisionId: 'd1' });
@@ -41,7 +41,7 @@ test('detect corrupt state and isolate cohort storage', async t => {
 });
 
 test('failed serialization preserves the caller revision so the original failure can be recorded', async t => {
-  const root = await mkdtemp(join(tmpdir(), 'kairo-'));
+  const root = await mkdtemp(join(tmpdir(), 'nibfin-'));
   t.after(() => rm(root, { recursive: true }));
   const store = new Store(root, 'cohort');
   const state = await store.read();

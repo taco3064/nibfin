@@ -8,7 +8,7 @@ export function fixture() {
     { id: 'I_B', repository: 'example/two', number: 1, scopeHash: 'scope-b', dependencies: ['I_A'] },
     { id: 'I_C', repository: 'example/one', number: 2, scopeHash: 'scope-c', dependencies: ['I_B'] },
   ] };
-  const repositoryGrant = { baseBranch: 'main', branchPrefix: 'kairo/', mergeMethod: 'squash', requiredChecks: ['test'], finalProofs: [] };
+  const repositoryGrant = { baseBranch: 'main', branchPrefix: 'nibfin/', mergeMethod: 'squash', requiredChecks: ['test'], finalProofs: [] };
   const policy = { schemaVersion: 1, grantId: 'grant-test', revision: 'policy-1', manifestHash: digest(manifest), validFrom: '2026-10-18T00:00:00Z', expiresAt: '2026-10-20T00:00:00Z', runnerId: 'trusted-runner', coreDigest: 'installed-core-digest', maxRepairs: 2, deniedPaths: ['.github/workflows', 'secrets'], operations: ['shape', 'validate-shape', 'publish-shape', 'deliver', 'accept', 'commit-pr', 'shaper-review', 'merge', 'close', 'mark-delivered', 'repair'], repositories: { 'example/one': structuredClone(repositoryGrant), 'example/two': structuredClone(repositoryGrant) } };
   const snapshot = { manifestHash: digest(manifest), policyHash: digest(policy), approval: { verified: true, recordId: 'fixture-only', actor: 'fixture-owner', revoked: false, manifestHash: digest(manifest), policyHash: digest(policy) }, runtime: { trusted: true, isolated: true, coreDigest: policy.coreDigest, runnerId: policy.runnerId, agent: 'codex-chatgpt', authenticated: true }, issues: Object.fromEntries(manifest.issues.map(i => [i.id, { ...structuredClone(i), visibility: 'private', bodyHash: i.scopeHash, labels: ['scope'], state: 'open', defaultHead: SHA('a'), repairs: 0, sameRootCauseFailures: 0 }])) };
   return { manifest, policy, snapshot };
@@ -19,7 +19,7 @@ export function envelope(f, id, stage, outcome, artifacts) {
 export function shape(f, id, published = true) {
   const live = f.snapshot.issues[id];
   const artifacts = { scopeHash: live.scopeHash, shapeHash: `shape-${id}` };
-  live.shape = { body: 'Contract\n```kairo-candidate\n{"artifacts":[],"hooks":[]}\n```\n', bodyHash: artifacts.shapeHash, author: envelope(f, id, 'shape', 'ready', artifacts), validator: envelope(f, id, 'shape-validator', 'approved', artifacts) };
+  live.shape = { body: 'Contract\n```nibfin-candidate\n{"artifacts":[],"hooks":[]}\n```\n', bodyHash: artifacts.shapeHash, author: envelope(f, id, 'shape', 'ready', artifacts), validator: envelope(f, id, 'shape-validator', 'approved', artifacts) };
   if (published) {
     live.bodyHash = artifacts.shapeHash;
     live.labels.push('shaped');
@@ -34,7 +34,7 @@ export function deliver(f, id, complete = false) {
   const artifacts = { candidateHash: digest(live.candidate), shapeHash: live.shape.bodyHash };
   live.delivery = envelope(f, id, 'deliver', 'ready', artifacts);
   live.accept = envelope(f, id, 'accept', 'accepted', { ...artifacts, preCommit: true });
-  live.pr = { id: `PR-${id}`, repository: live.repository, head: SHA('c'), tree: live.candidate.tree, base: live.candidate.base, baseBranch: 'main', branch: `kairo/${id}`, state: 'open', protectionSatisfied: true, mergePermission: true };
+  live.pr = { id: `PR-${id}`, repository: live.repository, head: SHA('c'), tree: live.candidate.tree, base: live.candidate.base, baseBranch: 'main', branch: `nibfin/${id}`, state: 'open', protectionSatisfied: true, mergePermission: true };
   live.protectionInspection = {source:'protection-apis',protected:true,strictBase:true};
   live.requiredChecks = ['test'];
   live.checks = [{ id: `check-${id}`, name: 'test', head: live.pr.head, status: 'completed', conclusion: 'success', trusted: true }];

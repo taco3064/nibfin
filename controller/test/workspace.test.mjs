@@ -10,7 +10,7 @@ import { preserveScopeImplementation } from '../src/issue-scope.mjs';
 import { digest } from '../src/core.mjs';
 
 test('failed capture preserves real source and ignored outputs without importing tooling symlinks', async t => {
-  const root=await mkdtemp(join(tmpdir(),'kairo-failed-capture-'));
+  const root=await mkdtemp(join(tmpdir(),'nibfin-failed-capture-'));
   t.after(()=>rm(root,{recursive:true,force:true}));
   const seed=join(root,'seed');await mkdir(seed);
   const git=async args=>(await command('git',args,{cwd:seed})).stdout.trim();
@@ -26,7 +26,7 @@ test('failed capture preserves real source and ignored outputs without importing
   await mkdir(join(source.work,'out'));await writeFile(join(source.work,'out/package.tgz'),'exact package bytes');
   const obligations={artifacts:[{path:'out/package.tgz',purpose:'package'},{path:'out/missing.txt',purpose:'required proof'}],hooks:[]};
   await assert.rejects(source.capture(base,true,obligations),/Symlinks/);
-  const shape='```kairo-candidate\n'+JSON.stringify(obligations)+'\n```';
+  const shape='```nibfin-candidate\n'+JSON.stringify(obligations)+'\n```';
   const old={issues:{I_1:{repairs:0,shape:{base,body:shape,bodyHash:digest(shape)},accept:{outcome:'accepted'}}}};
   const saved=await preserveScopeImplementation({config:{stateDirectory:root},workspaceFactory:()=>source},issue,'dynamic:'+'1'.repeat(64),old,null);
   const seedRecord={...saved,targetAttempt:1};
@@ -52,7 +52,7 @@ test('failed capture preserves real source and ignored outputs without importing
 });
 
 test('prepared delivery baseline rejects missing, malformed and symlinked controller markers',async t=>{
- const root=await mkdtemp(join(tmpdir(),'kairo-prepared-base-'));t.after(()=>rm(root,{recursive:true,force:true}));
+ const root=await mkdtemp(join(tmpdir(),'nibfin-prepared-base-'));t.after(()=>rm(root,{recursive:true,force:true}));
  const w=new Workspace(root,{repository:'example/one'}),path=join(root,'workspace-base.json');
  await assert.rejects(w.preparedBase(),{code:'ENOENT'});await writeFile(path,'{"base":"bad"}');await assert.rejects(w.preparedBase(),/Invalid prepared/);
  await rm(path);const other=join(root,'other.json');await writeFile(other,JSON.stringify({base:'a'.repeat(40)}));
@@ -60,7 +60,7 @@ test('prepared delivery baseline rejects missing, malformed and symlinked contro
 });
 
 test('real Git candidate includes additions/deletions, isolated metadata, deterministic commit and safe replay', async t => {
-  const root = await mkdtemp(join(tmpdir(), 'kairo-git-'));
+  const root = await mkdtemp(join(tmpdir(), 'nibfin-git-'));
   t.after(() => rm(root, { recursive: true }));
   const seed = join(root, 'seed'); await mkdir(seed);
   const git = async args => (await command('git', args, { cwd: seed })).stdout.trim();
@@ -88,7 +88,7 @@ test('real Git candidate includes additions/deletions, isolated metadata, determ
   const timestamp = '2026-10-19T00:00:00Z';
   const commit = await workspace.commit(candidate, timestamp);
   assert.equal(await workspace.commit(candidate, timestamp), commit);
-  await workspace.push(commit, 'kairo/test'); await workspace.push(commit, 'kairo/test');
+  await workspace.push(commit, 'nibfin/test'); await workspace.push(commit, 'nibfin/test');
   const branch=await git(['symbolic-ref','--short','HEAD']);
   const merged=await workspace.mergeCommit(candidate,commit,timestamp);
   const competing=await workspace.git(['commit-tree',candidate.tree,'-p',base],'Concurrent external change\n',{GIT_AUTHOR_NAME:'Fixture',GIT_AUTHOR_EMAIL:'fixture@example.test',GIT_COMMITTER_NAME:'Fixture',GIT_COMMITTER_EMAIL:'fixture@example.test'});
@@ -119,7 +119,7 @@ test('real Git candidate includes additions/deletions, isolated metadata, determ
 });
 
 test('queued clean workspace refreshes an advanced base without losing local candidates or repair identity', async t => {
-  const root = await mkdtemp(join(tmpdir(), 'kairo-base-refresh-'));
+  const root = await mkdtemp(join(tmpdir(), 'nibfin-base-refresh-'));
   t.after(() => rm(root, { recursive: true }));
   const seed = join(root, 'seed'); await mkdir(seed);
   const git = async args => (await command('git', args, {cwd:seed})).stdout.trim();

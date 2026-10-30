@@ -11,7 +11,7 @@ import { revisionFixture } from './requirement-revision-fixture.mjs';
 import { attachRequirementRevision,attachRevisionCoreRepair,migrateRequirements,assertRevisionExecution } from '../src/requirement-revision.mjs';
 
 async function fixture(t) {
-  const root=await mkdtemp(join(tmpdir(),'kairo-core-repair-'));t.after(()=>rm(root,{recursive:true,force:true}));
+  const root=await mkdtemp(join(tmpdir(),'nibfin-core-repair-'));t.after(()=>rm(root,{recursive:true,force:true}));
   const f=await revisionFixture(root);attachRequirementRevision(f.grant,f.record);await migrateRequirements(f.record,f.host);
   f.runtime.installedCoreDigest=digest('repaired-core');
   const payload={schemaVersion:1,kind:'owner-revision-core-repair',parentRecordId:f.grant.recordId,

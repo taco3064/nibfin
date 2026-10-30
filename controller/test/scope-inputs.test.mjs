@@ -35,7 +35,7 @@ test('legacy exact-Shape input remains unavailable before Shape and cannot cross
  assert.throws(()=>selectDeliveryInput(records,f.issue,digest('different Shape')));
 });
 test('Scope supplemental data retains exact bytes and binding in its read-only mount receipt',async t=>{
- const f=fixture(),root=await mkdtemp(join(tmpdir(),'kairo-scope-inputs-'));t.after(()=>rm(root,{recursive:true,force:true}));
+ const f=fixture(),root=await mkdtemp(join(tmpdir(),'nibfin-scope-inputs-'));t.after(()=>rm(root,{recursive:true,force:true}));
  const [record]=verifyDeliveryInputs([f.signed(f.payload)],f.grant,f.key);
  await mkdir(join(root,'delivery-input-blobs'));await writeFile(join(root,'delivery-input-blobs',record.files[0].sha256),f.bytes);
  const mounted=await materializeDeliveryInput(root,'execution',record);

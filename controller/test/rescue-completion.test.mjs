@@ -2,10 +2,10 @@ import test from'node:test';import assert from'node:assert/strict';import{mkdtem
 import{receiveRescueCompletion,processRescueCompletions,startRescueCompletions}from'../src/rescue-completion.mjs';
 import{queueActionRescues,rescueCaseStore}from'../src/rescue.mjs';import{wakeCase,pendingRescueWakeups,startRescueWakeups}from'../src/rescue-wakeup.mjs';import{Store}from'../src/store.mjs';import{unitId}from'../src/dynamic.mjs';import{digest}from'../src/core.mjs';
 const secret=Buffer.from('s'.repeat(64)),issue={id:'I_1',number:1,repository:'owner/app',repositoryId:'12',scopeHash:'scope',dependencies:[]};
-const grant={recordId:'grant',manifest:{id:'cohort',issues:[issue],proposalRevision:'p',freezeRevision:'f'},policy:{grantId:'grant',revision:'r',maxParallel:2,actionExecution:{repository:'taco3064/kairo',repositoryId:'9',workflowPath:'.github/workflows/action-stage.yml',workflowBlob:'b'.repeat(40),actorIds:['7']}}};
+const grant={recordId:'grant',manifest:{id:'cohort',issues:[issue],proposalRevision:'p',freezeRevision:'f'},policy:{grantId:'grant',revision:'r',maxParallel:2,actionExecution:{repository:'retired-private-source',repositoryId:'9',workflowPath:'.github/workflows/action-stage.yml',workflowBlob:'b'.repeat(40),actorIds:['7']}}};
 async function fixture(t,conclusion='failure'){
- const root=await mkdtemp(join(tmpdir(),'kairo-completion-'));t.after(()=>rm(root,{recursive:true,force:true}));
- const source={id:123,run_attempt:1,head_sha:'a'.repeat(40),head_branch:'main',repository:{id:9,full_name:'taco3064/kairo'},actor:{id:7},triggering_actor:{id:7},path:grant.policy.actionExecution.workflowPath,event:'workflow_dispatch',status:'completed',conclusion},posts=[],reads=[];
+ const root=await mkdtemp(join(tmpdir(),'nibfin-completion-'));t.after(()=>rm(root,{recursive:true,force:true}));
+ const source={id:123,run_attempt:1,head_sha:'a'.repeat(40),head_branch:'main',repository:{id:9,full_name:'retired-private-source'},actor:{id:7},triggering_actor:{id:7},path:grant.policy.actionExecution.workflowPath,event:'workflow_dispatch',status:'completed',conclusion},posts=[],reads=[];
  const runtime={root,config:{stateDirectory:root,agent:{}},actionIdentity:{runId:'123',runAttempt:1},coreUpgrade:{rescue:{}},grant:async()=>grant,actionExecutionPolicy:()=>grant.policy.actionExecution,rescueCommand:async()=>({stdout:''}),github:{api:async(path,method='GET',body)=>{if(method==='POST'){posts.push({path,body});return{workflow_run_id:456};}reads.push(path);return path.includes('/contents/')?{sha:grant.policy.actionExecution.workflowBlob}:source;},list:async()=>[{status:'completed'}]}};
  const event=()=>({action:'completed',repository:{...source.repository,private:true},workflow_run:structuredClone(source)});
  const receive=async(e=event(),headers={})=>{const bytes=Buffer.from(JSON.stringify(e));return receiveRescueCompletion(runtime,grant,secret,bytes,{'x-github-event':'workflow_run','x-hub-signature-256':'sha256='+createHmac('sha256',secret).update(bytes).digest('hex'),...headers});};
@@ -16,7 +16,7 @@ test('normal successful completion creates no inbox, provider read or Actions Ru
 });
 test('signature validation precedes JSON parsing and unrelated sources cannot trigger recovery',async t=>{
  const f=await fixture(t);await assert.rejects(f.receive(undefined,{'x-hub-signature-256':'sha256='+'0'.repeat(64)}),/signature/);
- for(const change of [{path:'.github/workflows/kairo-rescue.yml'},{event:'push'},{head_branch:'feature'},{status:'in_progress'}]){const e=f.event();Object.assign(e.workflow_run,change);assert.equal((await f.receive(e)).status,'IGNORED');}
+ for(const change of [{path:'.github/workflows/nibfin-rescue.yml'},{event:'push'},{head_branch:'feature'},{status:'in_progress'}]){const e=f.event();Object.assign(e.workflow_run,change);assert.equal((await f.receive(e)).status,'IGNORED');}
  const e=f.event();e.repository.private=false;assert.equal((await f.receive(e)).status,'IGNORED');assert.equal(f.posts.length,0);
 });
 test('a crash before Core case creation is durably dispatched once; duplicate deliveries and restart do not replay',async t=>{

@@ -1,5 +1,5 @@
-name: Kairo Rescue
-run-name: Kairo Rescue | ${{ inputs.issue_ref || format('Run {0}', inputs.source_run_id) }} | ${{ inputs.reason_code || 'Detect and recover' }}
+name: upstream Rescue
+run-name: upstream Rescue | ${{ inputs.issue_ref || format('Run {0}', inputs.source_run_id) }} | ${{ inputs.reason_code || 'Detect and recover' }}
 on:
   workflow_dispatch:
     inputs:
@@ -24,12 +24,12 @@ permissions:
   contents: read
   actions: write
 concurrency:
-  group: kairo-rescue-${{ inputs.request_id || inputs.source_run_id || github.event.workflow_run.id }}
+  group: nibfin-rescue-${{ inputs.request_id || inputs.source_run_id || github.event.workflow_run.id }}
   cancel-in-progress: false
 jobs:
   rescue:
     if: github.event.repository.private == true && github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, linux, kairo-actions]
+    runs-on: [self-hosted, linux, nibfin-actions]
     timeout-minutes: 10
     steps:
       - name: Detect, recover and verify
@@ -37,7 +37,7 @@ jobs:
         continue-on-error: true
         # Fixed installed Core only. Completion events recheck continuation results.
         # No checkout, source-selected command or runner waiting for development.
-        run: node /opt/kairo/core/bin/kairo.mjs rescue-run /etc/kairo/actions-runtime.json
+        run: node /opt/nibfin/core/bin/controller.mjs rescue-run /etc/nibfin/actions-runtime.json
       - name: Report ${{ steps.rescue.outputs.outcome || 'UNRESOLVED' }}
         if: always() && !cancelled()
         env:
@@ -53,7 +53,7 @@ jobs:
             if(conclusion==='success'&&process.env.RESCUE_STEP_OUTCOME==='success')return;
             if(conclusion!=='cancelled'||process.env.RESCUE_STEP_OUTCOME!=='success')throw Error('Unresolved: recovery was not verified');
             const repository=process.env.GITHUB_REPOSITORY,id=process.env.GITHUB_RUN_ID;
-            if(repository!=='taco3064/kairo'||!(/^[1-9]\d*$/).test(id))throw Error('Invalid reporting Run identity');
+            if(repository!=='retired-private-source'||!(/^[1-9]\d*$/).test(id))throw Error('Invalid reporting Run identity');
             const response=await fetch('https://api.github.com/repos/'+repository+'/actions/runs/'+id+'/cancel',{method:'POST',headers:{Authorization:'Bearer '+process.env.GH_TOKEN,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},signal:AbortSignal.timeout(30000)});
             if(response.status!==202)throw Error('Neutral reporting cancellation was not accepted: HTTP '+response.status);
             // Keep the job alive until GitHub applies its accepted cancellation.

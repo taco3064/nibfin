@@ -22,7 +22,7 @@ function fixture(inventory=empty) {
   for(const h of inventory.hooks) writeFileSync(join(root,h.path),'#!/bin/sh\nexit 99\n'+h.path);
   const scopeBody='Current Scope',shapeBody=['Candidate artifacts applicability: No other artifacts.',
     'Candidate hooks applicability: This fixture explicitly has no applicable hooks.',
-    '```kairo-candidate',JSON.stringify(inventory),'```'].join('\n');
+    '```nibfin-candidate',JSON.stringify(inventory),'```'].join('\n');
   const input={root,base,scopeBody,shapeBody,permittedPaths:['nested','tracked','deleted','mode','binary','.gitignore','untracked..file','ignored',...inventory.hooks.map(h=>h.path)],
     binding:{repository:'example/public',scopeHash:bodyDigest(scopeBody),shapeHash:bodyDigest(shapeBody),cycle:'cycle-1',policy:'a'.repeat(64)}};
   return {root,git,input,close:()=>rmSync(root,{recursive:true,force:true})};
@@ -154,7 +154,7 @@ test('inventory and boundaries reject unsafe, missing, unreadable and unsupporte
     {artifacts:[],hooks:[{path:'pre1',event:'commit-msg'},{path:'pre2',event:'pre-commit'}]},
     {artifacts:[],hooks:[{path:'pre1',event:'pre-commit'},{path:'pre1',event:'pre-commit'}]}]) {
     const f=fixture();try {
-      f.input.shapeBody='Candidate artifacts applicability: None.\nCandidate hooks applicability: None.\n```kairo-candidate\n'+JSON.stringify(inventory)+'\n```';
+      f.input.shapeBody='Candidate artifacts applicability: None.\nCandidate hooks applicability: None.\n```nibfin-candidate\n'+JSON.stringify(inventory)+'\n```';
       f.input.binding.shapeHash=bodyDigest(f.input.shapeBody);assert.throws(()=>captureWorkspace(f.input));
     } finally {f.close();}
   }

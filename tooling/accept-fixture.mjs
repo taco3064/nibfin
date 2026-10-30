@@ -43,7 +43,9 @@ export async function acceptFixture({empty=false,ownership='personal',child=fals
     if(c.args[2]==='info')return {outcome:'success',output:JSON.stringify({ServerVersion:'28.5.1',OSType:'linux',Architecture:'x86_64',CgroupVersion:'2',CgroupDriver:'systemd',MemoryLimit:true,PidsLimit:true,CpuCfsPeriod:true,CpuCfsQuota:true,SecurityOptions:['name=rootless','name=seccomp,profile=builtin']})};
     if(c.args[2]==='rm')return {outcome:'success'};
     const mount=c.args[c.args.indexOf('--mount')+1], job=mount.slice('type=bind,src='.length).split(',dst=')[0];
-    const args=c.args.slice(c.args.indexOf(image)+1).map(v=>v.replaceAll('/job/',job+'/'));
+    // Production containers each own /tmp. This local process double must give
+    // that scratch file the same per-job isolation under concurrent test files.
+    const args=c.args.slice(c.args.indexOf(image)+1).map(v=>v.replaceAll('/job/',job+'/').replaceAll('/tmp/staged-paths',job+'/staged-paths'));
     const r=spawnSync('/bin/sh',args,{cwd:join(job,'repo'),env:{PATH:'/usr/bin:/bin',HOME:'/nonexistent'}});
     return {outcome:r.status===0?'success':'nonzero'};
   }};

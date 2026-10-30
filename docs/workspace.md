@@ -64,6 +64,9 @@ be real directories without links. This path is never derived from a transfer
 or model output. The resulting transfer contains the same files, objects and
 protected expectation as a normal checkout; no Git configuration or credentials
 are imported into the independently materialized role workspace.
+The explicit base commit remains authoritative when the source has an unborn
+HEAD. Its symbolic reference is observed for drift without creating a branch or
+changing the source index.
 
 Supported paths use ASCII letters, digits, underscore, dot and hyphen components.
 Names such as `untracked..file` are unambiguous. Spaces, control characters,

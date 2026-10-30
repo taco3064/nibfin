@@ -231,6 +231,15 @@ export function captureWorkspace(input) {
   if(!baseTree) fail('commit');
   load(baseTree,'tree');
   const baseFiles=flatten(baseTree,objects,permittedPaths,'',new Set(),0,l.entries);
+  const observedHead=()=>{
+    try{return run(['rev-parse','--verify','--quiet','HEAD']).toString();}
+    catch(error){
+      if(error.status!==1||error.stdout?.length||error.stderr?.length)throw error;
+      const ref=run(['symbolic-ref','-q','HEAD']).toString().trim();
+      if(!ref.startsWith('refs/heads/')||/[\x00-\x20\x7f]/.test(ref))fail('head');
+      return 'unborn:'+ref;
+    }
+  };
   const state=()=>{
     const index=run(['ls-files','--stage','-z']);
     for(const record of records(index)) {
@@ -240,7 +249,7 @@ export function captureWorkspace(input) {
     }
     const names=records(run(['ls-files','--cached','--others','--exclude-standard','-z']));
     if(names.length>l.entries) fail('entry-limit');
-    return {head:run(['rev-parse','HEAD']).toString(),index:index.toString('base64'),names};
+    return {head:observedHead(),index:index.toString('base64'),names};
   };
   const first=state();
   const observe=()=>{

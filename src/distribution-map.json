@@ -880,7 +880,7 @@
     },
     {
       "path": "src/workflow-install.mjs",
-      "sha256": "7c417aafb72cc9f3750b1a7db32e0ad77a90474f90da9fb6007ecb99adceab48"
+      "sha256": "4cbbf2f8707fdc17fc94f6ef518c056f4356ccaa45fc24fc38fa8f6fc69a7baa"
     },
     {
       "path": "src/workflow.mjs",

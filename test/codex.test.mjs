@@ -3,12 +3,29 @@ import {execFileSync} from 'node:child_process';
 import assert from 'node:assert/strict';
 import {existsSync, readFileSync, writeFileSync, symlinkSync, linkSync, rmSync, mkdirSync, renameSync, chmodSync} from 'node:fs';
 import {createServer} from 'node:net';
+import {stageCodexCredentials} from '../src/codex-credentials.mjs';
 import {join} from 'node:path';
 import {createLinuxCodexBackend, createAgentLifecycle, codexProcess, linuxCodexProfile, linuxCodexProfiles} from '@nibfin/core';
 import {codexFixture} from '../tooling/codex-fixture.mjs';
 const roles=['shape','shape-validator','shape-diagnosis','shaper-review','deliver','accept'];
 const id=f=>f.input.execution.id;
 const operations=f=>f.calls.map(c=>c.args[2]);
+
+test('refreshed credentials are published after termination and filtered before model evidence is accepted',async()=>fixture(async f=>{
+  const fresh=()=> 'fixture.'+Buffer.from(JSON.stringify({exp:Math.floor(Date.now()/1000)+86400})).toString('base64url')+'.fixture';
+  const auth=join(f.environment.loginSpace,'auth.json');
+  writeFileSync(auth,JSON.stringify({auth_mode:'chatgpt',tokens:{account_id:'fixture-member',access_token:fresh(),refresh_token:'OLD-REFRESH',id_token:'LOGIN-SENTINEL'}}));
+  f.flags.mutate=v=>{v.result.summary='NEW-REFRESH-SENTINEL';};
+  assert.equal((await f.life.start(f.input)).start.status,'started');
+  const create=f.calls.find(c=>c.args[2]==='create'&&c.args.at(-1)==='execute');
+  const mounts=create.args.flatMap((v,i)=>v==='--mount'?[create.args[i+1]]:[]);
+  const path=destination=>mounts.find(m=>m.includes('dst='+destination+',')).match(/src=([^,]+)/)[1];
+  const target=join(f.root,'new-auth.json'),next={auth_mode:'chatgpt',tokens:{account_id:'fixture-member',access_token:fresh(),refresh_token:'NEW-REFRESH-SENTINEL',id_token:'NEW-ID-SENTINEL'}};
+  writeFileSync(target,JSON.stringify(next));stageCodexCredentials(readFileSync(path('/auth/auth.json')),{target,output:path('/credential-update')});
+  const result=await f.collect();assert.equal(result.result.status,'invalid');assert.doesNotMatch(JSON.stringify(result),/NEW-REFRESH-SENTINEL|NEW-ID-SENTINEL/);
+  assert.equal(JSON.parse(readFileSync(auth)).tokens.refresh_token,'NEW-REFRESH-SENTINEL');
+  await f.life.termination(id(f));assert.equal((await f.life.cleanup()).status,'completed');
+}));
 async function fixture(fn,role,custom) {const f=codexFixture(role,custom);try {await fn(f);}finally {await f.dispose();}}
 async function finish(f) {
   const collected=await f.collect();assert.equal(collected.result.status,'valid');

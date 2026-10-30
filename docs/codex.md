@@ -26,11 +26,18 @@ part of the retained credential-free fixture. The profile requires:
   with Core-exclusive host management while executing. The root and its
   descendants cannot be mountpoints; use a subdirectory of the host filesystem.
   Workspaces must be disposable copies, never Core home or signing/provider data.
-- The selected member's existing file-based ChatGPT `auth.json` login. Core never
-  logs in, refreshes on the member's behalf, copies login into the workspace, or
-  substitutes GitHub/API credentials. A read-only auth file supports existing
-  sessions; expired sessions requiring persistence must be renewed by the member
-  outside execution. Agent login grants no GitHub or delivery authority.
+- The selected member's file-based ChatGPT `auth.json` login. A private snapshot
+  is mounted read-only at `/auth/auth.json`; the fixed entry copies it into the
+  container's writable `CODEX_HOME`. The official CLI owns normal token refresh.
+  After container termination, Core validates the same member, source digest and
+  refreshed credential before atomically saving it. The host home, keychain and
+  configuration directories are never mounted. Agent login grants no GitHub or
+  delivery authority.
+- Fresh logins permit parallel roles. A login that can expire within the execution
+  deadline plus two minutes uses one kernel lease for its refresh owner. Unknown
+  outcomes preserve `codex-credential-intent.json` and the private candidate instead
+  of replaying a possibly spent refresh token. A credential already spent before
+  this mechanism was installed still needs member reauthentication.
 
 Example trusted construction (image and task are supplied by Core):
 

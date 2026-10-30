@@ -360,7 +360,7 @@
     },
     {
       "path": "docs/workspace.md",
-      "sha256": "b8ce452da01252ba570e8fa2a1f244e4be91c493bc7f1b4257716eb088887583"
+      "sha256": "0eed8ea5c8c6e83e82a295b1bafcdd68f36247832315816690537b5893f62250"
     },
     {
       "path": "docs/wsl.md",
@@ -868,7 +868,7 @@
     },
     {
       "path": "src/workspace.mjs",
-      "sha256": "0ab3ca9496adda0058810237d1b35d59a357cb21ef7b74427387ab0fe35bd4fc"
+      "sha256": "9fe344ef53c9330ea77944f573e3f8a4e3d4356d7546b66efdd488769b19dcca"
     },
     {
       "path": "src/wsl-guest.mjs",

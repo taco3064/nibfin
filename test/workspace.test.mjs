@@ -42,6 +42,11 @@ test('explicit external Git metadata captures retained work without moving files
   const capture=captureWorkspace({...f.input,gitDirectory});
   assert.deepEqual(capture.expected,original.expected);assert.deepEqual(exportWorkspace(capture),exportWorkspace(original));
   assert.deepEqual(readFileSync(join(gitDirectory,'index')),index);assert.equal(existsSync(join(f.root,'.git')),false);
+  // Retained separate repositories may have fetched an explicit base and index
+  // without ever creating HEAD. Capture must observe that state, never repair it.
+  const head='ref: refs/heads/unborn\n';writeFileSync(join(gitDirectory,'HEAD'),head);
+  const unborn=captureWorkspace({...f.input,gitDirectory});assert.deepEqual(exportWorkspace(unborn),exportWorkspace(original));
+  assert.equal(readFileSync(join(gitDirectory,'HEAD'),'utf8'),head);assert.deepEqual(readFileSync(join(gitDirectory,'index')),index);
   symlinkSync(gitDirectory,join(parent,'alias'));
   assert.throws(()=>captureWorkspace({...f.input,gitDirectory:join(parent,'alias')}),/git-directory/);
   assert.throws(()=>captureWorkspace({...f.input,gitDirectory:'relative'}),/git-directory/);

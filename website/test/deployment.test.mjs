@@ -1,4 +1,3 @@
-import{workflowInstallation}from'../../src/workflow-install.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
@@ -117,15 +116,25 @@ test('configuration CLI consumes Fetch responses and rejects denied reads or sta
 });
 
 const packagedEntries=['ci.yml','core-release.yml','nibfin-delivery.yml','nibfin-registration.yml'];
+const input=name=>'${{ inputs.'+name+' }}';
+const selectorNames=['nibfin_request','nibfin_correlation','nibfin_issue','nibfin_stage','nibfin_member'];
 function checkEntryInventory(names,read){
  assert.deepEqual(names.filter(n=>n!=='nibfin-stage.yml').sort(),packagedEntries);
  if(names.includes('nibfin-stage.yml')){
-  const pool={version:2,id:'member-default',capacity:2,targets:[{version:1,repository:'example/project',repositoryId:'42',ownerId:'7',ownerType:'User'}]};
-  const plan=workflowInstallation({commit:'a'.repeat(40),hostCommit:'a'.repeat(40),hostRepository:'taco3064/nibfin',executionPool:pool,repository:'example/project'});
-  assert.equal(read('nibfin-stage.yml'),plan.files.get('.github/workflows/nibfin-stage.yml'));
+  const entry=parse(read('nibfin-stage.yml'));
+  assert.deepEqual(Object.keys(entry.on),['workflow_dispatch']);assert.deepEqual(entry.permissions,{});
+  assert.deepEqual(Object.keys(entry.on.workflow_dispatch.inputs).sort(),[...selectorNames].sort());
+  for(const field of Object.values(entry.on.workflow_dispatch.inputs))assert.deepEqual(field,{type:'string',required:true});
+  assert.deepEqual(Object.keys(entry.jobs),['stage']);const stage=entry.jobs.stage;
+  assert.equal(stage.name,'stage / execute');assert.deepEqual(stage.permissions,{});
+  assert.deepEqual(stage['runs-on'],['self-hosted','linux','x64','nibfin-user-'+input('nibfin_member'),'nibfin-request-'+input('nibfin_request')]);
+  assert.equal(stage.uses,undefined);assert.equal(stage.steps.length,1);assert.equal(stage.steps[0].shell,'bash');
+  assert.equal(stage.steps[0].uses,undefined);
+  assert.equal(stage.steps[0].run,'/usr/local/bin/node "$HOME/.local/share/nibfin/control/runtime/client/native-stage-main.mjs"');
  }
 }
-test('four package entries and the optional exact installed native stage retain their separate purposes',()=>{
+
+test('four package entries and the optional installed dispatch stage retain their separate purposes',()=>{
   checkEntryInventory(readdirSync('../.github/workflows').filter(n=>n.endsWith('.yml')),name=>readFileSync('../.github/workflows/'+name,'utf8'));
   for(const name of ['nibfin-delivery','nibfin-registration']) {
     const entry=parse(readFileSync('../.github/workflows/'+name+'.yml','utf8'));
@@ -135,10 +144,10 @@ test('four package entries and the optional exact installed native stage retain 
   for(const [name,job] of Object.entries(workflow.jobs))if(name!=='deploy')assert.equal(job.permissions,undefined);
 });
 
-test('installed native stage inventory rejects unknown workflows and altered stage source',()=>{
- const pool={version:2,id:'member-default',capacity:2,targets:[{version:1,repository:'example/project',repositoryId:'42',ownerId:'7',ownerType:'User'}]},
-  source=workflowInstallation({commit:'a'.repeat(40),hostCommit:'a'.repeat(40),hostRepository:'taco3064/nibfin',executionPool:pool,repository:'example/project'}).files.get('.github/workflows/nibfin-stage.yml');
- checkEntryInventory([...packagedEntries,'nibfin-stage.yml'],()=>source);
- assert.throws(()=>checkEntryInventory([...packagedEntries,'extra-ci.yml'],()=>source));
- assert.throws(()=>checkEntryInventory([...packagedEntries,'nibfin-stage.yml'],()=>source+'# altered source\n'));
+test('installed stage remains a dispatch-only private entry and unknown workflows reject',()=>{
+ const entry={on:{workflow_dispatch:{inputs:Object.fromEntries(selectorNames.map(name=>[name,{type:'string',required:true}]))}},permissions:{},jobs:{stage:{name:'stage / execute',permissions:{},'runs-on':['self-hosted','linux','x64','nibfin-user-'+input('nibfin_member'),'nibfin-request-'+input('nibfin_request')],steps:[{shell:'bash',run:'/usr/local/bin/node "$HOME/.local/share/nibfin/control/runtime/client/native-stage-main.mjs"'}]}}};
+ const read=()=>JSON.stringify(entry);checkEntryInventory([...packagedEntries,'nibfin-stage.yml'],read);
+ assert.throws(()=>checkEntryInventory([...packagedEntries,'extra-ci.yml'],read));
+ entry.on.push={};assert.throws(()=>checkEntryInventory([...packagedEntries,'nibfin-stage.yml'],read));delete entry.on.push;
+ entry.jobs.stage.steps[0].run='unexpected';assert.throws(()=>checkEntryInventory([...packagedEntries,'nibfin-stage.yml'],read));
 });

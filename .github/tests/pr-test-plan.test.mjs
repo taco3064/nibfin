@@ -142,3 +142,13 @@ test('planner CLI emits fixed boolean job outputs consumed by the workflow',t=>{
     env:{...process.env,GITHUB_EVENT_NAME:'push',GITHUB_OUTPUT:output,NIBFIN_CI_PLAN:join(dir,'plan.json')},stdio:'pipe'});
   assert.deepEqual(readFileSync(output,'utf8').trim().split('\n').sort(),['archive=true','controller=true','core=true','sdk=true','website=true']);
 });
+
+test('generated distribution metadata retains consumer tests without forcing unrelated website runners',()=>{
+ const files=fixture();files.set('src/distribution.mjs','export const distributionIdentity = () => {};');
+ files.set('test/installation.test.mjs',"import {distributionIdentity} from '../src/distribution.mjs';");
+ const scoped=plan(['src/other.mjs','src/distribution-map.json'],files);
+ assert.equal(scoped.mode,'scoped');assert(scoped.tests.includes('test/installation.test.mjs'));
+ assert.deepEqual(selectJobs(scoped),{core:true,website:false,controller:false});
+ const workflow=readFileSync(new URL('../workflows/ci.yml',import.meta.url),'utf8');
+ assert(workflow.indexOf('run: node tooling/distribution-map.mjs')<workflow.indexOf('id: plan'));
+});

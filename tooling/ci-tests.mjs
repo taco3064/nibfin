@@ -50,6 +50,10 @@ export function selectTests({files, changed, event = 'pull_request'}) {
   const affected = new Set(changed);
   let website = changed.some(path => path.startsWith('website/') || path.startsWith('docs/') || path === 'README.md');
   for (const path of changed) {
+    // The required classifier verifies the complete generated map against exact
+    // checkout bytes before publishing any job outputs. Its JSON is metadata,
+    // while distribution consumers still run when the map changes.
+    if (path === 'src/distribution-map.json') { affected.add('src/distribution.mjs'); continue; }
     if (path.startsWith('website/')) continue;
     if (suite(path) && files.has(path)) continue;
     if (path === 'src/archive.mjs' || path === 'src/release.mjs') return full('Package/release boundary changed: ' + path);

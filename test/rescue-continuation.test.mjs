@@ -68,6 +68,18 @@ test('an interrupted Codex CLI preserves only a unique observed conversation wit
   const absent=executeCodex(request,[],()=>({status:1,stdout:partial.replace(id,'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb')}),{sessionDirectory:root});
   assert.equal(absent.session,undefined);
 });
+
+test('Shape diagnosis conversations can be retained without granting delivery rescue eligibility',t=>{
+  const root=mkdtempSync(join(tmpdir(),'nibfin-diagnosis-session-'));t.after(()=>rmSync(root,{recursive:true,force:true}));
+  const f=rescueFixture(),session=f.target.session;
+  writeFileSync(join(root,'rollout-'+session+'.jsonl'),'private diagnosis conversation\n');
+  const expected={memberId:'7',role:'shape-diagnosis',session,execution:'diagnosis-original',adapter:'codex'};
+  const snapshot=captureRescueSession({directory:root,...expected});
+  const destination=join(root,'restore');mkdirSync(destination,{mode:0o700});
+  restoreRescueSession({snapshot,directory:destination,expected});
+  assert.equal(readFileSync(join(destination,'rollout-'+session+'.jsonl'),'utf8'),'private diagnosis conversation\n');
+  assert.throws(()=>restoreRescueSession({snapshot,directory:destination,expected:{...expected,role:'deliver'}}));
+});
 test('Shape continuation preserves the existing read-only role boundary before a published Shape/Candidate exists',async()=>{
   const f=rescueFixture(),target={...f.target,role:'shape',shapeHash:null,candidate:null};
   let access='read-only';const next=createRescueContinuation({load:async()=>({status:'UNACCEPTED',target,terminated:true,workspace:f.flags.workspace,session:target.session,memberId:'7'}),

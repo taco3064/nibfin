@@ -218,3 +218,11 @@ test('actual Hook preflight rejects missing seccomp/cgroup resource enforcement 
   const f=fixture();try{f.setDaemon(change);const result=await f.runner.execute(f.input);assert.equal(result.ok,false);assert.equal(f.commands.some(c=>c.args[2]==='run'),false);}finally{f.close();}
  }
 });
+
+
+test('native hooks select only reviewed Docker tuples and preserve the existing default profile',()=>{
+ const image='sha256:'+'1'.repeat(64),socket='/run/user/1000/docker.sock';
+ assert.equal(createHookRunner({image,socket}).profile.docker,'28.5.1');
+ assert.equal(createHookRunner({image,socket,runtimeProfile:'linux-amd64-codex-node22-docker29-v1'}).profile.docker,'29.9.1');
+ assert.throws(()=>createHookRunner({image,socket,runtimeProfile:'arbitrary-new-version'}),/profile/);
+});

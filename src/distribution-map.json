@@ -633,7 +633,7 @@
     },
     {
       "path": "src/hooks.mjs",
-      "sha256": "449d3752527b9723ae703d52d523c4a6ceb6de482487a8a2bdf7380566d2ce09"
+      "sha256": "ca634d8e9f76ff8593ed6fb83f0707698e830d9f9b218e1280d95cf4fba3fece"
     },
     {
       "path": "src/host-identity.mjs",

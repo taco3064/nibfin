@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { readdirSync, readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -113,4 +113,14 @@ test('configuration CLI consumes Fetch responses and rejects denied reads or sta
       assert.throws(() => readFileSync(receipt));
     }
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('four maintained entries retain reusable onboarding and delivery interfaces',()=>{
+  assert.deepEqual(readdirSync('../.github/workflows').filter(n=>n.endsWith('.yml')).sort(),['ci.yml','core-release.yml','nibfin-delivery.yml','nibfin-registration.yml']);
+  for(const name of ['nibfin-delivery','nibfin-registration']) {
+    const entry=parse(readFileSync('../.github/workflows/'+name+'.yml','utf8'));
+    assert.deepEqual(Object.keys(entry.on),['workflow_call']);
+  }
+  assert.equal(workflow.jobs['owner-pr'].steps[0].name,'Require repository owner as PR author');
+  for(const [name,job] of Object.entries(workflow.jobs))if(name!=='deploy')assert.equal(job.permissions,undefined);
 });

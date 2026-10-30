@@ -134,3 +134,11 @@ test('job allocation skips unrelated runners and retains all gates for shared or
     assert.deepEqual(selectJobs(plan(changed)),{core:true,website:true,controller:true});
   assert.deepEqual(selectJobs(plan(['website/x'],fixture(),'push')),{core:true,website:true,controller:true});
 });
+
+test('planner CLI emits fixed boolean job outputs consumed by the workflow',t=>{
+  const dir=mkdtempSync(join(tmpdir(),'nibfin-ci-outputs-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));
+  const output=join(dir,'outputs');
+  execFileSync(process.execPath,[fileURLToPath(new URL('../../tooling/ci-tests.mjs',import.meta.url)),'plan'],{
+    env:{...process.env,GITHUB_EVENT_NAME:'push',GITHUB_OUTPUT:output,NIBFIN_CI_PLAN:join(dir,'plan.json')},stdio:'pipe'});
+  assert.deepEqual(readFileSync(output,'utf8').trim().split('\n').sort(),['archive=true','controller=true','core=true','sdk=true','website=true']);
+});

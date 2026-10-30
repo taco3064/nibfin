@@ -18,6 +18,7 @@ function fixture(capacity=2){
  const provider=core.createGithubProvider({attempts:1,authorize:r=>r.operation==='runner-pool'&&['POST','DELETE'].includes(r.method),transport:async r=>{
   calls.push(r);const match=r.endpoint.match(/project-([0-9]+)/),id='request-'+match[1];
   if(r.method==='POST'){
+   if(flags.httpDenied)return{status:403,body:JSON.stringify({message:'PRIVATE-PROVIDER-DETAIL'})};
    if(flags.unknown)throw Error('lost response after unknown effect');const body=JSON.parse(r.body),runner={id:String(1000+Number(match[1])),name:body.name,ephemeral:true,busy:false};
    runners.set(id,runner);return{status:201,body:JSON.stringify({runner,encoded_jit_config:Buffer.from('JIT-SECRET-FIXTURE').toString('base64')})};
   }
@@ -49,6 +50,15 @@ test('unknown JIT writes retain capacity, notify diagnosis and cannot be replaye
  assert.equal((await f.make().advance('request-0')).notification,'retained');assert.equal(f.calls.filter(r=>r.method==='POST').length,1);
  assert.equal(Object.keys(f.allocation().leases).length,1);assert.equal(f.flags.starts,undefined);assert.equal(f.blocks.length,2);
 });
+test('blocked notifications preserve the attributable HTTP cause without raw provider details or a false AI verdict',async()=>{
+ const f=fixture();f.flags.httpDenied=true;
+ const result=await f.make().advance('request-0');assert.equal(result.status,'unresolved');assert.equal(result.notification,'retained');
+ assert.equal(f.blocks[0].diagnostic,'runner-pool-host:registration-unconfirmed');
+ assert.equal(f.blocks[0].provider.diagnostic.status,403);assert.equal(f.blocks[0].provider.diagnostic.kind,'denied');
+ assert.ok(!JSON.stringify(f.blocks).includes('PRIVATE-PROVIDER-DETAIL'));assert.equal(f.flags.starts,undefined);
+ assert.equal(Object.keys(f.allocation().leases).length,1);assert.equal(result.diagnosis,undefined);
+});
+
 test('lost launch acknowledgement adopts the actual running process instead of launching a duplicate',async()=>{
  const f=fixture();f.flags.startUnknown=true;assert.equal((await f.make().advance('request-0')).status,'unresolved');
  assert.equal(f.jobs.get('request-0').phase,'launch-intent');assert.equal((await f.make().advance('request-0')).status,'running');

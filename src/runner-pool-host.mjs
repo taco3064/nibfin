@@ -3,6 +3,7 @@ import {contentIdentity} from './evidence.mjs';
 import {canonicalJSON} from './canonical.mjs';
 import {githubId,memberRunnerLabel} from './identity.mjs';
 import {validDisplayStage} from './action-display.mjs';
+import {publicDiagnostic} from './provider.mjs';
 const need=(ok,code)=>{if(!ok)throw Error('runner-pool-host:'+code);};
 const hash=v=>typeof v==='string'&&/^[a-f0-9]{64}$/.test(v);
 const same=(a,b)=>canonicalJSON(a)===canonicalJSON(b);
@@ -38,7 +39,7 @@ export function createRunnerPoolHost({configuration,memberId,capacity,records,so
  return Object.freeze({async advance(id,{signal}={}){
   need(typeof id==='string'&&/^[A-Za-z0-9_-]{1,80}$/.test(id),'selector');
   if(busy.has(id))return {status:'waiting',reason:'request-active'};busy.add(id);
-  let record;
+  let record,providerFailure;
   try{
    const approved=await source.inspect(id,{signal});
    need(approved?.authorized===true&&hash(approved.identity)&&approved.memberId===memberId&&validDisplayStage(approved.stage)
@@ -60,8 +61,12 @@ export function createRunnerPoolHost({configuration,memberId,capacity,records,so
     const prepared=await runtime.prepare(record,{signal});need(hash(prepared?.identity),'preparation');
     record=await save(record,{phase:'prepared',prepared:prepared.identity});
    }
-   const api=async(method,endpoint,body)=>provider.request({method,endpoint,target:request.repositoryId,
-    operation:'runner-pool',correlation:id,signal,...(body===undefined?{}:{body})});
+   const api=async(method,endpoint,body)=>{
+    const response=await provider.request({method,endpoint,target:request.repositoryId,
+     operation:'runner-pool',correlation:id,signal,...(body===undefined?{}:{body})});
+    if(['failed','unknown','incomplete'].includes(response.outcome))providerFailure=publicDiagnostic(response);
+    return response;
+   };
    const root='/repos/'+request.repository;
    if(record.phase==='prepared'){
     await fresh();record=await save(record,{phase:'registration-intent'});
@@ -113,9 +118,12 @@ export function createRunnerPoolHost({configuration,memberId,capacity,records,so
    }
    // A crash during preparation/registration never becomes permission to replay.
    need(false,'original-intent-reconciliation-required');
-  }catch{
+  }catch(error){
+   const diagnostic=/^(?:runner-pool-host|native-pool-source|native-pool-runtime):[a-z-]+$/.test(error?.message??'')
+    ?error.message:'runner-pool-host:capability-unavailable';
    let notification='unavailable';try{const r=await source.blocked({request:id,phase:record?.phase??'source',
-    reason:'registration-or-execution-unconfirmed',...(record?{record:structuredClone(record)}:{})});
+    reason:'registration-or-execution-unconfirmed',diagnostic,...(providerFailure?{provider:providerFailure}:{}),
+    ...(record?{record:structuredClone(record)}:{})});
     if(r?.status==='retained')notification='retained';}catch{}
    return {status:'unresolved',reason:'registration-or-execution-unconfirmed',notification,...(record?{slot:record.lease.slot}:{})};
   }

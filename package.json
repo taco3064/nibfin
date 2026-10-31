@@ -198,7 +198,12 @@
     "npm-shrinkwrap.json",
     "src/identity.mjs",
     "src/execution-pool.mjs",
-    "src/requirements-document.mjs"
+    "src/requirements-document.mjs",
+    "src/github-contract.mjs",
+    "src/github-transport.mjs",
+    "src/github-conditional.mjs",
+    "src/github-rate-limit.mjs",
+    "docs/core-host-consolidation.md"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

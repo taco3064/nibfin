@@ -1,0 +1,52 @@
+name: Nibfin Rescue
+run-name: 'Rescue | #${{ inputs.nibfin_issue }} | ${{ inputs.nibfin_stage }} | ${{ inputs.mode }} | op:${{ inputs.nibfin_correlation }}'
+on:
+  workflow_dispatch:
+    inputs:
+      request_id: {type: string, required: true}
+      source_run_id: {type: string, required: true}
+      source_attempt: {type: string, required: true}
+      mode: {type: string, required: true}
+      nibfin_correlation: {type: string, required: true}
+      nibfin_issue: {type: string, required: true}
+      nibfin_stage: {type: string, required: true}
+permissions: {}
+concurrency:
+  group: nibfin-rescue-${{ github.repository_id }}-${{ inputs.request_id }}
+  cancel-in-progress: false
+jobs:
+  rescue:
+    runs-on: [self-hosted, linux, x64, "nibfin-request-${{ inputs.nibfin_correlation }}"]
+    timeout-minutes: 10
+    permissions:
+      actions: write
+    steps:
+      - name: Diagnose, repair and verify the original Issue stage
+        id: rescue
+        continue-on-error: true
+        shell: bash
+        env:
+          NIBFIN_REQUEST: ${{ inputs.nibfin_correlation }}
+          NIBFIN_REPOSITORY: ${{ github.repository }}
+          NIBFIN_RUN_ID: ${{ github.run_id }}
+          NIBFIN_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: /usr/local/bin/node "$HOME/.local/share/nibfin/control/runtime/client/native-stage-main.mjs"
+      - name: Report the verified repair outcome
+        if: always() && !cancelled()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESCUE_CONCLUSION: ${{ steps.rescue.outputs.conclusion }}
+          RESCUE_STEP_OUTCOME: ${{ steps.rescue.outcome }}
+        run: |
+          /usr/local/bin/node --input-type=module - <<'NODE'
+          const c=process.env.RESCUE_CONCLUSION;
+          if(process.env.RESCUE_STEP_OUTCOME!=="success"||!["success","neutral"].includes(c))throw Error("Repair remains unresolved; see the retained AI diagnosis");
+          if(c==="neutral"){
+            const repository=process.env.GITHUB_REPOSITORY,id=process.env.GITHUB_RUN_ID;
+            if(!/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(repository)||!/^[1-9][0-9]*$/.test(id))throw Error("Invalid reporting Run");
+            const r=await fetch("https://api.github.com/repos/"+repository+"/actions/runs/"+id+"/cancel",{method:"POST",headers:{Authorization:"Bearer "+process.env.GH_TOKEN,Accept:"application/vnd.github+json"},signal:AbortSignal.timeout(30000)});
+            if(r.status!==202)throw Error("Reporting cancellation was not accepted");
+            await new Promise(done=>setTimeout(done,90000));throw Error("Reporting cancellation was not applied");
+          }
+          NODE

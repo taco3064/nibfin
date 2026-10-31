@@ -7,7 +7,6 @@ import { spawnSync } from 'node:child_process';
 import { parse } from 'yaml';
 import { validateConfiguration } from '../tooling/pages-configuration.mjs';
 import { outputMember } from '../tooling/build-identity.mjs';
-import { workflowInstallation } from '../../src/workflow-install.mjs';
 const workflow = parse(readFileSync('../.github/workflows/ci.yml', 'utf8'));
 test('required check names remain visible with scoped jobs; deployment requires successful quality on protected main', () => {
   const core = parse(readFileSync('../.github/workflows/ci.yml', 'utf8'));
@@ -165,12 +164,15 @@ test('installed stage remains a dispatch-only private entry and unknown workflow
  entry.jobs.stage.steps[0].run='unexpected';assert.throws(()=>checkEntryInventory([...packagedEntries,'nibfin-stage.yml'],read));
 });
 
-test('actual native installation adds bounded project-local Rescue without another CI or scheduled workflow',()=>{
- const target={version:1,repository:'example/project',repositoryId:'42',ownerId:'7',ownerType:'User'};
- const plan=workflowInstallation({commit:'a'.repeat(40),hostRepository:'example/core',hostCommit:'b'.repeat(40),
-  repository:target.repository,executionPool:{version:2,id:'member-default',capacity:2,targets:[target]}});
- const names=[...packagedEntries,...[...plan.files.keys()].map(p=>p.split('/').at(-1))];
- checkEntryInventory(names,name=>plan.files.get('.github/workflows/'+name));
- const rescue=parse(plan.files.get('.github/workflows/nibfin-rescue.yml'));
- rescue.on.schedule=[];assert.throws(()=>checkEntryInventory(names,name=>name==='nibfin-rescue.yml'?JSON.stringify(rescue):plan.files.get('.github/workflows/'+name)));
+test('optional native Rescue requires dispatch-only triggers, bounded permissions and its own reporting Run',()=>{
+ const selectors=['request_id','source_run_id','source_attempt','mode','nibfin_correlation','nibfin_issue','nibfin_stage'];
+ const rescue={on:{workflow_dispatch:{inputs:Object.fromEntries(selectors.map(n=>[n,{type:'string',required:true}]))}},permissions:{},
+  jobs:{rescue:{'runs-on':['self-hosted','linux','x64','nibfin-request-'+input('nibfin_correlation')],permissions:{actions:'write'},steps:[
+   {run:'/usr/local/bin/node "$HOME/.local/share/nibfin/control/runtime/client/native-stage-main.mjs"','continue-on-error':true,env:{}},
+   {env:{GH_TOKEN:'${{ github.token }}'},run:'const id=process.env.GITHUB_RUN_ID; fetch("https://api.github.com/repos/owner/project/actions/runs/"+id+"/cancel");'}]}}};
+ const names=[...packagedEntries,'nibfin-rescue.yml'],read=()=>JSON.stringify(rescue);
+ checkEntryInventory(names,read);
+ rescue.on.schedule=[];assert.throws(()=>checkEntryInventory(names,read));delete rescue.on.schedule;
+ rescue.jobs.rescue.steps[0].env.GH_TOKEN='forbidden';assert.throws(()=>checkEntryInventory(names,read));delete rescue.jobs.rescue.steps[0].env.GH_TOKEN;
+ rescue.jobs.rescue.steps[1].run='const id=inputs.source_run_id;';assert.throws(()=>checkEntryInventory(names,read));
 });

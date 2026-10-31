@@ -159,3 +159,40 @@ test('cooldown uses the latest trusted deadline, preserving ordinary denial', ()
     null,
   );
 });
+
+test('collection keeps fresh pagination without explicit page parameters', async () => {
+  const endpoint = '/repos/example/project/issues';
+  const requests = [];
+  const transport = createConditionalGithubTransport({
+    send: async (value) => {
+      requests.push(value);
+      if (value.endpoint.includes('page=2')) {
+        return { status: 200, headers: {}, body: '[{"id":8}]' };
+      }
+      if (value.headers['If-None-Match']) {
+        return { status: 304, headers: {}, body: '' };
+      }
+      const link = '<https://api.github.com' + endpoint + '?page=2>; rel="next"';
+      return {
+        status: 200,
+        headers: { etag: '"first-page"', link },
+        body: '[{"id":7}]',
+      };
+    },
+  });
+  const provider = createGithubProvider({ attempts: 1, transport });
+  for (let observation = 0; observation < 2; observation++) {
+    const result = await provider.collection({
+      ...request,
+      endpoint,
+      allowPage: (value) => value.split('?')[0] === endpoint,
+    });
+    assert.equal(result.outcome, 'complete');
+    assert.deepEqual(
+      result.data.map((value) => value.id),
+      ['7', '8'],
+    );
+  }
+  assert.equal(requests.length, 4);
+  assert.ok(requests.every((value) => !value.headers['If-None-Match']));
+});

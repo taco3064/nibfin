@@ -47,6 +47,11 @@ Core 0.1.1 adds the `deliveryRevision` and `protectedDiagnosis` contracts.
 Writer's capture and collection. Splitting these files preserves the existing
 public constructors and their authorization checkpoints.
 
+Public provider collections explicitly request fresh pagination headers, including
+an initial URL without page parameters. A 304 without Link metadata cannot turn
+an incomplete first page into a complete inventory. The donor's `GitHub.list`
+always supplies page parameters; this public contract supports both URL forms.
+
 `deliveryBaseRevisionPolicy` owns normal main-integration applicability, retained
 Shape receipts and the complete sequence of repeated Candidate gates. The Host
 still observes main, retains the original Writer/session/workspace, reconciles

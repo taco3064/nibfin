@@ -15,6 +15,7 @@ export const distributionAPI = Object.freeze({
   githubTransport: 1,
   deliveryRevision: 1,
   protectedDiagnosis: 1,
+  mergedContinuation: 1,
 });
 // Each responsibility has ONE executable public owner. Controller is provenance,
 // never an imported parallel lifecycle or an end-user installation prerequisite.
@@ -125,6 +126,16 @@ export const distributionOwners = Object.freeze(
     {
       responsibility: 'github-cooldown',
       owner: 'src/github-rate-limit.mjs',
+      disposition: 'consolidated',
+    },
+    {
+      responsibility: 'delivery-evidence',
+      owner: 'src/delivery-evidence.mjs',
+      disposition: 'consolidated',
+    },
+    {
+      responsibility: 'merged-continuation',
+      owner: 'src/merged-continuation.mjs',
       disposition: 'consolidated',
     },
   ].map(Object.freeze),

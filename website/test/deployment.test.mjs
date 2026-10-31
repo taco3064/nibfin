@@ -115,7 +115,7 @@ test('configuration CLI consumes Fetch responses and rejects denied reads or sta
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-const packagedEntries=['ci.yml','core-release.yml','nibfin-delivery.yml','nibfin-registration.yml'];
+const packagedEntries=['ci.yml','core-release.yml'];
 const input=name=>'${{ inputs.'+name+' }}';
 const selectorNames=['nibfin_request','nibfin_correlation','nibfin_issue','nibfin_stage','nibfin_member'];
 function checkEntryInventory(names,read){

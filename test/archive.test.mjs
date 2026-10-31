@@ -76,7 +76,7 @@ test('real archive, rejection policy and website isolation', () => {
     // Repack to test website isolation without executing that same suite twice.
     const withWebsite = readFileSync(packArchive(fixture));
     assert.deepEqual(withWebsite, archive);
-    for (const required of ['instructions/scope.md','examples/scope.json','skills/shape/SKILL.md','skills/deliver/SKILL.md','skills/accept/SKILL.md','workflow/templates/nibfin-stage.yml','.github/workflows/nibfin-delivery.yml']) {
+    for (const required of ['instructions/scope.md','examples/scope.json','skills/shape/SKILL.md','skills/deliver/SKILL.md','skills/accept/SKILL.md','workflow/templates/nibfin-stage.yml','workflow/templates/nibfin-delivery.yml']) {
       const path = join(fixture, required);
       const original = readFileSync(path);
       writeFileSync(path, Buffer.concat([original, Buffer.from('changed')]));

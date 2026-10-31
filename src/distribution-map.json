@@ -185,14 +185,6 @@
   },
   "files": [
     {
-      "path": ".github/workflows/nibfin-delivery.yml",
-      "sha256": "ffbd7be38ede4537e6b39f22ea6314377888ec696b4d69a4b285a8feeb0b9c41"
-    },
-    {
-      "path": ".github/workflows/nibfin-registration.yml",
-      "sha256": "47a6c36982225b24103f7c0e3077ec1a798d598d13e2682d90b9d0d7037124f7"
-    },
-    {
       "path": "README.md",
       "sha256": "d36b1e3a184b4b626f6b8d5ab7aa634b7caeb0486688494deb8392129c46c397"
     },
@@ -362,7 +354,7 @@
     },
     {
       "path": "docs/workflows.md",
-      "sha256": "0761b6bcae1c647ff8f5ecf8ad08748f622bcea642a8bf3c6b02a12761a6f012"
+      "sha256": "e2d48ee94a4c7b21f6a4c0dc5d3c03a16c837c6996d973e5d696d9cfc0a68e28"
     },
     {
       "path": "docs/workspace.md",
@@ -434,7 +426,7 @@
     },
     {
       "path": "package.json",
-      "sha256": "f4fe5c7737f0675422538de71687fe1d199d2b7c42f95161f6dfca5818b01b96"
+      "sha256": "a570f4ae2484ec2a99b821101d4489b07a156c631717cfcda209ddb6edf4b165"
     },
     {
       "path": "skills/accept/SKILL.md",
@@ -882,7 +874,7 @@
     },
     {
       "path": "src/workflow-install.mjs",
-      "sha256": "e6ee041c7e5ff65412e0f688cc1dcd48e88f8359479df3a39c48b6debb6ac698"
+      "sha256": "6c657f555e961f20b06e7d97c65eb84afc0708bb6437c8e662b7de22d98aafa2"
     },
     {
       "path": "src/workflow.mjs",
@@ -909,8 +901,16 @@
       "sha256": "d23cd10e1c224d37eb5fb3d4bed674662cb912a4dc97f891c9c6e48756ff4253"
     },
     {
+      "path": "workflow/templates/nibfin-delivery.yml",
+      "sha256": "ffbd7be38ede4537e6b39f22ea6314377888ec696b4d69a4b285a8feeb0b9c41"
+    },
+    {
       "path": "workflow/templates/nibfin-register.yml",
       "sha256": "2ba4d2a53d255895dc531cb02a0e63a60b1ff8da044c947f8021e5c3e56abe0a"
+    },
+    {
+      "path": "workflow/templates/nibfin-registration.yml",
+      "sha256": "47a6c36982225b24103f7c0e3077ec1a798d598d13e2682d90b9d0d7037124f7"
     },
     {
       "path": "workflow/templates/nibfin-rescue.yml",

@@ -16,6 +16,7 @@ export const distributionAPI = Object.freeze({
   deliveryRevision: 1,
   protectedDiagnosis: 1,
   mergedContinuation: 1,
+  mergedContinuationRepair: 1,
 });
 // Each responsibility has ONE executable public owner. Controller is provenance,
 // never an imported parallel lifecycle or an end-user installation prerequisite.
@@ -131,6 +132,21 @@ export const distributionOwners = Object.freeze(
     {
       responsibility: 'delivery-evidence',
       owner: 'src/delivery-evidence.mjs',
+      disposition: 'consolidated',
+    },
+    {
+      responsibility: 'completion-events',
+      owner: 'src/closure-observation.mjs',
+      disposition: 'consolidated',
+    },
+    {
+      responsibility: 'completion-failure-contract',
+      owner: 'src/completion-contract.mjs',
+      disposition: 'consolidated',
+    },
+    {
+      responsibility: 'merged-continuation-repair',
+      owner: 'src/merged-continuation-repair.mjs',
       disposition: 'consolidated',
     },
     {

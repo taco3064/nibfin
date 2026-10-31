@@ -119,7 +119,7 @@ const packagedEntries=['ci.yml','core-release.yml','nibfin-delivery.yml','nibfin
 const input=name=>'${{ inputs.'+name+' }}';
 const selectorNames=['nibfin_request','nibfin_correlation','nibfin_issue','nibfin_stage','nibfin_member'];
 function checkEntryInventory(names,read){
- assert.deepEqual(names.filter(n=>n!=='nibfin-stage.yml').sort(),packagedEntries);
+ assert.deepEqual(names.filter(n=>!['nibfin-stage.yml','nibfin-rescue.yml'].includes(n)).sort(),packagedEntries);
  if(names.includes('nibfin-stage.yml')){
   const entry=parse(read('nibfin-stage.yml'));
   assert.deepEqual(Object.keys(entry.on),['workflow_dispatch']);assert.deepEqual(entry.permissions,{});
@@ -131,6 +131,18 @@ function checkEntryInventory(names,read){
   assert.equal(stage.uses,undefined);assert.equal(stage.steps.length,1);assert.equal(stage.steps[0].shell,'bash');
   assert.equal(stage.steps[0].uses,undefined);
   assert.equal(stage.steps[0].run,'/usr/local/bin/node "$HOME/.local/share/nibfin/control/runtime/client/native-stage-main.mjs"');
+ }
+ if(names.includes('nibfin-rescue.yml')){
+  const entry=parse(read('nibfin-rescue.yml'));
+  assert.deepEqual(Object.keys(entry.on),['workflow_dispatch']);assert.deepEqual(entry.permissions,{});
+  assert.deepEqual(Object.keys(entry.on.workflow_dispatch.inputs).sort(),['request_id','source_run_id','source_attempt','mode','nibfin_correlation','nibfin_issue','nibfin_stage'].sort());
+  assert.deepEqual(Object.keys(entry.jobs),['rescue']);const job=entry.jobs.rescue;
+  assert.deepEqual(job['runs-on'],['self-hosted','linux','x64','nibfin-request-'+input('nibfin_correlation')]);
+  assert.deepEqual(job.permissions,{actions:'write'});assert.equal(job.steps.length,2);
+  assert.equal(job.steps[0].run,'/usr/local/bin/node "$HOME/.local/share/nibfin/control/runtime/client/native-stage-main.mjs"');
+  assert.equal(job.steps[0]['continue-on-error'],true);assert.equal(job.steps[0].env.GH_TOKEN,undefined);
+  assert.equal(job.steps[1].env.GH_TOKEN,'${{ github.token }}');assert.match(job.steps[1].run,/id=process.env.GITHUB_RUN_ID/);
+  assert.match(job.steps[1].run,/actions\/runs\/.*cancel/);assert.doesNotMatch(job.steps[1].run,/inputs\.source_run_id/);
  }
 }
 
@@ -150,4 +162,17 @@ test('installed stage remains a dispatch-only private entry and unknown workflow
  assert.throws(()=>checkEntryInventory([...packagedEntries,'extra-ci.yml'],read));
  entry.on.push={};assert.throws(()=>checkEntryInventory([...packagedEntries,'nibfin-stage.yml'],read));delete entry.on.push;
  entry.jobs.stage.steps[0].run='unexpected';assert.throws(()=>checkEntryInventory([...packagedEntries,'nibfin-stage.yml'],read));
+});
+
+test('optional native Rescue requires dispatch-only triggers, bounded permissions and its own reporting Run',()=>{
+ const selectors=['request_id','source_run_id','source_attempt','mode','nibfin_correlation','nibfin_issue','nibfin_stage'];
+ const rescue={on:{workflow_dispatch:{inputs:Object.fromEntries(selectors.map(n=>[n,{type:'string',required:true}]))}},permissions:{},
+  jobs:{rescue:{'runs-on':['self-hosted','linux','x64','nibfin-request-'+input('nibfin_correlation')],permissions:{actions:'write'},steps:[
+   {run:'/usr/local/bin/node "$HOME/.local/share/nibfin/control/runtime/client/native-stage-main.mjs"','continue-on-error':true,env:{}},
+   {env:{GH_TOKEN:'${{ github.token }}'},run:'const id=process.env.GITHUB_RUN_ID; fetch("https://api.github.com/repos/owner/project/actions/runs/"+id+"/cancel");'}]}}};
+ const names=[...packagedEntries,'nibfin-rescue.yml'],read=()=>JSON.stringify(rescue);
+ checkEntryInventory(names,read);
+ rescue.on.schedule=[];assert.throws(()=>checkEntryInventory(names,read));delete rescue.on.schedule;
+ rescue.jobs.rescue.steps[0].env.GH_TOKEN='forbidden';assert.throws(()=>checkEntryInventory(names,read));delete rescue.jobs.rescue.steps[0].env.GH_TOKEN;
+ rescue.jobs.rescue.steps[1].run='const id=inputs.source_run_id;';assert.throws(()=>checkEntryInventory(names,read));
 });

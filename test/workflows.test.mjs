@@ -46,13 +46,14 @@ test('shared pool installation fixes each target namespace, dispatch entry and l
 
 test('real YAML schemas, expressions, outputs, immutable acquisition and native guards',()=>{
   const docs=workflowYAML();assert.equal(docs.size,7);
+  const installed=workflowInstallation({commit:'a'.repeat(40),hostRepository:'example/core',hostCommit:'b'.repeat(40)}).files;
   for(const [path,w] of docs) {
     if(path.includes('/action/')) continue;
     assert.deepEqual(w.permissions,{});assert(w.on);assert(!w.on.pull_request && !w.on.pull_request_target);
     if(w.concurrency)assert.deepEqual(resolveYAML(w.concurrency,ctx),guard('issue'));
     for(const [id,j] of Object.entries(w.jobs)) {
       if(j.needs)assert(w.jobs[j.needs]);
-      if(j.uses){assert(!j.concurrency);assert(docs.has(j.uses.slice(2)));continue;}
+      if(j.uses){assert(!j.concurrency);assert(installed.has(j.uses.slice(2)));continue;}
       if(id!=='compute')assert.deepEqual(resolveYAML(j.concurrency,ctx),guard('repository-write'));
       else assert.equal(j.concurrency,undefined);
       const stepIds=j.steps.map(s=>s.id).filter(Boolean);

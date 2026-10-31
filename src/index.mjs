@@ -364,3 +364,7 @@ export {
   protectedStageDiagnosisPlan,
   protectedStageDiagnosisResult,
 } from './protected-rescue-policy.mjs';
+export {
+  prepareMergedContinuation,
+  verifyMergedContinuation,
+} from './merged-continuation.mjs';

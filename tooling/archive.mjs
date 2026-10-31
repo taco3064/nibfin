@@ -151,6 +151,7 @@ export function consumeArchive(archivePath, { release = false } = {}) {
       'grant-fixture.mjs',
       'dynamic-fixture.mjs',
       'rescue-fixture.mjs',
+      'merged-continuation-fixture.mjs',
     ]) {
       writeFileSync(
         join(consumer, fixture),
@@ -232,6 +233,7 @@ export function consumeArchive(archivePath, { release = false } = {}) {
       'relay.test.mjs',
       'operations.test.mjs',
       'concurrency.test.mjs',
+      'merged-continuation.test.mjs',
     ]) {
       writeFileSync(
         join(consumer, file),
@@ -241,6 +243,14 @@ export function consumeArchive(archivePath, { release = false } = {}) {
             "'./node_modules/@nibfin/core/src/distribution-map.json'",
           )
           .replaceAll("'../src/runner-job-gate.mjs'", "'@nibfin/core'")
+          .replaceAll(
+            "'../src/core-contract.mjs'",
+            "'./node_modules/@nibfin/core/src/core-contract.mjs'",
+          )
+          .replaceAll(
+            "'../tooling/merged-continuation-fixture.mjs'",
+            "'./merged-continuation-fixture.mjs'",
+          )
           .replaceAll(
             "'../host/runner-job-hook.sh'",
             "'./node_modules/@nibfin/core/host/runner-job-hook.sh'",

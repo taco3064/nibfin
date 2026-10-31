@@ -1,12 +1,9 @@
+import { validateDeliveryEvidence, shared, links } from './delivery-evidence.mjs';
+import { checkMergedContinuation } from './merged-continuation.mjs';
 import { bodyDigest, canonicalJSON } from './grants.mjs';
-import { contentIdentity, compareEvidence, verifyCompletion } from './evidence.mjs';
+import { contentIdentity, compareEvidence } from './evidence.mjs';
 import { githubId, repositoryCoordinates } from './identity.mjs';
-import {
-  coreStages,
-  modelRoleStages,
-  deliveryStages,
-  nextDeliveryStage,
-} from './delivery-planner.mjs';
+import { coreStages, deliveryStages, nextDeliveryStage } from './delivery-planner.mjs';
 
 const copy = structuredClone,
   same = (a, b) => canonicalJSON(a) === canonicalJSON(b);
@@ -25,7 +22,6 @@ const freeze = (v) => {
 const fields = (v, names) =>
   need(v && same(Object.keys(v).sort(), names.split(' ').sort()), 'schema');
 // Stage identifiers and dispatch are owned by Core, never an Issue or an event.
-const sequence = deliveryStages;
 const operations = {
   publication: 'publish-shape',
   pr: 'commit-pr',
@@ -34,28 +30,6 @@ const operations = {
   closure: 'close',
   delivered: 'mark-delivered',
 };
-const links = {
-  deliver: { publication: 'publication' },
-  accept: { hooks: 'pre-accept-hooks' },
-  'pre-commit-hooks': { accept: 'accept' },
-  pr: { accept: 'accept', hooks: 'pre-commit-hooks' },
-  ci: { pr: 'pr' },
-  'shaper-review': { pr: 'pr', ci: 'ci' },
-  merge: { review: 'shaper-review' },
-  final: { merge: 'merge' },
-  closure: { final: 'final' },
-  delivered: { closure: 'closure' },
-};
-const shared = [
-  'authority',
-  'grant',
-  'policy',
-  'core',
-  'runtime',
-  'repositoryId',
-  'issueId',
-  'scopeHash',
-];
 function identity(t) {
   fields(t, 'repository repositoryId issueId databaseId number');
   for (const k of ['repositoryId', 'databaseId', 'number']) githubId(t[k]);
@@ -90,85 +64,20 @@ function plan(p) {
       ['personal', 'organization'].includes(p.ownership),
     'scope',
   );
-  need(
-    bodyDigest(p.scopeBody) === p.binding.scopeHash &&
-      p.binding.repositoryId === p.target.repositoryId &&
-      p.binding.issueId === p.target.issueId,
-    'scope',
-  );
-  need(
-    p.shapeBody === null
-      ? p.binding.shapeHash === null
-      : bodyDigest(p.shapeBody) === p.binding.shapeHash,
-    'shape',
-  );
-  const receipts = {},
-    ids = new Set();
-  need(p.receipts && p.evidenceCurrent, 'evidence');
-  need(
-    p.transition === null || ['recovery', 'repair'].includes(p.transition),
-    'transition',
-  );
-  let gap = false;
-  for (const stage of p.transition ? [] : sequence) {
-    const submitted = p.receipts[stage];
-    if (!submitted) {
-      gap = true;
-      continue;
-    }
-    need(!gap, 'evidence-gap');
-    const e = compareEvidence(submitted, p.evidenceCurrent[stage]);
-    need(e.stage === stage, 'stage');
-    for (const k of shared) need(e.binding[k] === p.binding[k], 'evidence-binding');
-    if (stage !== 'shape')
-      need(e.binding.shapeHash === p.binding.shapeHash, 'evidence-binding');
-    if (modelRoleStages.includes(stage)) {
-      for (const k of ['id', 'request', 'result'])
-        need(!ids.has(e.execution[k]), 'independence');
-      for (const k of ['id', 'request', 'result']) ids.add(e.execution[k]);
-    }
-    if (stage === 'shape') need(e.inputs.body === p.binding.shapeHash, 'shape');
-    if (stage === 'shape-validator')
-      need(e.inputs.author === receipts.shape.execution.id, 'author');
-    if (stage === 'publication')
-      need(
-        e.inputs.author === receipts.shape.execution.id &&
-          e.inputs.validator === receipts['shape-validator'].execution.id,
-        'validator',
-      );
-    for (const [key, upstream] of Object.entries(links[stage] ?? {}))
-      need(e.inputs[key] === contentIdentity(receipts[upstream]), 'evidence-link');
-    if (e.inputs.candidate) {
-      need(same(e.inputs.candidate, p.candidate), 'candidate');
-      if (stage !== 'deliver')
-        need(
-          same(e.inputs.candidate, receipts.deliver.inputs.candidate),
-          'candidate',
-        );
-    }
-    if (['pr', 'ci', 'shaper-review', 'merge'].includes(stage))
-      need(e.inputs.base === p.base && e.inputs.head === p.head, 'head');
-    if (stage === 'pr') need(e.inputs.base === p.candidate.base, 'base');
-    if (stage === 'ci') need(e.inputs.policy === p.binding.policy, 'ci');
-    if (stage === 'accept')
-      need(e.inputs.deliver === receipts.deliver.execution.id, 'deliver');
-    if (stage === 'shaper-review')
-      for (const [key, s] of Object.entries({
-        author: 'shape',
-        validator: 'shape-validator',
-        deliver: 'deliver',
-        accept: 'accept',
-      }))
-        need(e.inputs[key] === receipts[s].execution.id, 'review');
-    if (['final', 'closure', 'delivered'].includes(stage))
-      need(e.inputs.commit === receipts.merge.inputs.commit, 'commit');
-    receipts[stage] = e;
-  }
-  if (p.completion) verifyCompletion(p.completion, p.completionCurrent);
+  const receipts = validateDeliveryEvidence(p);
+  const continuation = p.continuation
+    ? checkMergedContinuation(p.continuation, p)
+    : null;
+  if (!continuation)
+    need(
+      !Object.values(receipts).some((r) => r.execution.continuation),
+      'unapproved-continuation',
+    );
   const stage = nextDeliveryStage(receipts, p.transition);
   // These inputs come from the recovery/repair owners' attributed, authorized handoffs.
   // Their respective run methods independently classify and recheck permission.
   const inputs = {
+    ...(continuation ? { continuation: continuation.identity } : {}),
     ...(p.requirementRevision ? { requirementRevision: p.requirementRevision } : {}),
     ...(p.referenceInputApproval
       ? { referenceInputApproval: p.referenceInputApproval }
@@ -222,7 +131,7 @@ function ownerContext(value, p, name) {
       need(same(item.value, p.receipts[stage]), 'owner-evidence');
   }
   if (name === 'completion')
-    for (const stage of sequence.slice(2, 12))
+    for (const stage of deliveryStages.slice(2, 12))
       need(same(value.receipts?.[stage], p.receipts[stage]), 'owner-evidence');
   if (name === 'accept')
     need(

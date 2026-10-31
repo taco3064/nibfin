@@ -14,7 +14,9 @@
     "evidence": 1,
     "nativeHost": 1,
     "nativeNotifications": 1,
-    "githubTransport": 1
+    "githubTransport": 1,
+    "deliveryRevision": 1,
+    "protectedDiagnosis": 1
   },
   "owners": [
     {
@@ -98,6 +100,26 @@
       "disposition": "reused"
     },
     {
+      "responsibility": "lifecycle-contract",
+      "owner": "src/core-contract.mjs",
+      "disposition": "consolidated"
+    },
+    {
+      "responsibility": "candidate-delivery",
+      "owner": "src/core-deliver.mjs",
+      "disposition": "consolidated"
+    },
+    {
+      "responsibility": "base-revision",
+      "owner": "src/delivery-revision.mjs",
+      "disposition": "consolidated"
+    },
+    {
+      "responsibility": "protected-diagnosis",
+      "owner": "src/protected-rescue-policy.mjs",
+      "disposition": "consolidated"
+    },
+    {
       "responsibility": "github-transport",
       "owner": "src/github-transport.mjs",
       "disposition": "consolidated"
@@ -118,6 +140,12 @@
       "repository": "retired-private-source",
       "commit": "f55be2070bee63879dee46c3dec38806bb93a0db",
       "manifestSha256": "30d8911c118db7a676a66b1fd6fb7b7ec6e328b788a6e8414e21cbac0488ba2c"
+    },
+    "sourceArchive": {
+      "repository": "taco3064/nibfin",
+      "commit": "83a0e9cd8e1026925ddd8c5bf9d5f987e8905708",
+      "path": "controller",
+      "tree": "b9b38f402b0cb098581492d7fe85ae35ca91ce4a"
     },
     "reviewedNibfinBaseline": {
       "repository": "taco3064/nibfin",
@@ -242,7 +270,7 @@
     },
     {
       "path": "docs/core-host-consolidation.md",
-      "sha256": "07273ea2cdd72ebb662a10fad42bb708ed0c49c1e6ba7bfdde154ff69522ff73"
+      "sha256": "982382707141b0e970d90b4d0ddadc85dd54f946d9e9e870ea2d6b9f563cc7ad"
     },
     {
       "path": "docs/core.md",
@@ -302,7 +330,7 @@
     },
     {
       "path": "docs/package.md",
-      "sha256": "031bce54bd6569bd879825ad004b3b34cd101172a836ddc954c5d9eaffc85ed9"
+      "sha256": "50b5924f9b2fa11cada8f02ceb8ca9b6d877a38fa52e5575c1e742d373b59629"
     },
     {
       "path": "docs/protected-host.md",
@@ -442,11 +470,15 @@
     },
     {
       "path": "npm-shrinkwrap.json",
-      "sha256": "855a0d81ba89b0b83407944e215347608cea33d3c1fac7849e2658955c907e46"
+      "sha256": "8dcc94c2b16b003fec545f79bfe5ee101590beec9d622f8f76aa8a9b6d2d6326"
     },
     {
       "path": "package.json",
-      "sha256": "3df9edafc49c98d053ccbb80d2384a6a433dacde60954adb45b19ae2ba522b98"
+      "sha256": "d917a5e9a13a00fc560d5e8e2f3bc56e6bb99fb98eb4b50882f08ec5a3a4d469"
+    },
+    {
+      "path": "provenance/controller-baseline.json",
+      "sha256": "27969bc84ead2e8f840748557d4305519016d530ebaeeee16fb835a4bbfd7cb2"
     },
     {
       "path": "skills/accept/SKILL.md",
@@ -553,8 +585,16 @@
       "sha256": "0ac2fe5d9513430d0a604bba3ada7e2ffbdb56b595f47189116b9a1b8f717d7b"
     },
     {
+      "path": "src/core-contract.mjs",
+      "sha256": "2d330595d4df8740aeed18265c522767874683a0355dc8e22039a394f4100969"
+    },
+    {
+      "path": "src/core-deliver.mjs",
+      "sha256": "bdf695628275ca0777072b60dc6d7368691b435ee66471e23ab52b6662838d53"
+    },
+    {
       "path": "src/core.mjs",
-      "sha256": "f9fc4514c377f6f94a59bce7f9f1cffed8155b363e51115f653b18aa0c20371c"
+      "sha256": "2b57ececb3a9e2b6c4b1467d0af777e19f24e852d7588fa36938d076bb32a767"
     },
     {
       "path": "src/credential-output.mjs",
@@ -582,7 +622,11 @@
     },
     {
       "path": "src/delivery-planner.mjs",
-      "sha256": "bdd3069a16d1faad0e5d46430b93835dc484120aa394e9430044ee4b4f5e8c2a"
+      "sha256": "b3a38ec6b849b5fbaa4ba239e608a17c2c8b7689184a611af49f309ecb0abff6"
+    },
+    {
+      "path": "src/delivery-revision.mjs",
+      "sha256": "10ff7d1741ab92281f597ac2e24780afae65d502797940f87e40da826c3eb412"
     },
     {
       "path": "src/deployment.mjs",
@@ -590,7 +634,7 @@
     },
     {
       "path": "src/distribution-contract.mjs",
-      "sha256": "a40ef90d16ca11091c6d8c8f4bef3c3fb17ccb8c687a4bc8b0f6b9f9d4b6302f"
+      "sha256": "bc25b7ba70c4ee7cd16b7432f5e477484204db2d8c068065cb098ee4ca922a93"
     },
     {
       "path": "src/distribution.mjs",
@@ -682,7 +726,7 @@
     },
     {
       "path": "src/index.mjs",
-      "sha256": "a3b265d6890cf85441d5bcc477c1fa3717597556ad0f9b4f0170d4496101a2a5"
+      "sha256": "615114bc9e3c48b9e2e498ea89e1658d3dbec336cfede9f5c19ed3de66818df9"
     },
     {
       "path": "src/installation.mjs",
@@ -727,6 +771,10 @@
     {
       "path": "src/process.mjs",
       "sha256": "4bc70075d6a5ab3f4537d876e6337aeeac0ded67d9826f3435486702ddbd0ba8"
+    },
+    {
+      "path": "src/protected-rescue-policy.mjs",
+      "sha256": "0138caaaf5377f2cbfc214f24d8edbccdbe61c9060a1e2e7cd808f6c31d2cadd"
     },
     {
       "path": "src/provider.mjs",

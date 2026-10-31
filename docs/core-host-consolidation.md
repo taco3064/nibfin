@@ -38,6 +38,44 @@ The native CLI currently duplicates these GitHub behaviors to compensate for an
 older installed Core. Moving them into the public producer must precede removing
 the compatibility implementation from the CLI and upgrading consumer pins.
 
+## Implemented producer boundaries
+
+Core 0.1.1 adds the `deliveryRevision` and `protectedDiagnosis` contracts.
+`delivery-planner.mjs` owns the stage sequence and model-role classification.
+`core-contract.mjs` checks requests, selected decisions and owner evidence;
+`core.mjs` composes and executes owners; `core-deliver.mjs` owns the original
+Writer's capture and collection. Splitting these files preserves the existing
+public constructors and their authorization checkpoints.
+
+`deliveryBaseRevisionPolicy` owns normal main-integration applicability, retained
+Shape receipts and the complete sequence of repeated Candidate gates. The Host
+still observes main, retains the original Writer/session/workspace, reconciles
+uncertain publication and applies the resulting state transaction. A normal base
+advance leaves the rescue budget unchanged.
+
+`protectedStageDiagnosisPlan` owns missing-record correction, notification
+uncertainty, quota waiting and the bounded pre-AI retry decision. Its result
+contract keeps a completed diagnosis UNRESOLVED until actual repair and normal
+independent verification succeed. Original-role repair counters remain separate.
+
+## Legacy engine retirement
+
+The legacy tree has no unpublished changes, is excluded from the installed Core,
+and has no control-service reference to this checkout. Its executable entry,
+private development transport and duplicate runtime have been removed together.
+The former CI job now verifies provenance instead of executing another engine.
+
+`provenance/controller-baseline.json` records the public repository commit
+`83a0e9cd8e1026925ddd8c5bf9d5f987e8905708`, exact controller tree and adaptation
+input hashes. Historical source and tests remain recoverable from that public Git
+commit. The package generator consumes this frozen record; rebuilding the public
+Core no longer requires a working legacy controller directory. Future work must
+implement current GitHub Issue requirements through the public Core owners,
+using historical source only as a reference.
+
+The CLI/Action fixed pins, protected CI/merge, published release and clean-install
+observations are separate pending consumer/operational gates.
+
 ## Required completion evidence
 
 - Common Core contracts exercised from native and Action entry points.

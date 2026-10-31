@@ -749,8 +749,8 @@ that candidate; it does not replace live integration or release evidence.
 
 This archive contains one public runtime owner, its host/workflow adapters and
 protected Skills, including unified Rescue and Runner job admission. It excludes
-`controller/`: that maintained development deployment supplies historical source
-and adaptation inputs, not a second installed engine. The exact public hashes and
+the retired `controller/` engine. `provenance/controller-baseline.json` retains
+its public Git commit/tree and adaptation hashes for read-only reference. The exact public hashes and
 one owner per responsibility are in `src/distribution-map.json`, bound by the
 release manifest. See [nibfin-reuse.md](nibfin-reuse.md) for behavioral provenance.
 Regenerate that tracked map with `node tooling/distribution-map.mjs --write` after

@@ -13,6 +13,8 @@ export const distributionAPI = Object.freeze({
   nativeHost: 1,
   nativeNotifications: 1,
   githubTransport: 1,
+  deliveryRevision: 1,
+  protectedDiagnosis: 1,
 });
 // Each responsibility has ONE executable public owner. Controller is provenance,
 // never an imported parallel lifecycle or an end-user installation prerequisite.
@@ -89,6 +91,26 @@ export const distributionOwners = Object.freeze(
       responsibility: 'job-admission',
       owner: 'src/runner-job-gate.mjs',
       disposition: 'reused',
+    },
+    {
+      responsibility: 'lifecycle-contract',
+      owner: 'src/core-contract.mjs',
+      disposition: 'consolidated',
+    },
+    {
+      responsibility: 'candidate-delivery',
+      owner: 'src/core-deliver.mjs',
+      disposition: 'consolidated',
+    },
+    {
+      responsibility: 'base-revision',
+      owner: 'src/delivery-revision.mjs',
+      disposition: 'consolidated',
+    },
+    {
+      responsibility: 'protected-diagnosis',
+      owner: 'src/protected-rescue-policy.mjs',
+      disposition: 'consolidated',
     },
     {
       responsibility: 'github-transport',

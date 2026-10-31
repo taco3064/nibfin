@@ -357,3 +357,10 @@ export { nextDeliveryStage } from './delivery-planner.mjs';
 
 export { createConditionalGithubTransport } from './github-conditional.mjs';
 export { githubRateLimit } from './github-rate-limit.mjs';
+
+export { deliveryBaseRevisionPolicy } from './delivery-revision.mjs';
+export { modelRoleStages } from './delivery-planner.mjs';
+export {
+  protectedStageDiagnosisPlan,
+  protectedStageDiagnosisResult,
+} from './protected-rescue-policy.mjs';

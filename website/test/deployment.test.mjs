@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { parse } from 'yaml';
 import { validateConfiguration } from '../tooling/pages-configuration.mjs';
 import { outputMember } from '../tooling/build-identity.mjs';
+import { workflowInstallation } from '../../src/workflow-install.mjs';
 const workflow = parse(readFileSync('../.github/workflows/ci.yml', 'utf8'));
 test('required check names remain visible with scoped jobs; deployment requires successful quality on protected main', () => {
   const core = parse(readFileSync('../.github/workflows/ci.yml', 'utf8'));
@@ -119,7 +120,7 @@ const packagedEntries=['ci.yml','core-release.yml','nibfin-delivery.yml','nibfin
 const input=name=>'${{ inputs.'+name+' }}';
 const selectorNames=['nibfin_request','nibfin_correlation','nibfin_issue','nibfin_stage','nibfin_member'];
 function checkEntryInventory(names,read){
- assert.deepEqual(names.filter(n=>n!=='nibfin-stage.yml').sort(),packagedEntries);
+ assert.deepEqual(names.filter(n=>!['nibfin-stage.yml','nibfin-rescue.yml'].includes(n)).sort(),packagedEntries);
  if(names.includes('nibfin-stage.yml')){
   const entry=parse(read('nibfin-stage.yml'));
   assert.deepEqual(Object.keys(entry.on),['workflow_dispatch']);assert.deepEqual(entry.permissions,{});
@@ -131,6 +132,18 @@ function checkEntryInventory(names,read){
   assert.equal(stage.uses,undefined);assert.equal(stage.steps.length,1);assert.equal(stage.steps[0].shell,'bash');
   assert.equal(stage.steps[0].uses,undefined);
   assert.equal(stage.steps[0].run,'/usr/local/bin/node "$HOME/.local/share/nibfin/control/runtime/client/native-stage-main.mjs"');
+ }
+ if(names.includes('nibfin-rescue.yml')){
+  const entry=parse(read('nibfin-rescue.yml'));
+  assert.deepEqual(Object.keys(entry.on),['workflow_dispatch']);assert.deepEqual(entry.permissions,{});
+  assert.deepEqual(Object.keys(entry.on.workflow_dispatch.inputs).sort(),['request_id','source_run_id','source_attempt','mode','nibfin_correlation','nibfin_issue','nibfin_stage'].sort());
+  assert.deepEqual(Object.keys(entry.jobs),['rescue']);const job=entry.jobs.rescue;
+  assert.deepEqual(job['runs-on'],['self-hosted','linux','x64','nibfin-request-'+input('nibfin_correlation')]);
+  assert.deepEqual(job.permissions,{actions:'write'});assert.equal(job.steps.length,2);
+  assert.equal(job.steps[0].run,'/usr/local/bin/node "$HOME/.local/share/nibfin/control/runtime/client/native-stage-main.mjs"');
+  assert.equal(job.steps[0]['continue-on-error'],true);assert.equal(job.steps[0].env.GH_TOKEN,undefined);
+  assert.equal(job.steps[1].env.GH_TOKEN,'${{ github.token }}');assert.match(job.steps[1].run,/id=process.env.GITHUB_RUN_ID/);
+  assert.match(job.steps[1].run,/actions\/runs\/.*cancel/);assert.doesNotMatch(job.steps[1].run,/inputs\.source_run_id/);
  }
 }
 
@@ -150,4 +163,14 @@ test('installed stage remains a dispatch-only private entry and unknown workflow
  assert.throws(()=>checkEntryInventory([...packagedEntries,'extra-ci.yml'],read));
  entry.on.push={};assert.throws(()=>checkEntryInventory([...packagedEntries,'nibfin-stage.yml'],read));delete entry.on.push;
  entry.jobs.stage.steps[0].run='unexpected';assert.throws(()=>checkEntryInventory([...packagedEntries,'nibfin-stage.yml'],read));
+});
+
+test('actual native installation adds bounded project-local Rescue without another CI or scheduled workflow',()=>{
+ const target={version:1,repository:'example/project',repositoryId:'42',ownerId:'7',ownerType:'User'};
+ const plan=workflowInstallation({commit:'a'.repeat(40),hostRepository:'example/core',hostCommit:'b'.repeat(40),
+  repository:target.repository,executionPool:{version:2,id:'member-default',capacity:2,targets:[target]}});
+ const names=[...packagedEntries,...[...plan.files.keys()].map(p=>p.split('/').at(-1))];
+ checkEntryInventory(names,name=>plan.files.get('.github/workflows/'+name));
+ const rescue=parse(plan.files.get('.github/workflows/nibfin-rescue.yml'));
+ rescue.on.schedule=[];assert.throws(()=>checkEntryInventory(names,name=>name==='nibfin-rescue.yml'?JSON.stringify(rescue):plan.files.get('.github/workflows/'+name)));
 });

@@ -103,6 +103,7 @@ export function createProtectedRoleHost({configuration,bind,retain,probe,observe
       // Only Core's post-termination workspace owner supplies this handoff. First
       // check the complete returned launch context; never repair model-selected
       // inputs, authority, execution, publication or terminal result fields.
+      let terminalCollectionRetained=false;
       const collectionBackend={...backend,async cleanup(query) {
         try {
           if(session) {
@@ -127,6 +128,15 @@ export function createProtectedRoleHost({configuration,bind,retain,probe,observe
           if(cancelled){await backend.stop(query);return backend.collect(query);}
           await new Promise(resolve=>setTimeout(resolve,Math.min(1000,Math.max(1,deadlineAt-reserveMs-now()))));
           value=await backend.collect(query);
+        }
+        // Preserve the actual terminal collection before a role owner reduces
+        // it to a stage outcome. Recovery needs the original failure/result,
+        // not just a generic execution-unresolved marker or model transcript.
+        if(value.status==='complete'&&!terminalCollectionRetained){
+          const reference=await retain({version:1,kind:'role-collection',execution:clone(input.execution),
+            binding:clone(input.binding),exitCode:value.exitCode,evidence:clone(value.evidence??null)});
+          if(typeof reference!=='string'||!reference)fail('collection-retention');
+          terminalCollectionRetained=true;
         }
         if(shapeAuthor&&value.status==='complete'&&value.evidence){
           try{

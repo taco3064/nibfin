@@ -29,7 +29,7 @@ test('native workflow installation keeps one direct stage entry in each project 
  const pool=validateExecutionPool(configuration());assert.equal(pool.capacity,6);assert.equal(pool.targets.length,10);assert.equal(pool.source,undefined);
  for(const target of pool.targets){
   const plan=workflowInstallation({commit:'a'.repeat(40),hostRepository:'taco3064/nibfin',hostCommit:'b'.repeat(40),executionPool:pool,repository:target.repository});
-  assert.deepEqual([...plan.files.keys()],['.github/workflows/nibfin-stage.yml']);
+  assert.deepEqual([...plan.files.keys()],['.github/workflows/nibfin-stage.yml','.github/workflows/nibfin-rescue.yml']);
   assert.match(plan.files.get('.github/workflows/nibfin-stage.yml'),/native-stage-main\.mjs/);
   assert.ok(!plan.files.get('.github/workflows/nibfin-stage.yml').includes('uses: taco3064/'));
   assert.equal(plan.repository,target.repository);assert.equal(plan.deployments,undefined);

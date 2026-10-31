@@ -14,6 +14,24 @@ const capacity=agent=>({error:agent==='codex'?{message:'unexpected status 503 Se
   agent==='claude'?{type:'overloaded_error',status:529}:{status:'RESOURCE_EXHAUSTED',code:429}});
 const policy=agent=>({attempts:3,delayMs:5,model:'primary',models:['primary','fallback'].map(model=>
   ({id:model,adapter:agent,provider:agent,version:versions[agent],resume:true})),fallbacks:['fallback']});
+
+test('completed Shape envelopes survive collection and are decoded against the assigned role, including blocked results',async()=>{
+  const entry=await import(new URL('codex-entry.mjs',import.meta.resolve('@nibfin/core')));
+  const context={version:1,stage:'shape',execution:{id:'shape-current',role:'shape'},binding:{instructions:'current'},inputs:{},outputFormat:'shape-author-v1'};
+  for(const outcome of ['ready','blocked']){
+    const envelope={body:'Original Scope and proposed Shape',result:{...result,outcome}};
+    const stdout=stream(undefined,JSON.stringify(envelope));
+    assert.equal(codexEvents(stdout).success,true);
+    const value=entry.executeCodex({access:'read',prompt:'shape',timeout:1000,context},[],()=>({status:0,stdout}));
+    assert.equal(value.evidence.shapeBody,envelope.body);
+    assert.deepEqual(value.evidence.result,envelope.result);
+    assert.deepEqual(value.evidence.execution,context.execution);
+    assert.equal(Object.hasOwn(value.evidence,'outputFormat'),false);
+  }
+  for(const envelope of [{body:42,result},{body:'shape',result,authority:'foreign'},{body:'shape',result:null}]){
+    assert.equal(entry.executeCodex({access:'read',prompt:'shape',timeout:1000,context},[],()=>({status:0,stdout:stream(undefined,JSON.stringify(envelope))})).evidence,undefined);
+  }
+});
 test('Codex versioned terminal stream rejects stale/missing/truncated/oversized/duplicate/failed/foreign output and secrets',async()=>{
   assert.deepEqual(codexEvents(stream()).result,result);
   const entry=await import(new URL('codex-entry.mjs',import.meta.resolve('@nibfin/core')));

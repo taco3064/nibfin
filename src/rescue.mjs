@@ -222,8 +222,9 @@ export function createRescueController({policy,records,provenance,current,author
  * load rereads the workflow id/ref/content and existing operation binding. No
  * event, model plan or display hint can choose a workflow or role.
  */
-export function createRescueDispatch({policy,load,provenance}) {
+export function createRescueDispatch({policy,load,provenance,memberId=null}) {
   const p=validateRescuePolicy(policy);need(typeof load==='function'&&typeof provenance?.workflow==='function','dispatch-configuration');
+  if(memberId!==null)need(typeof memberId==='string'&&/^[1-9][0-9]*$/.test(memberId),'dispatch-member');
   return async ({case:c,kind,proof})=>{
     need(['notification','continuation'].includes(kind),'dispatch-kind');
     const descriptor=await load({target:structuredClone(c.target),kind});
@@ -237,7 +238,8 @@ export function createRescueDispatch({policy,load,provenance}) {
     const correlation='rescue-'+contentIdentity({caseId:c.id,kind,proof,workflow});
     const inputs=kind==='notification'?{request_id:c.id,source_run_id:c.source.runId,source_attempt:c.source.attempt,
       mode:c.continuation?'verify':'repair',nibfin_correlation:correlation,nibfin_issue:c.target.number,nibfin_stage:c.target.role}
-      :{nibfin_request:proof.next?.request,nibfin_correlation:correlation,nibfin_issue:c.target.number,nibfin_stage:c.target.role};
+      :{nibfin_request:proof.next?.request,nibfin_correlation:correlation,nibfin_issue:c.target.number,nibfin_stage:c.target.role,
+        ...(memberId===null?{}:{nibfin_member:memberId})};
     return controlledIntent({version:1,kind:'dispatch',correlation,source:{...descriptor.source,request:correlation},binding:b,
       target:{id:workflow.id,number:null,workflow:workflow.id},payload:{ref:workflow.ref,refIdentity:workflow.refIdentity,inputs,
         display:{repository:p.repository,issue:b.number,stage:c.target.role}}});

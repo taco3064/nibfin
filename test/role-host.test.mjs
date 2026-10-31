@@ -105,16 +105,18 @@ test('Shape returns a late document through each maintained decoder, pins its ex
       assert.equal((await p.lifecycle.start(p.input)).start?.status,'started');
       const result=await finish(p);
       if(changed) {
-        assert.notEqual(result.result.status,'valid');assert.equal(records.length,0);
+        assert.notEqual(result.result.status,'valid');assert.equal(records.filter(r=>r.kind==='shape-author-body').length,0);
         assert.throws(()=>p.readBody(),/shape-unavailable/);
       } else {
         assert.equal(result.result.status,'valid',JSON.stringify(result));
         assert.equal(p.readBody(),body);assert.deepEqual(p.current().expected.inputs,{body:core.bodyDigest(body)});
-        assert.equal(records.length,1);assert.equal(records[0].body,body);
-        assert.equal(records[0].kind,'shape-author-body');
-        assert.deepEqual(records[0].execution,p.input.execution);
+        const authored=records.filter(r=>r.kind==='shape-author-body');
+        assert.equal(authored.length,1);assert.equal(authored[0].body,body);
+        assert.deepEqual(authored[0].execution,p.input.execution);
         assert.equal(Object.hasOwn(result.result.evidence,'shapeBody'),false);
       }
+      const collected=records.filter(r=>r.kind==='role-collection');
+      assert.equal(collected.length,1);assert.deepEqual(collected[0].execution,p.input.execution);
       assert.equal((await p.lifecycle.cleanup()).status,'completed');
     } finally {await f.close();}
   }
@@ -436,7 +438,7 @@ test('Agent CLI and Core verification share the same lane and CLI evidence reach
   f.configuration.profiles.find(p=>p.id==='accept').backend.egress.node=true;
   const records=[];let allowRetention=true;
   const host=core.createProtectedRoleHost({...f.options,retain:async payload=>{
-   if(payload.record.schemaVersion===1&&!allowRetention)throw Error('retention unavailable');records.push(payload);return 'custody:shared-'+records.length;
+   if(payload.record?.schemaVersion===1&&!allowRetention)throw Error('retention unavailable');records.push(payload);return 'custody:shared-'+records.length;
   }});
   const p=await host.prepareRole({role:'accept',skill:'accept',instructions:core.selectInstructions({role:'accept',skill:'accept'}),task:{candidate:'current'}});
   await p.lifecycle.start(p.input);const prepared=await p.prepareNode();assert.equal(prepared.status,'prepared');
@@ -450,8 +452,8 @@ test('Agent CLI and Core verification share the same lane and CLI evidence reach
   await p.lifecycle.stop(p.input.execution.id);await finish(p);
   allowRetention=false;assert.equal((await p.lifecycle.cleanup()).status,'unresolved');assert(existsSync(directory),'failed retention preserves evidence');
   allowRetention=true;assert.equal((await p.lifecycle.cleanup()).status,'completed');
-  assert(records.some(r=>r.record.schemaVersion===1&&r.log.includes('cli-proof')));
-  assert(records.filter(r=>r.record.schemaVersion===1).every(r=>r.record.execution===p.input.execution.id&&r.record.logDigest));
+  assert(records.some(r=>r.record?.schemaVersion===1&&r.log.includes('cli-proof')));
+  assert(records.filter(r=>r.record?.schemaVersion===1).every(r=>r.record.execution===p.input.execution.id&&r.record.logDigest));
  }finally{await f.close();}
 });
 

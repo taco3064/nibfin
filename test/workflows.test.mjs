@@ -248,7 +248,14 @@ test('repository-local physical pools queue a native member Job before any Runne
  const pool={version:2,id:'member-default',capacity:6,targets};
  for(const target of targets){
   const plan=workflowInstallation({commit:'a'.repeat(40),hostRepository:'taco3064/nibfin',hostCommit:'b'.repeat(40),executionPool:pool,repository:target.repository});
-  const caller=parse(plan.files.get('.github/workflows/nibfin-stage.yml'));assert.equal(plan.files.size,1);assert.equal(plan.files.has(delivery),false);
+  const caller=parse(plan.files.get('.github/workflows/nibfin-stage.yml'));assert.equal(plan.files.size,2);assert.equal(plan.files.has(delivery),false);
+  const rescue=parse(plan.files.get('.github/workflows/nibfin-rescue.yml'));
+  assert.equal(rescue.jobs.rescue['timeout-minutes'],10);
+  assert.equal(rescue.jobs.rescue.steps[0].run,'/usr/local/bin/node "$HOME/.local/share/nibfin/control/runtime/client/native-stage-main.mjs"');
+  assert.equal(rescue.jobs.rescue.permissions.actions,'write');
+  assert.equal(rescue.jobs.rescue.steps[1].env.GH_TOKEN,'${{ github.token }}');
+  assert.match(rescue.jobs.rescue.steps[1].run,/actions\/runs\/.*cancel/);
+  assert.equal(Object.hasOwn(rescue.on,'schedule'),false);
   assert.deepEqual(Object.keys(caller.jobs),['stage']);assert.equal(caller.jobs.stage.name,'stage / execute');assert.equal(caller.jobs.stage.uses,undefined);
   assert.equal(caller.jobs.stage.steps[0].env.NIBFIN_MEMBER,'${{ inputs.nibfin_member }}');
   assert.equal(caller['run-name'],"#${{ inputs.nibfin_issue }} | ${{ inputs.nibfin_stage }} | op:${{ inputs.nibfin_correlation }}");

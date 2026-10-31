@@ -29,7 +29,38 @@ function nativePoolWorkflows(){
   '        run: /usr/local/bin/node "$HOME/.local/share/nibfin/control/runtime/client/native-stage-main.mjs"',''
 
  ].join('\n');
- return new Map([['.github/workflows/nibfin-stage.yml',caller]]);
+ const rescueInputs=['request_id','source_run_id','source_attempt','mode','nibfin_correlation','nibfin_issue','nibfin_stage'];
+ const rescue=['name: Nibfin Rescue',
+  "run-name: 'Rescue | #"+input('nibfin_issue')+' | '+input('nibfin_stage')+' | '+input('mode')+' | op:'+input('nibfin_correlation')+"'",
+  'on:','  workflow_dispatch:','    inputs:',...rescueInputs.map(name=>'      '+name+': {type: string, required: true}'),
+  'permissions: {}','concurrency:','  group: nibfin-rescue-'+expression('github.repository_id')+'-'+input('request_id'),
+  '  cancel-in-progress: false','jobs:','  rescue:',
+  '    runs-on: [self-hosted, linux, x64, "nibfin-request-'+input('nibfin_correlation')+'"]',
+  '    timeout-minutes: 10','    permissions:','      actions: write','    steps:',
+  '      - name: Diagnose, repair and verify the original Issue stage','        id: rescue','        continue-on-error: true',
+  '        shell: bash','        env:',
+  '          NIBFIN_REQUEST: '+input('nibfin_correlation'),
+  '          NIBFIN_REPOSITORY: '+expression('github.repository'),
+  '          NIBFIN_RUN_ID: '+expression('github.run_id'),
+  '          NIBFIN_RUN_ATTEMPT: '+expression('github.run_attempt'),
+  '        run: /usr/local/bin/node "$HOME/.local/share/nibfin/control/runtime/client/native-stage-main.mjs"',
+  '      - name: Report the verified repair outcome','        if: always() && !cancelled()','        shell: bash','        env:',
+  '          GH_TOKEN: '+expression('github.token'),
+  '          RESCUE_CONCLUSION: '+expression('steps.rescue.outputs.conclusion'),
+  '          RESCUE_STEP_OUTCOME: '+expression('steps.rescue.outcome'),
+  '        run: |',
+  '          /usr/local/bin/node --input-type=module - <<\'NODE\'',
+  '          const c=process.env.RESCUE_CONCLUSION;',
+  '          if(process.env.RESCUE_STEP_OUTCOME!=="success"||!["success","neutral"].includes(c))throw Error("Repair remains unresolved; see the retained AI diagnosis");',
+  '          if(c==="neutral"){',
+  '            const repository=process.env.GITHUB_REPOSITORY,id=process.env.GITHUB_RUN_ID;',
+  '            if(!/^[a-zA-Z0-9_.-]+\\/[a-zA-Z0-9_.-]+$/.test(repository)||!/^[1-9][0-9]*$/.test(id))throw Error("Invalid reporting Run");',
+  '            const r=await fetch("https://api.github.com/repos/"+repository+"/actions/runs/"+id+"/cancel",{method:"POST",headers:{Authorization:"Bearer "+process.env.GH_TOKEN,Accept:"application/vnd.github+json"},signal:AbortSignal.timeout(30000)});',
+  '            if(r.status!==202)throw Error("Reporting cancellation was not accepted");',
+  '            await new Promise(done=>setTimeout(done,90000));throw Error("Reporting cancellation was not applied");',
+  '          }',
+  '          NODE',''].join('\n');
+ return new Map([['.github/workflows/nibfin-stage.yml',caller],['.github/workflows/nibfin-rescue.yml',rescue]]);
 }
 
 /** Pure installation plan; consumers must compare existing bytes before authorized writes. */

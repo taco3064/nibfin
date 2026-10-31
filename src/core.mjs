@@ -404,7 +404,7 @@ export function createDeliverFlow({current,captureInput,prepareRole,evidenceCurr
   }
   async function exclusive(fn) {
     if(busy)return {outcome:'blocked'};busy=true;
-    try{return await fn();}catch{return {outcome:'blocked',...(active?{reconciliationRequired:active.input.execution.id}:{})};}
+    try{return await fn();}catch(e){return {outcome:'blocked',finding:typeof e?.message==='string'&&/^(?:core|evidence|workspace|role-host):[a-z-]{1,100}$/.test(e.message)?e.message:'core:deliver-unavailable',...(active?{reconciliationRequired:active.input.execution.id}:{})};}
     finally{busy=false;}
   }
   return Object.freeze({

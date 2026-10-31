@@ -534,7 +534,7 @@
     },
     {
       "path": "src/core.mjs",
-      "sha256": "0cda825214e9da68f0b6ebacbca3614acebb2d03fc406fb832050e848e57d3e2"
+      "sha256": "f9fc4514c377f6f94a59bce7f9f1cffed8155b363e51115f653b18aa0c20371c"
     },
     {
       "path": "src/credential-output.mjs",
@@ -666,7 +666,7 @@
     },
     {
       "path": "src/native-role-bindings.mjs",
-      "sha256": "f4826ccd56cdedd7781504c42ef67124440b1abc713f1cab2d698fc98ff4e1de"
+      "sha256": "f75d64cc4a27f04135173f25f0301c27b9ec6b9a97813bb8b5ad7a33de957f78"
     },
     {
       "path": "src/node-verification.mjs",
@@ -802,7 +802,7 @@
     },
     {
       "path": "src/role-host.mjs",
-      "sha256": "9d4f829db160048a76e0e2c244d28907ec7dca607b72ad2c9309ccb6c66ba337"
+      "sha256": "177cbfa76ffcf9157e20d6dd69d86aeaadfdcddf6a9d841a40541d7c06c9ce4b"
     },
     {
       "path": "src/role-session.mjs",

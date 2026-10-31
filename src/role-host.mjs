@@ -6,7 +6,7 @@ import {createAgentEnvironments,createAgentLifecycle} from './lifecycle.mjs';
 import {runnerConfiguration,preflightRunner} from './runner.mjs';
 import {createRoleBudget,createVerificationLane} from './verification.mjs';
 import {prepareNodeVerification} from './node-verification.mjs';
-import {contentIdentity} from './evidence.mjs';
+import {contentIdentity,validateStageResult} from './evidence.mjs';
 import {canonicalJSON} from './grants.mjs';
 import {skillForRole} from './evidence.mjs';
 import {bodyDigest} from './canonical.mjs';
@@ -82,9 +82,10 @@ export function createProtectedRoleHost({configuration,bind,retain,probe,observe
         if(typeof reference!=='string'||!reference)fail('workspace-retention');
         workspaceReceipt={...materialized,reference};
       }
-      let authored=null,candidate=null;
+      let authored=null,candidate=null,observedSummary=null;
       const currentWithOutput=id=>{
         const value=clone(current(id));
+        if(observedSummary!==null)value.expected.result.summary=observedSummary;
         if(shapeAuthor&&authored)value.expected.inputs={body:authored.hash};
         if(capturedDeliver&&candidate)value.expected.inputs={...clone(launchInputs),candidate:clone(candidate)};
         return value;
@@ -137,6 +138,19 @@ export function createProtectedRoleHost({configuration,bind,retain,probe,observe
             binding:clone(input.binding),exitCode:value.exitCode,evidence:clone(value.evidence??null)});
           if(typeof reference!=='string'||!reference)fail('collection-retention');
           terminalCollectionRetained=true;
+        }
+        // As upstream, preserve the actual descriptive result. Summary prose
+        // is an observation, not a predetermined success criterion. Adopt only
+        // that field after checking the original execution, authority, inputs
+        // and every other expected result field; never adopt a model verdict.
+        if(value.status==='complete'&&value.exitCode===0&&value.evidence){
+          try{
+            const e=value.evidence,expected=current(input.execution.id).expected;
+            const result=validateStageResult(e.result,{...resultContext?.(input.execution.id),execution:input.execution,binding:input.binding});
+            if(e.stage===task.role&&canonicalJSON(e.execution)===canonicalJSON(input.execution)
+              &&canonicalJSON(e.binding)===canonicalJSON(input.binding)&&canonicalJSON(e.inputs)===canonicalJSON(launchInputs)
+              &&canonicalJSON({...result,summary:expected.result.summary})===canonicalJSON(expected.result))observedSummary=result.summary;
+          }catch{/* Original lifecycle validation rejects malformed output. */}
         }
         if(shapeAuthor&&value.status==='complete'&&value.evidence){
           try{

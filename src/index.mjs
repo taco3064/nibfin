@@ -366,5 +366,6 @@ export {
 } from './protected-rescue-policy.mjs';
 export {
   prepareMergedContinuation,
+  prepareMergedContinuationRepair,
   verifyMergedContinuation,
 } from './merged-continuation.mjs';

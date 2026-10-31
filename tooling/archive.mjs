@@ -152,6 +152,7 @@ export function consumeArchive(archivePath, { release = false } = {}) {
       'dynamic-fixture.mjs',
       'rescue-fixture.mjs',
       'merged-continuation-fixture.mjs',
+      'merged-continuation-repair-fixture.mjs',
     ]) {
       writeFileSync(
         join(consumer, fixture),
@@ -234,6 +235,8 @@ export function consumeArchive(archivePath, { release = false } = {}) {
       'operations.test.mjs',
       'concurrency.test.mjs',
       'merged-continuation.test.mjs',
+      'merged-continuation-repair.test.mjs',
+      'github-commit-identity.test.mjs',
     ]) {
       writeFileSync(
         join(consumer, file),
@@ -246,6 +249,10 @@ export function consumeArchive(archivePath, { release = false } = {}) {
           .replaceAll(
             "'../src/core-contract.mjs'",
             "'./node_modules/@nibfin/core/src/core-contract.mjs'",
+          )
+          .replaceAll(
+            "'../tooling/merged-continuation-repair-fixture.mjs'",
+            "'./merged-continuation-repair-fixture.mjs'",
           )
           .replaceAll(
             "'../tooling/merged-continuation-fixture.mjs'",

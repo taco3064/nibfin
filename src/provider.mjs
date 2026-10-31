@@ -57,9 +57,18 @@ const opaqueIdFields = new Set([
   'client_id',
   'tree_id',
 ]);
+class GithubIdentityError extends Error {
+  constructor(field, expected) {
+    super('identity');
+    this.field = field;
+    this.expected = expected;
+  }
+}
 const token = (value) =>
   typeof value === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(value);
 const id = (value) => typeof value === 'string' && /^[1-9][0-9]*$/.test(value);
+const gitObjectId = (value) =>
+  typeof value === 'string' && /^[a-f0-9]{40}$/.test(value);
 // Narrow read contracts used by authenticated recovery; query values never
 // grant authority, select a checkout, or add a mutation capability.
 function recoveryReadPermission(value) {
@@ -168,14 +177,14 @@ function endpoint(value) {
 // Node 22's reviver source retains numeric spelling before lossy Number conversion.
 export function parseGithubJson(text) {
   return JSON.parse(text, function (key, value, context) {
+    if (key === 'commit_id') {
+      if (value !== null && !gitObjectId(value))
+        throw new GithubIdentityError(key, 'git-object-id');
+      return value;
+    }
     const nodeId = key === 'node_id' || key.endsWith('_node_id');
     // Actions head_commit contains Git object hashes, not numeric resource IDs.
-    const commitId =
-      key === 'id' &&
-      typeof value === 'string' &&
-      /^[a-f0-9]{40}$/.test(value) &&
-      typeof this.tree_id === 'string' &&
-      /^[a-f0-9]{40}$/.test(this.tree_id);
+    const commitId = key === 'id' && gitObjectId(value) && gitObjectId(this.tree_id);
     if (
       !commitId &&
       (key === 'id' || (key.endsWith('_id') && !nodeId && !opaqueIdFields.has(key)))
@@ -187,13 +196,13 @@ export function parseGithubJson(text) {
         !id(value) &&
         !(key === 'runner_group_id' && value === '0')
       )
-        throw Error('identity');
+        throw new GithubIdentityError(key, 'resource-id');
     }
     if (
       nodeId &&
       (typeof value !== 'string' || !/^[A-Za-z0-9_=-]{1,256}$/.test(value))
     )
-      throw Error('identity');
+      throw new GithubIdentityError(key, 'node-id');
     return value;
   });
 }
@@ -542,8 +551,16 @@ export function createGithubProvider({
           (options.validate && options.validate(data) !== true)
         )
           return failure('malformed');
-      } catch {
-        return failure('malformed');
+      } catch (error) {
+        const result = failure('malformed');
+        if (
+          error instanceof GithubIdentityError &&
+          /^[a-z][a-z0-9_]{0,63}$/.test(error.field)
+        ) {
+          result.diagnostic.dataField = error.field;
+          result.diagnostic.expectedData = error.expected;
+        }
+        return result;
       }
       const result = {
         outcome: write ? 'submitted' : 'read',
@@ -673,7 +690,10 @@ export function publicDiagnostic(result) {
         ([key, value]) =>
           (['kind', 'capability'].includes(key) && /^[a-z_:]+$/.test(value)) ||
           (['operation', 'correlation', 'requestId'].includes(key) && token(value)) ||
-          (['status', 'retryAfterMs'].includes(key) && Number.isFinite(value)),
+          (['status', 'retryAfterMs'].includes(key) && Number.isFinite(value)) ||
+          (key === 'dataField' && /^[a-z][a-z0-9_]{0,63}$/.test(value)) ||
+          (key === 'expectedData' &&
+            ['resource-id', 'node-id', 'git-object-id'].includes(value)),
       ),
     ),
   };

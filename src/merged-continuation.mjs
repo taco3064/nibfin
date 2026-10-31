@@ -4,6 +4,12 @@ import { authoritySnapshot, verifyAuthority } from './authority.mjs';
 import { contentIdentity } from './evidence.mjs';
 import { validateDeliveryEvidence } from './delivery-evidence.mjs';
 import { deliveryStages } from './delivery-planner.mjs';
+import {
+  prepareMergedContinuationRepair,
+  verifyMergedContinuationRepair,
+  checkMergedContinuationRepair,
+} from './merged-continuation-repair.mjs';
+export { prepareMergedContinuationRepair };
 
 const same = (a, b) => canonicalJSON(a) === canonicalJSON(b);
 const need = (ok, reason) => {
@@ -166,7 +172,10 @@ export function prepareMergedContinuation(parent, execution) {
 /** A current independently supplied Owner context verifies the fresh Grant.
  * This does not re-sign old Acceptance, convert UNACCEPTED work, or grant repair.
  */
-export function verifyMergedContinuation(approval, { parent, execution, context }) {
+export function verifyMergedContinuation(approval, input, depth = 0) {
+  need(depth <= 16, 'compatibility-chain-depth');
+  if (input.repair) return verifyMergedContinuationRepair(approval, input, depth);
+  const { parent, execution, context } = input;
   const binding = validateParent(parent, execution);
   const { draft } = prepareMergedContinuation(parent, execution);
   need(
@@ -186,8 +195,7 @@ export function verifyMergedContinuation(approval, { parent, execution, context 
 
 // Called at every plan/checkpoint. Historical receipts must stay byte-identical;
 // later receipts explicitly identify the new Core and continuation approval.
-export function checkMergedContinuation(input, plan) {
-  const checked = verifyMergedContinuation(input.approval, input);
+export function checkMergedContinuationFrame(input, plan) {
   need(plan.transition === null, 'completion-only');
   need(
     plan.cycle === input.parent.cycle &&
@@ -202,6 +210,29 @@ export function checkMergedContinuation(input, plan) {
         same(plan.evidenceCurrent[stage], input.parent.expectations[stage]),
       'historical-rewrite',
     );
+}
+
+export function mergedContinuationFrame(parent, receipts, expectations) {
+  return {
+    cycle: parent.cycle,
+    target: parent.target,
+    binding: parent.receipts.publication.binding,
+    scopeBody: parent.scopeBody,
+    shapeBody: parent.shapeBody,
+    receipts,
+    evidenceCurrent: expectations,
+    candidate: parent.receipts.deliver.inputs.candidate,
+    base: parent.receipts.pr.inputs.base,
+    head: parent.receipts.pr.inputs.head,
+    transition: null,
+    completion: null,
+  };
+}
+
+export function checkMergedContinuation(input, plan, depth = 0) {
+  if (input.repair) return checkMergedContinuationRepair(input, plan, depth);
+  const checked = verifyMergedContinuation(input.approval, input, depth);
+  checkMergedContinuationFrame(input, plan);
   for (const stage of remaining)
     if (plan.receipts[stage])
       need(

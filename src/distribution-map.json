@@ -270,7 +270,7 @@
     },
     {
       "path": "docs/core-host-consolidation.md",
-      "sha256": "982382707141b0e970d90b4d0ddadc85dd54f946d9e9e870ea2d6b9f563cc7ad"
+      "sha256": "ffc799521557e3e808ffe2b81fdacac93ddbc9da6c8d1b9c7b0d74a2ad9cf6d6"
     },
     {
       "path": "docs/core.md",
@@ -682,7 +682,7 @@
     },
     {
       "path": "src/github-conditional.mjs",
-      "sha256": "0fc46c6104b2eca01e01633d753fff5e4c9f4689f708c4c05debdf0df19d693b"
+      "sha256": "8e60fb0cb985ec773ecd8351fb5692721119ffd11bdb858b50409eb2e3f3da9e"
     },
     {
       "path": "src/github-contract.mjs",
@@ -778,7 +778,7 @@
     },
     {
       "path": "src/provider.mjs",
-      "sha256": "f40c5e971cd66ba1c3ea9222bcf071791926c0a69191ba03873456df0f1a6f46"
+      "sha256": "9dfbe9a16ee988631b23b9287d63eb9d06728e00fb7aadc54f2c4b431009aab7"
     },
     {
       "path": "src/publication.mjs",

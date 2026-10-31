@@ -484,6 +484,7 @@ export function createGithubProvider({
             body,
             signal,
             headers: { Accept: media, 'X-GitHub-Api-Version': githubApiVersion },
+            ...(options.conditional === false ? { conditional: false } : {}),
             identity,
           }),
           signal,
@@ -578,6 +579,7 @@ export function createGithubProvider({
         method: 'GET',
         endpoint: path,
         signal,
+        conditional: false,
         [remaining]: Math.max(1, elapsedMs - (now() - started)),
       });
       if (result.outcome !== 'read')

@@ -22,9 +22,12 @@ export function createConditionalGithubTransport({
   async function invoke(request, actual = send, retry = true) {
     const read = request.method === 'GET';
     if (!read) invalidate();
-    // Native collections depend on fresh Link headers. Leave them unconditional
-    // rather than reconstructing pagination metadata from an old representation.
-    const eligible = read && !/[?&](?:per_page|page)=/.test(request.endpoint),
+    // Collections need fresh Link headers even when their first URL has no
+    // pagination query. Never reconstruct them from an old representation.
+    const eligible =
+        read &&
+        request.conditional !== false &&
+        !/[?&](?:per_page|page)=/.test(request.endpoint),
       h = headers(request);
     const key = JSON.stringify([
         request.identity ?? null,
@@ -60,7 +63,7 @@ export function createConditionalGithubTransport({
       typeof response.body === 'string' &&
       typeof etag === 'string' &&
       etag.length <= 1024 &&
-      !/[\r\n]/.test(etag) &&
+      !/[\x00-\x1f\x7f]/.test(etag) &&
       start === generation
     ) {
       const size = Buffer.byteLength(response.body);

@@ -83,7 +83,7 @@ export function parseCandidateObligations(body) {
     const matches = prose.filter(line => line.startsWith(`Candidate ${kind} applicability:`));
     if (matches.length === 0) {
       const label = kind[0].toUpperCase() + kind.slice(1);
-      const legacy = prose.join('\n').match(new RegExp(`\\b${label} is empty because ([^\\n]+)`));
+      const legacy = prose.join('\n').match(new RegExp('(?:^|\\n)\\s*(?:`)?'+label+'(?:`)? is empty (?:because|based on) ([^\\n]+)','i'));
       if (legacy) explanations[kind] = legacy[1].trim();
     }
     if (matches.length === 1) explanations[kind] = matches[0].slice(`Candidate ${kind} applicability:`.length).trim();

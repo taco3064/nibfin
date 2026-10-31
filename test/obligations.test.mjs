@@ -50,6 +50,9 @@ test('Scope reconciliation, independent applicability, empty lists and deferred 
   const empty = parse(body([],[], 'Candidate artifacts applicability: Scope requires no extra output.\nCandidate hooks applicability: No applicable hooks.'));
   assert.equal(empty.ok,true);
   assert.equal(reconcile(empty,{...evidence(),requiredArtifacts:[]}).ok,true);
+  const markdown=parse(body([],[], '`artifacts` is empty because Scope requires tracked Markdown only.\n`hooks` is empty based on the independently inspected repository setup.'));
+  assert.equal(markdown.ok,true);assert.equal(reconcile(markdown,{...evidence(),requiredArtifacts:[]}).ok,true);
+  assert.equal(reconcile(markdown,{...evidence(),requiredArtifacts:[artifact]}).ok,false,'readable explanations cannot hide a required artifact');
   for (const kind of ['artifacts','hooks']) assert.equal(parse(body([],[],`Candidate ${kind} applicability: reason`)).ok,false);
   assert.equal(parse(body([],[], 'Candidate artifacts applicability: \nCandidate hooks applicability: reason')).ok,false);
 });

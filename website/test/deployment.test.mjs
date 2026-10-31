@@ -146,10 +146,10 @@ function checkEntryInventory(names,read){
  }
 }
 
-test('four package entries and the optional installed dispatch stage retain their separate purposes',()=>{
+test('active repository entries and reusable installation templates retain their separate purposes',()=>{
   checkEntryInventory(readdirSync('../.github/workflows').filter(n=>n.endsWith('.yml')),name=>readFileSync('../.github/workflows/'+name,'utf8'));
   for(const name of ['nibfin-delivery','nibfin-registration']) {
-    const entry=parse(readFileSync('../.github/workflows/'+name+'.yml','utf8'));
+    const entry=parse(readFileSync('../workflow/templates/'+name+'.yml','utf8'));
     assert.deepEqual(Object.keys(entry.on),['workflow_call']);
   }
   assert.equal(workflow.jobs['owner-pr'].steps[0].name,'Require repository owner as PR author');

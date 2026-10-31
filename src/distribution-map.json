@@ -481,11 +481,11 @@
     },
     {
       "path": "npm-shrinkwrap.json",
-      "sha256": "219144af24fd2bc93fd623453bd6358b8c408cfca486cc35cfee3316d61413b6"
+      "sha256": "2a512675262acb2c5c645d103bb746946f8d6b0dda6824e3d2bff38ea44eb5a5"
     },
     {
       "path": "package.json",
-      "sha256": "6eaa780082f32ac0239d8c8d2d4e5bd8d40500aefad499bb2b2ef08fb8dccd68"
+      "sha256": "124eff4afd4353186c3852701c4869ce5c89977a0beb4aa7e6efa12516fc8d44"
     },
     {
       "path": "provenance/controller-baseline.json",
@@ -761,7 +761,7 @@
     },
     {
       "path": "src/merged-continuation.mjs",
-      "sha256": "a4c8dd464e78767706a5e3716bc74007dc465e1ce30b29ac98eb42df709845d3"
+      "sha256": "151a72e1b4779fd79cf742f9804a8c34fb1e675dfa999e5af60f54e16927e4a8"
     },
     {
       "path": "src/native-role-bindings.mjs",

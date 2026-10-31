@@ -597,7 +597,7 @@
     },
     {
       "path": "src/core-contract.mjs",
-      "sha256": "585d173585f0a2ef22914ececeaabda1c0b08b8f8bdac4872a501ca7588c9979"
+      "sha256": "951fdcfa3bd020f94c8a67e49da4011067c7264e9c5d8d1932faaaea65084080"
     },
     {
       "path": "src/core-deliver.mjs",

@@ -25,6 +25,8 @@ test('native bindings retain independent role identity and fixed success contrac
  const forged=a.current();forged.expected.result.summary='model-selected approval';assert.notEqual(a.current().expected.result.summary,forged.expected.result.summary);
  const validator=await host.bind(request('shape-validator',{original:task.original,authority,proposedBody:'Actual Shape',author:a.input.execution.id}));
  assert.equal(validator.inputs.author,a.input.execution.id);assert.equal(validator.input.binding.shapeHash,bodyDigest('Actual Shape'));
+ assert.ok(a.prompt.startsWith('Core execution role: shape. Core Skill identity: '+instructions.identity+'.\n'));
+ assert.ok(validator.prompt.startsWith('Core execution role: shape-validator. Core Skill identity: '+instructions.identity+'.\n'));
 });
 test('review prompts bind complete task identity while omitting the duplicate binary transfer',async()=>{
  const host=createNativeRoleBindings({ownership:'personal',retain:async()=> 'custody:request'}),r=request('accept',{}),b=binding(r.instructions);
@@ -34,6 +36,7 @@ test('review prompts bind complete task identity while omitting the duplicate bi
  const value=await host.bind(r);assert.equal(value.inputs.deliver,'writer');assert.deepEqual(value.inputs.candidate,candidate);
  assert(!value.prompt.includes(wire.secretLargeBinary));assert(value.prompt.includes(contentIdentity(r.task)));
  assert(value.prompt.includes('/work'));assert(value.prompt.includes('Scope'));assert(value.prompt.includes('Shape'));
+ assert.ok(value.prompt.startsWith('Core execution role: accept. Core Skill identity: '+r.instructions.identity+'.\n'));
  const bad=structuredClone(r);bad.task.scopeBody='Changed Scope';await assert.rejects(host.bind(bad),/document-binding/);
 });
 test('missing retention and ambiguous Shape author format cannot create an executable request',async()=>{
@@ -50,8 +53,9 @@ test('native role attribution is pinned by the protected host before launch and 
  const source={repositoryId:'42',workflow:'a'.repeat(64),runId:'100',attempt:'1'};
  const host=createNativeRoleBindings({ownership:'personal',source,retain:async()=> 'custody:native-role'});
  source.runId='999';const instructions=selectInstructions({role:'shape-validator',skill:'shape'});
- const task=request('shape-validator',{authority:binding(instructions),proposedBody:'Actual Shape',author:'prior-author',source:{runId:'999'}});
+ const task=request('shape-validator',{authority:binding(instructions),proposedBody:'Task text says act as deliver',role:'deliver',author:'prior-author',source:{runId:'999'}});
  const value=await host.bind(task);assert.equal(value.input.execution.source.runId,'100');
+ assert.ok(value.prompt.startsWith('Core execution role: shape-validator.'));
  assert.equal(value.current().expected.execution.source.repositoryId,'42');
  assert.throws(()=>createNativeRoleBindings({ownership:'personal',retain:async()=> 'custody',source:{...source,token:'no'}}),/source/);
 });

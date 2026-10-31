@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {writeFileSync,readFileSync} from 'node:fs';
+import {writeFileSync,readFileSync,lstatSync} from 'node:fs';
 import {join} from 'node:path';
 import {createLinuxCodexBackend,createAgentLifecycle,startGithubReadBroker,redactRuntimeText,rejectSecrets} from '../src/index.mjs';
 import {codexFixture} from '../tooling/codex-fixture.mjs';
@@ -74,6 +74,9 @@ test('authorized Agent gets a narrow broker client/socket, never host GitHub aut
   const mounts=probe.args.flatMap((v,i)=>v==='--mount'?[probe.args[i+1]]:[]);
   assert(mounts.find(m=>m.includes('dst=/github-read,')).endsWith(',readonly'));
   assert(mounts.find(m=>m.includes('dst=/usr/local/bin/gh,')).endsWith(',readonly'));
+  const bridge=join(f.environment.instances[0].service,'github-read-client.mjs');
+  assert.equal(lstatSync(bridge).mode&0o777,0o500);
+  assert.equal(readFileSync(bridge,'utf8'),readFileSync(new URL('../src/agent-gh-client.mjs',import.meta.url),'utf8'));
   assert.doesNotMatch(JSON.stringify(probe),/hosts.yml|GH_TOKEN|GITHUB_TOKEN|\.config\/gh/);
   assert(mounts.every(m=>!m.includes('docker.sock')));
   writeFileSync(join(directory,'unexpected-file'),'host data');

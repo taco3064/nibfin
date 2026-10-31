@@ -13,7 +13,8 @@ export function decodeRoleOutput(context,value){
   if(context.outputFormat===undefined)return {...context,result:value};
   if(context.outputFormat!=='shape-author-v1'||context.stage!=='shape'||context.execution?.role!=='shape'
     ||!value||Object.keys(value).sort().join(' ')!=='body result'||typeof value.body!=='string'
-    ||Buffer.byteLength(value.body)>1048576)fail('output-format');
+    ||Buffer.byteLength(value.body)>1048576||!value.result||typeof value.result!=='object'
+    ||Array.isArray(value.result)||typeof value.result.outcome!=='string')fail('output-format');
   const {outputFormat,...binding}=context;return {...binding,shapeBody:value.body,result:value.result};
 }
 export const dependencyProbeEndpoints=Object.freeze(['registry.npmjs.org','cdn.playwright.dev','playwright.download.prss.microsoft.com']);
@@ -94,12 +95,12 @@ export function executeSession({request,adapter,version,invoke,decode,inspect,ru
 export function codexEvents(output,secrets=[]) {
   if(typeof output!=='string'||Buffer.byteLength(output)>1048576||!output.endsWith('\n'))fail('output');
   const identified=sessionIdFromEvents(output);
-  let session=null,started=false,terminal=null,result=null,reportedError=null;const pendingTools=new Set();
+  let session=null,started=false,terminal=null,result=null,reportedError=null,lastCompletedItem=null;const pendingTools=new Set();
   for(const line of output.trimEnd().split('\n')) {
     const value=JSON.parse(line);rejectSecrets(value,secrets);
     if(terminal)fail('post-terminal');
     if(['item.started','item.updated'].includes(value.type)&&['command_execution','mcp_tool_call','collab_tool_call'].includes(value.item?.type))pendingTools.add(value.item.id);
-    if(value.type==='item.completed')pendingTools.delete(value.item?.id);
+    if(value.type==='item.completed'){pendingTools.delete(value.item?.id);lastCompletedItem=value.item;}
     if(value.type==='thread.started') {
       if(session!==null||!sessionId(value.thread_id))fail('session');session=value.thread_id;
     }else if(value.type==='turn.started'){if(started)fail('turn');started=true;}
@@ -111,13 +112,20 @@ export function codexEvents(output,secrets=[]) {
     }else if(value.type==='item.completed'&&value.item?.type==='agent_message') {
       try {
         const parsed=JSON.parse(value.item.text);
-        if(parsed&&typeof parsed==='object'&&Object.hasOwn(parsed,'outcome')) {
+        // Collect the completed message before interpreting its role schema.
+        // Shape authors return {body,result}; their outcome is deliberately not
+        // at the top level. decodeRoleOutput owns that versioned envelope.
+        if(parsed&&typeof parsed==='object'&&!Array.isArray(parsed)) {
           if(result!==null)fail('duplicate-result');result=parsed;
         }
       }catch(e){if(e.message==='agent-session:duplicate-result')throw e;}
     }
   }
   if(session!==identified||!terminal||reportedError!==null && (terminal.type!=='turn.failed'||terminal.error?.message!==reportedError))fail('terminal');
+  // A tool completion or prose after a structured message cannot turn an older
+  // result into this turn's final answer. The role decoder validates its schema.
+  if(terminal.type==='turn.completed'&&(lastCompletedItem?.type!=='agent_message'
+    ||JSON.stringify(JSON.parse(lastCompletedItem.text))!==JSON.stringify(result)))fail('final-message');
   return {session,terminal,result,unknownExternalWrite:pendingTools.size>0,success:terminal.type==='turn.completed'&&result!==null};
 }
 export function rejectSecrets(value,secrets) {

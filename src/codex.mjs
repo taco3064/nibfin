@@ -63,7 +63,16 @@ export function createLinuxBackend(config, profile = null) {
     const directory=githubRead.directory;
     if(realpathSync(directory)!==directory||!lstatSync(directory).isDirectory()||
       readdirSync(directory).join(',')!=='read.sock'||!lstatSync(join(directory,'read.sock')).isSocket())fail('github-read');
-    return [...mount(directory,'/github-read'),...mount(fileURLToPath(new URL('./agent-gh-client.mjs',import.meta.url)),'/usr/local/bin/gh')];
+    // Package storage is private data (0600). Publish only this fixed bridge as
+    // an executable inside the disposable service owner, with exact byte/mode
+    // readback. Never depend on tar/npm preserving an installed source mode.
+    const client=join(instance.service,'github-read-client.mjs');
+    const bytes=readFileSync(new URL('./agent-gh-client.mjs',import.meta.url));
+    if(!existsSync(client))writeFileSync(client,bytes,{flag:'wx',mode:0o500});
+    const stat=lstatSync(client);
+    if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1||(stat.mode&0o777)!==0o500
+      ||!readFileSync(client).equals(bytes))fail('github-read-client');
+    return [...mount(directory,'/github-read'),...mount(client,'/usr/local/bin/gh')];
   }
   recoveryPolicy(recovery,agent,profile?.version??selectedProfile.codex);
   const environment = createAgentEnvironments().describe(original);

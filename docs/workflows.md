@@ -166,7 +166,7 @@ here and belong to the designated integration/release Issues and independent gat
 
 
 For a version-2 repository-local execution pool, the maintained installation
-renderer installs one project-local native stage workflow. The public Core
+renderer installs project-local native stage and Rescue workflows. The public Core
 reusable delivery/registration entries remain package-owned. It queues the member Job directly with one authenticated
 member selector and one unique request selector, before any JIT registration
 exists. The control host verifies the exact installed sources and actual project

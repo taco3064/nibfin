@@ -9,15 +9,16 @@ export const nativeRoleSuccessSummary='Completed the assigned Nibfin role.';
  * output is used as an expected result, execution identity or authority. This
  * does not authenticate a caller, launch a model, grant writes or certify a host.
  */
-export function createNativeRoleBindings({ownership,retain,now=Date.now,timeoutMs=720000,reserveMs=60000,source=null}={}){
+export function createNativeRoleBindings({ownership,retain,now=Date.now,timeoutMs=720000,reserveMs=60000,source=null,allocate=null}={}){
  need(['personal','organization'].includes(ownership)&&typeof retain==='function'&&typeof now==='function'
   &&Number.isSafeInteger(timeoutMs)&&timeoutMs>0&&timeoutMs<=3600000
   &&Number.isSafeInteger(reserveMs)&&reserveMs>0&&reserveMs<timeoutMs,'configuration');
  if(source!==null)need(source&&Object.keys(source).sort().join(' ')==='attempt repositoryId runId workflow'
   &&['repositoryId','runId','attempt'].every(k=>typeof source[k]==='string'&&/^[1-9][0-9]*$/.test(source[k]))
   &&typeof source.workflow==='string'&&/^[a-f0-9]{64}$/.test(source.workflow),'source');
+ need(allocate===null||typeof allocate==='function','execution-allocator');
  const provenance=copy(source);
- const records=new Map();
+ const records=new Map(),used=new Set();
  return Object.freeze({async bind(value){
   const {role,skill,instructions,task}=copy(value);need(skillForRole(role)===skill,'role');
   need(instructions&&bodyDigest(instructions.content)===instructions.identity,'instructions');
@@ -48,7 +49,13 @@ export function createNativeRoleBindings({ownership,retain,now=Date.now,timeoutM
      deliver:e.deliver.value.execution.id,accept:e.accept.value.execution.id};break;
    }
   }
-  const execution={id:'role-'+randomUUID(),request:'request-'+randomUUID(),result:'result-'+randomUUID(),role,skill,source:copy(provenance)};
+  const allocated=allocate?await allocate(role):null;
+  need(allocated===null||allocated&&Object.keys(allocated).sort().join(' ')==='id request result'
+   &&Object.values(allocated).every(v=>typeof v==='string'&&/^[A-Za-z0-9_-]{1,80}$/.test(v))
+   &&new Set(Object.values(allocated)).size===3,'execution-reservation');
+  const execution={...(allocated??{id:'role-'+randomUUID(),request:'request-'+randomUUID(),result:'result-'+randomUUID()}),role,skill,source:copy(provenance)};
+  need(['id','request','result'].every(k=>!used.has(execution[k])),'execution-reuse');
+  for(const k of ['id','request','result'])used.add(execution[k]);
   const result={version:1,outcome:outcomesForRole(role)[0],failureClass:'none',summary:nativeRoleSuccessSummary,conflicts:[]};
   const expected={version:1,stage:role,execution,binding,inputs:copy(inputs),result};
   const input={execution,binding,instructions:{identity:instructions.identity,content:instructions.content},visibility:'public',ownership};

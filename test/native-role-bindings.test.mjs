@@ -3,6 +3,15 @@ import{createNativeRoleBindings,nativeRoleSuccessSummary,selectInstructions,body
 const binding=instructions=>({authority:'a'.repeat(64),grant:'b'.repeat(64),policy:'c'.repeat(64),core:'d'.repeat(64),runtime:'e'.repeat(64),
  instructions:instructions.identity,repositoryId:'42',issueId:'I_current',scopeHash:bodyDigest('Scope'),shapeHash:bodyDigest('Shape')});
 const request=(role,task)=>({role,skill:role==='deliver'?'deliver':role==='accept'?'accept':'shape',instructions:selectInstructions({role,skill:role==='deliver'?'deliver':role==='accept'?'accept':'shape'}),task});
+
+test('protected recovery reserves one original-role continuation identity and cannot reuse it',async()=>{
+ const identity={id:'reserved-role',request:'reserved-request',result:'reserved-result'};
+ const host=createNativeRoleBindings({ownership:'personal',retain:async()=> 'custody:reserved',allocate:async role=>{assert.equal(role,'shape');return identity;}});
+ const instructions=selectInstructions({role:'shape',skill:'shape'}),task={original:{kind:'raw-scope',body:'Scope'},authority:binding(instructions),
+  requirementsDocument:{format:'scope-shape-v1',scope:'Scope',frame:requirementsDocumentFrame('Scope')}};
+ const value=await host.bind(request('shape',task));for(const key of Object.keys(identity))assert.equal(value.input.execution[key],identity[key]);
+ await assert.rejects(host.bind(request('shape',task)),/execution-reuse/);
+});
 test('native bindings retain independent role identity and fixed success contract before launch',async()=>{
  const retained=[],host=createNativeRoleBindings({ownership:'personal',retain:async v=>{retained.push(v);return'custody:request';},now:()=>1000});
  const instructions=selectInstructions({role:'shape',skill:'shape'}),authority=binding(instructions);

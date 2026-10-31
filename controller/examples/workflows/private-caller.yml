@@ -1,9 +1,0 @@
-name: upstream
-on:
-  workflow_dispatch:
-permissions:
-  contents: read
-jobs:
-  nibfin:
-    # Replace CORE_COMMIT_SHA during enrollment with an approved full commit SHA.
-    uses: retired-private-source/.github/workflows/nibfin.yml@CORE_COMMIT_SHA

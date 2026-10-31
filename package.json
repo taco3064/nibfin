@@ -1,6 +1,6 @@
 {
   "name": "@nibfin/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Versioned Nibfin Core, host, workflow and Skill distribution",
   "private": true,
   "type": "module",
@@ -203,7 +203,12 @@
     "src/github-transport.mjs",
     "src/github-conditional.mjs",
     "src/github-rate-limit.mjs",
-    "docs/core-host-consolidation.md"
+    "docs/core-host-consolidation.md",
+    "src/core-contract.mjs",
+    "src/core-deliver.mjs",
+    "src/delivery-revision.mjs",
+    "src/protected-rescue-policy.mjs",
+    "provenance/controller-baseline.json"
   ],
   "scripts": {
     "check": "node --test test/*.test.mjs",

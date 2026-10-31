@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "repository": "taco3064/nibfin",
+  "commit": "83a0e9cd8e1026925ddd8c5bf9d5f987e8905708",
+  "path": "controller",
+  "tree": "b9b38f402b0cb098581492d7fe85ae35ca91ce4a",
+  "disposition": "retired-reference-only",
+  "historicalDonor": {
+    "repository": "retired-private-source",
+    "commit": "f55be2070bee63879dee46c3dec38806bb93a0db",
+    "manifestSha256": "30d8911c118db7a676a66b1fd6fb7b7ec6e328b788a6e8414e21cbac0488ba2c"
+  },
+  "reviewedNibfinBaseline": {
+    "repository": "taco3064/nibfin",
+    "commit": "36bfe080e375da2a7beb6d2b9bc87bebc8c06f2d",
+    "path": "controller",
+    "pullRequests": [
+      239,
+      240
+    ]
+  },
+  "inputs": [
+    {
+      "responsibility": "runtime",
+      "path": "controller/src/runtime.mjs",
+      "sha256": "4dd9f5d7f5438513e1dfc80b18ab33c156ae9f44d8cfee6a87e8d8bba3b8ddd0",
+      "historicalSha256": "bce8b1c4a666788e63c0f5f7e78eeec005c75b83de7a2d03ce4601ff587db08e"
+    },
+    {
+      "responsibility": "workflow",
+      "path": "controller/src/action-stage.mjs",
+      "sha256": "9eceaa622d6fa50501eafdf9783dc0bfcc0521c71b267ed56370f908fa0717d6",
+      "historicalSha256": "396f56db1a69a835e182ea3aa4ef4952c05a8ac17e7e51a9b4d4dceca3f60acd"
+    },
+    {
+      "responsibility": "planning",
+      "path": "controller/src/core.mjs",
+      "sha256": "3b73475e65d8301125af32db7a09d9ff5ee000bcf6491938384809d97e01dd24",
+      "historicalSha256": "873cdaad4ee518b63bdbf0d7a86fcdb78099c3f3e9417410bec524261a2e0ae8"
+    },
+    {
+      "responsibility": "configuration",
+      "path": "controller/src/runtime-configuration.mjs",
+      "sha256": "c44560b0ff996134dbafd67e6afc82fadd9e23c0b4d3391bbc6b7d0c3d077377",
+      "historicalSha256": "226943bb4d8772f0bbf3258596ffb8c3b6a9960ec35b61dead1239f101537e8c"
+    },
+    {
+      "responsibility": "schema",
+      "path": "controller/src/schema.mjs",
+      "sha256": "235dc01b542c3f09f70f3f123bfdb1293085c014b15278b1a7ac4445cbade265",
+      "historicalSha256": "235dc01b542c3f09f70f3f123bfdb1293085c014b15278b1a7ac4445cbade265"
+    },
+    {
+      "responsibility": "authority",
+      "path": "controller/src/authority.mjs",
+      "sha256": "7bdd200d4c8f1180ba852b2718a737b8f590befb527b912b8c224e2f605f77cc",
+      "historicalSha256": "b1baba4f48e6f16b7809b257e33b0fbe9e9f86ef95e1c20e95b05e305687f352"
+    },
+    {
+      "responsibility": "skills",
+      "path": "controller/src/skills.mjs",
+      "sha256": "deb11a7193dd5da484813213d9d30c08301c7ff824a34f8b7074df671801b1b4",
+      "historicalSha256": "deb11a7193dd5da484813213d9d30c08301c7ff824a34f8b7074df671801b1b4"
+    },
+    {
+      "responsibility": "hold-pause",
+      "path": "controller/src/owner-hold.mjs",
+      "sha256": "32ca9160d4315db265d801a6330e09bf42861a92a7139d1aba6f6e9e1517fdda",
+      "historicalSha256": "32ca9160d4315db265d801a6330e09bf42861a92a7139d1aba6f6e9e1517fdda"
+    },
+    {
+      "responsibility": "recovery",
+      "path": "controller/src/rescue.mjs",
+      "sha256": "2c04ccb86f8e90bfc3d17971eac32667169344ff653d23e380fed6b8c9df7c92",
+      "historicalSha256": "f827ac14766e7067f47b0095082bba86bb5434e55a6923947b97bc06e4dc569e"
+    }
+  ],
+  "recovery": "git show 83a0e9cd8e1026925ddd8c5bf9d5f987e8905708:controller/<path>",
+  "rationale": "Public Core owns execution. Historical bytes remain recoverable from the public Git tree; no development controller is packaged or installed."
+}

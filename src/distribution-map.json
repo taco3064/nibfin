@@ -682,7 +682,7 @@
     },
     {
       "path": "src/obligations.mjs",
-      "sha256": "4081bb9172b40dbd62959e37da7f979b1fdf5c6ec5d3df7e184f4df75b6731c7"
+      "sha256": "823fa05ef4b33117522eb285c0aa9611f23557e81b146116614bd13d78e02de1"
     },
     {
       "path": "src/operations.mjs",

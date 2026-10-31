@@ -674,7 +674,7 @@
     },
     {
       "path": "src/native-role-bindings.mjs",
-      "sha256": "1dc2335d02b0f6302c1d4ed7bc9fe9b7812a3b98498fa3b2e46862afa1feee34"
+      "sha256": "f4826ccd56cdedd7781504c42ef67124440b1abc713f1cab2d698fc98ff4e1de"
     },
     {
       "path": "src/node-verification.mjs",

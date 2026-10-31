@@ -1,17 +1,30 @@
 import test from 'node:test';
-import {createHash} from 'node:crypto';
+import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
-import {mkdtempSync, cpSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync} from 'node:fs';
-import {tmpdir} from 'node:os';
-import {join, resolve} from 'node:path';
-import {execFileSync} from 'node:child_process';
-import {gzipSync, gunzipSync} from 'node:zlib';
-import {buildArchive, packArchive, verifyArchive, packageFiles} from '../tooling/archive.mjs';
+import {
+  mkdtempSync,
+  cpSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  rmSync,
+  existsSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { gzipSync, gunzipSync } from 'node:zlib';
+import {
+  buildArchive,
+  packArchive,
+  verifyArchive,
+  packageFiles,
+} from '../tooling/archive.mjs';
 
 // Mutate real packed bytes, preserving valid tar checksums for rejection tests.
 function changeEntry(archive, oldName, newName) {
   const tar = gunzipSync(archive);
-  for (let offset = 0; offset + 512 <= tar.length;) {
+  for (let offset = 0; offset + 512 <= tar.length; ) {
     const header = tar.subarray(offset, offset + 512);
     const name = header.subarray(0, 100).toString().replace(/\0.*$/s, '');
     if (!name) break;
@@ -32,60 +45,142 @@ function changeEntry(archive, oldName, newName) {
 test('real archive, rejection policy and website isolation', () => {
   const fixture = mkdtempSync(join(tmpdir(), 'nibfin-producer-'));
   try {
-    for (const path of ['host', 'workflow', '.github', 'package.json', 'package-lock.json', 'npm-shrinkwrap.json', 'README.md', 'docs', 'src', 'skills', 'instructions', 'examples', 'test', 'test-sdk', 'tooling']) {
-      cpSync(resolve(path), join(fixture, path), {recursive: true});
+    const sourceRoots = new Set([
+      ...packageFiles.map((path) => path.split('/')[0]),
+      '.github',
+      'test',
+      'test-sdk',
+      'tooling',
+      'package-lock.json',
+    ]);
+    for (const path of sourceRoots) {
+      cpSync(resolve(path), join(fixture, path), { recursive: true });
     }
-    const env = {...process.env};
+    const env = { ...process.env };
     delete env.NODE_TEST_CONTEXT;
-    const run = args => execFileSync('npm', args, {cwd: fixture, env, encoding: 'utf8', stdio: 'pipe'});
+    const run = (args) =>
+      execFileSync('npm', args, {
+        cwd: fixture,
+        env,
+        encoding: 'utf8',
+        stdio: 'pipe',
+      });
     run(['ci', '--offline', '--ignore-scripts', '--no-audit', '--no-fund']);
     // Run only identity tests here, avoiding recursive fixture creation.
-    execFileSync(process.execPath, ['--test', 'test/identity.test.mjs'], {cwd: fixture, env});
+    execFileSync(process.execPath, ['--test', 'test/identity.test.mjs'], {
+      cwd: fixture,
+      env,
+    });
     const archive = readFileSync(buildArchive(fixture));
     assert.deepEqual(verifyArchive(archive, fixture), [...packageFiles].sort());
-    assert.throws(() => verifyArchive(changeEntry(archive, 'README.md', 'secrets/token'), fixture), /Forbidden/);
-    assert.throws(() => verifyArchive(changeEntry(archive, 'src/index.mjs', 'src/missing.mjs'), fixture), /Forbidden/);
+    assert.throws(
+      () =>
+        verifyArchive(changeEntry(archive, 'README.md', 'secrets/token'), fixture),
+      /Forbidden/,
+    );
+    assert.throws(
+      () =>
+        verifyArchive(
+          changeEntry(archive, 'src/index.mjs', 'src/missing.mjs'),
+          fixture,
+        ),
+      /Forbidden/,
+    );
     // A valid subset still fails the mandatory-entry check.
     const tar = gunzipSync(archive);
-    for (const required of packageFiles.filter(path => path.startsWith('src/') || path.startsWith('skills/') || path.startsWith('instructions/') || path.startsWith('workflow/') || path.startsWith('host/') || path.startsWith('.github/workflows/nibfin-'))) {
+    for (const required of packageFiles.filter(
+      (path) =>
+        path.startsWith('src/') ||
+        path.startsWith('skills/') ||
+        path.startsWith('instructions/') ||
+        path.startsWith('workflow/') ||
+        path.startsWith('host/') ||
+        path.startsWith('.github/workflows/nibfin-'),
+    )) {
       let offset = 0;
       while (offset < tar.length) {
-        const name = tar.subarray(offset, offset + 100).toString().replace(/\0.*$/s, '');
+        const name = tar
+          .subarray(offset, offset + 100)
+          .toString()
+          .replace(/\0.*$/s, '');
         if (name === `package/${required}`) {
-          const size = parseInt(tar.subarray(offset + 124, offset + 136).toString(), 8);
+          const size = parseInt(
+            tar.subarray(offset + 124, offset + 136).toString(),
+            8,
+          );
           const end = offset + 512 + Math.ceil(size / 512) * 512;
-          assert.throws(() => verifyArchive(gzipSync(Buffer.concat([tar.subarray(0, offset), tar.subarray(end)])), fixture), /Missing required/);
+          assert.throws(
+            () =>
+              verifyArchive(
+                gzipSync(Buffer.concat([tar.subarray(0, offset), tar.subarray(end)])),
+                fixture,
+              ),
+            /Missing required/,
+          );
           break;
         }
-        offset += 512 + Math.ceil(parseInt(tar.subarray(offset + 124, offset + 136).toString(), 8) / 512) * 512;
+        offset +=
+          512 +
+          Math.ceil(
+            parseInt(tar.subarray(offset + 124, offset + 136).toString(), 8) / 512,
+          ) *
+            512;
       }
     }
-    mkdirSync(join(fixture, 'website'), {recursive: true});
-    writeFileSync(join(fixture, 'website/package.json'), JSON.stringify({private: true, dependencies: {'must-not-install': '0.0.0'}, scripts: {install: 'exit 99'}}));
-    writeFileSync(join(fixture, 'website/fail.test.mjs'), "throw new Error('Website tests must not run');");
+    mkdirSync(join(fixture, 'website'), { recursive: true });
+    writeFileSync(
+      join(fixture, 'website/package.json'),
+      JSON.stringify({
+        private: true,
+        dependencies: { 'must-not-install': '0.0.0' },
+        scripts: { install: 'exit 99' },
+      }),
+    );
+    writeFileSync(
+      join(fixture, 'website/fail.test.mjs'),
+      "throw new Error('Website tests must not run');",
+    );
     writeFileSync(join(fixture, 'website/.npmrc'), 'registry=http://127.0.0.1:1');
     writeFileSync(join(fixture, 'website/tsconfig.json'), '{"invalid":true}');
     run(['ci', '--offline', '--ignore-scripts', '--no-audit', '--no-fund']);
     assert.equal(existsSync(join(fixture, 'website/node_modules')), false);
-    // Explicit root discovery executes all real root tests; remove this fixture test only.
+    // Explicit discovery runs root tests; remove only this recursive fixture.
     rmSync(join(fixture, 'test/archive.test.mjs'));
-    const sourceCheck=run(['run','check']);assert.match(sourceCheck,/fail 0/);
-    console.log('Source regression summary:',sourceCheck.slice(sourceCheck.lastIndexOf('1..')));
-    console.log('Installed archive SHA-256:',createHash('sha256').update(archive).digest('hex'));
+    const sourceCheck = run(['run', 'check']);
+    assert.match(sourceCheck, /fail 0/);
+    console.log(
+      'Source regression summary:',
+      sourceCheck.slice(sourceCheck.lastIndexOf('1..')),
+    );
+    console.log(
+      'Installed archive SHA-256:',
+      createHash('sha256').update(archive).digest('hex'),
+    );
     // The installed suite already passed for these exact archive bytes above.
     // Repack to test website isolation without executing that same suite twice.
     const withWebsite = readFileSync(packArchive(fixture));
     assert.deepEqual(withWebsite, archive);
-    for (const required of ['instructions/scope.md','examples/scope.json','skills/shape/SKILL.md','skills/deliver/SKILL.md','skills/accept/SKILL.md','workflow/templates/nibfin-stage.yml','workflow/templates/nibfin-delivery.yml']) {
+    for (const required of [
+      'instructions/scope.md',
+      'examples/scope.json',
+      'skills/shape/SKILL.md',
+      'skills/deliver/SKILL.md',
+      'skills/accept/SKILL.md',
+      'workflow/templates/nibfin-stage.yml',
+      'workflow/templates/nibfin-delivery.yml',
+    ]) {
       const path = join(fixture, required);
       const original = readFileSync(path);
       writeFileSync(path, Buffer.concat([original, Buffer.from('changed')]));
-      assert.throws(() => verifyArchive(archive, fixture), /Archive\/source mismatch/);
+      assert.throws(
+        () => verifyArchive(archive, fixture),
+        /Archive\/source mismatch/,
+      );
       writeFileSync(path, original);
     }
     writeFileSync(join(fixture, 'src/index.mjs'), '// changed source');
     assert.throws(() => verifyArchive(archive, fixture), /Archive\/source mismatch/);
   } finally {
-    rmSync(fixture, {recursive: true, force: true});
+    rmSync(fixture, { recursive: true, force: true });
   }
 });

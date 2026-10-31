@@ -20,8 +20,8 @@ Retain this plan, archive digest and source commit for Action/CLI read-only cons
 No second repository is modified by this module. Changing pins requires applicable
 compatibility checks and fresh authorization; never replace an in-flight Grant's Core.
 
-The production reusable files are `nibfin-delivery.yml` and
-`nibfin-registration.yml`. Templates `nibfin-stage.yml`, `nibfin-wakeup.yml` and
+The reusable compatibility sources are `workflow/templates/nibfin-delivery.yml`
+and `workflow/templates/nibfin-registration.yml`. Templates `nibfin-stage.yml`, `nibfin-wakeup.yml` and
 `nibfin-register.yml` become installed callers. Local reusable references use the
 same caller commit; external callers can instead use
 `taco3064/nibfin/.github/workflows/nibfin-delivery.yml@<approved-40-hex-commit>`.
@@ -181,3 +181,15 @@ verification, not authority. The run title remains Issue/stage/correlation.
 A running daemon, rendered YAML and an allocated slot are distinct from verified
 stage completion; native stage composition and its retained outcome are required
 before activation.
+
+## Native repository entry
+
+The native shared-pool installation uses project-local `nibfin-stage.yml` and
+`nibfin-rescue.yml`. The earlier single-stage v1 delivery workflow is no longer
+an active entry in this repository. Delivery and registration sources remain installation templates
+under `workflow/templates/` because the explicit compatibility installation API
+still renders their original `.github/workflows/` filenames for existing callers.
+References pinned to older source commits continue to resolve those commits.
+These development repositories do not onboard additional members through the
+protected registration workflow, so it is not an active repository entry either.
+Product registration remains available to explicitly selected installations.

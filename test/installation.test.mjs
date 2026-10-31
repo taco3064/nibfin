@@ -121,7 +121,7 @@ test('isolated readiness bootstrap diagnoses missing/tampered package bytes befo
       console.log(JSON.stringify(await api.check()));`;
     const check=()=>JSON.parse(execFileSync(process.execPath,['--input-type=module','-e',script],{encoding:'utf8',env:{PATH:process.env.PATH,HOME:root}}));
     assert.equal(check().status,'ready');
-    for(const [path,capability] of [['src/runtime.mjs','runtime'],['.github/workflows/nibfin-delivery.yml','workflow'],['skills/deliver/SKILL.md','skills'],['src/rescue.mjs','recovery'],['host/runner-job-hook.sh','jobAdmission']]){
+    for(const [path,capability] of [['src/runtime.mjs','runtime'],['workflow/templates/nibfin-delivery.yml','workflow'],['skills/deliver/SKILL.md','skills'],['src/rescue.mjs','recovery'],['host/runner-job-hook.sh','jobAdmission']]){
       const file=join(root,path),bytes=readFileSync(file);unlinkSync(file);
       let r=check();assert.equal(r.status,'blocked');assert.equal(r.diagnostics[0].capability,capability);
       writeFileSync(file,Buffer.concat([bytes,Buffer.from('github_pat_PRIVATE_CANARY')]));

@@ -6,7 +6,7 @@ import {workflowFiles,workflowInstallation,workflowInput,workflowRoute,projectIs
 import {workflowYAML,resolveYAML,callInputs,workflowFixture} from '../tooling/workflow-fixture.mjs';
 import {relayFixture} from '../tooling/relay-fixture.mjs';
 import {parse} from 'yaml';
-const delivery='.github/workflows/nibfin-delivery.yml', registration='.github/workflows/nibfin-registration.yml';
+const delivery='workflow/templates/nibfin-delivery.yml', registration='workflow/templates/nibfin-registration.yml';
 const ctx={github:{repository_id:'42',event:{issue:{number:101}}},inputs:{issue:'101'}};
 const guard=scope=>nativeConcurrency({repository:'example/core',repositoryId:'42',scope,...(scope==='issue'?{issue:'101'}:{})});
 

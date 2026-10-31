@@ -13,7 +13,8 @@
     "jobAdmission": 1,
     "evidence": 1,
     "nativeHost": 1,
-    "nativeNotifications": 1
+    "nativeNotifications": 1,
+    "githubTransport": 1
   },
   "owners": [
     {
@@ -95,6 +96,21 @@
       "responsibility": "job-admission",
       "owner": "src/runner-job-gate.mjs",
       "disposition": "reused"
+    },
+    {
+      "responsibility": "github-transport",
+      "owner": "src/github-transport.mjs",
+      "disposition": "consolidated"
+    },
+    {
+      "responsibility": "github-observation",
+      "owner": "src/github-conditional.mjs",
+      "disposition": "consolidated"
+    },
+    {
+      "responsibility": "github-cooldown",
+      "owner": "src/github-rate-limit.mjs",
+      "disposition": "consolidated"
     }
   ],
   "origin": {
@@ -223,6 +239,10 @@
     {
       "path": "docs/completion.md",
       "sha256": "d1ef38c579f01594b3d23073cfb929a104b57567de063923f413c59d757ff968"
+    },
+    {
+      "path": "docs/core-host-consolidation.md",
+      "sha256": "07273ea2cdd72ebb662a10fad42bb708ed0c49c1e6ba7bfdde154ff69522ff73"
     },
     {
       "path": "docs/core.md",
@@ -426,7 +446,7 @@
     },
     {
       "path": "package.json",
-      "sha256": "a570f4ae2484ec2a99b821101d4489b07a156c631717cfcda209ddb6edf4b165"
+      "sha256": "3df9edafc49c98d053ccbb80d2384a6a433dacde60954adb45b19ae2ba522b98"
     },
     {
       "path": "skills/accept/SKILL.md",
@@ -466,7 +486,7 @@
     },
     {
       "path": "src/agent-session.mjs",
-      "sha256": "3ebfbcfb7ae413e28c12e937ef2b4db49f69e4d5d018f770671833372b2180e9"
+      "sha256": "9ecf07efec4132fd0503eedf9fad5dbb7d64a132e44b2053f7b13ca382487c6e"
     },
     {
       "path": "src/archive.mjs",
@@ -518,7 +538,7 @@
     },
     {
       "path": "src/codex.mjs",
-      "sha256": "e8919c973fa5b4104d6e771e6b486c0e686fb65b76a21a2dc0cccb8c13b5cb67"
+      "sha256": "094ec22dba8c3a2c822ff05d8946c69aab96cec41a154a83d72f56bb210a4ed9"
     },
     {
       "path": "src/collaboration.mjs",
@@ -570,7 +590,7 @@
     },
     {
       "path": "src/distribution-contract.mjs",
-      "sha256": "6b2981b4107521a52a7307e0e8f358bb102360e4a95ad0d1099b9ff3c195cdfe"
+      "sha256": "a40ef90d16ca11091c6d8c8f4bef3c3fb17ccb8c687a4bc8b0f6b9f9d4b6302f"
     },
     {
       "path": "src/distribution.mjs",
@@ -602,7 +622,7 @@
     },
     {
       "path": "src/fanout.mjs",
-      "sha256": "21555eef7c1a2bb0964bdb4ab15b24de34dd4958149d6e01482fcb6906b2c52a"
+      "sha256": "e776ac1dc25ad3f156c92180f9e60a1b1185307dc0016a2a52149fca878909aa"
     },
     {
       "path": "src/final-review.mjs",
@@ -615,6 +635,22 @@
     {
       "path": "src/gemini.mjs",
       "sha256": "dd9956fb4a3306e84ad70a488b41ebced0564ee482f9ecae1febd056a04c288c"
+    },
+    {
+      "path": "src/github-conditional.mjs",
+      "sha256": "0fc46c6104b2eca01e01633d753fff5e4c9f4689f708c4c05debdf0df19d693b"
+    },
+    {
+      "path": "src/github-contract.mjs",
+      "sha256": "385cdc9c30e4b6b128b8380607069678420507158a33d267859fcb7e8995f464"
+    },
+    {
+      "path": "src/github-rate-limit.mjs",
+      "sha256": "c73a4fe36f677cc14d2b11bd7b98f22d52a67bc107a1dffdb82e36ab9e2570f3"
+    },
+    {
+      "path": "src/github-transport.mjs",
+      "sha256": "922d9a0134e99acbdd81f7dd6eb906c32db1990e0c950e385b378b55871fa58a"
     },
     {
       "path": "src/github.mjs",
@@ -646,7 +682,7 @@
     },
     {
       "path": "src/index.mjs",
-      "sha256": "f315d04ce8cd1ac36c329dedb2f71982a29b41090ab340f782671e02ea38ecaa"
+      "sha256": "a3b265d6890cf85441d5bcc477c1fa3717597556ad0f9b4f0170d4496101a2a5"
     },
     {
       "path": "src/installation.mjs",
@@ -666,7 +702,7 @@
     },
     {
       "path": "src/native-role-bindings.mjs",
-      "sha256": "f75d64cc4a27f04135173f25f0301c27b9ec6b9a97813bb8b5ad7a33de957f78"
+      "sha256": "7febecf39b41b7583294dc9ff27f1598b2c3ea5723757f6eb757ff199803cb11"
     },
     {
       "path": "src/node-verification.mjs",
@@ -694,7 +730,7 @@
     },
     {
       "path": "src/provider.mjs",
-      "sha256": "4aad440c8f3f1c348550333f1a96399a18fa5114e58433ff91cd60eece3d5a09"
+      "sha256": "f40c5e971cd66ba1c3ea9222bcf071791926c0a69191ba03873456df0f1a6f46"
     },
     {
       "path": "src/publication.mjs",
@@ -798,11 +834,11 @@
     },
     {
       "path": "src/rescue.mjs",
-      "sha256": "1415fbef74fe4900c5ae8aeda887ebb129d4e10eeab923ce626953896799afbb"
+      "sha256": "2dabd6e3591b43fdedaafca56bccdd7619047a3c150eec108b7303cda63641e8"
     },
     {
       "path": "src/role-host.mjs",
-      "sha256": "177cbfa76ffcf9157e20d6dd69d86aeaadfdcddf6a9d841a40541d7c06c9ce4b"
+      "sha256": "dc0f50f2c60a61a270e48606d19ee9fdfaf1aa3cf34d778b0c8165a77a5826ea"
     },
     {
       "path": "src/role-session.mjs",
@@ -874,7 +910,7 @@
     },
     {
       "path": "src/workflow-install.mjs",
-      "sha256": "6c657f555e961f20b06e7d97c65eb84afc0708bb6437c8e662b7de22d98aafa2"
+      "sha256": "e4e850d0bc65079d40d5f682dd03b7bf5ca6f6c0ecccb943948711a173be4f4a"
     },
     {
       "path": "src/workflow.mjs",

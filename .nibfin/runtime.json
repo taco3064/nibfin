@@ -1,16 +1,16 @@
 {
   "version": 1,
-  "producer": "2befc7b4b012bf6498bbe472fdbcbbc5a5ef7db1",
+  "producer": "277057f3997461b868cd7fe604dc52954476b591",
   "package": {
-    "packageVersion": "0.1.0",
-    "coreSha256": "57288363f0eb4bf55687ebbb006299f6393f651106ec03957695aa81b0c0e656"
+    "packageVersion": "0.1.1",
+    "coreSha256": "ccd81d38461def983f8c2f6165257921588750725bbf0653b7f6449ee89ca338"
   },
   "pins": {
-    "runtime": "57288363f0eb4bf55687ebbb006299f6393f651106ec03957695aa81b0c0e656",
-    "workflow": "e873364038b501bae1330dd149eea52b69b3da3b01ae0b4e12dfdf30000a81db",
+    "runtime": "ccd81d38461def983f8c2f6165257921588750725bbf0653b7f6449ee89ca338",
+    "workflow": "3e94a70da9fe3cec42567d93dae7adc9f320627ca01616d0c620126d2702c05b",
     "skills": "e256f4f4da556f8a8c66e6764ff83f1b7dd347967de4814bc865fcf453ec1b96",
-    "source": "57288363f0eb4bf55687ebbb006299f6393f651106ec03957695aa81b0c0e656",
-    "recovery": "d8a091bcd429e4555537c30d60230d64959e01f6821decc2b520225d2c8d606b",
+    "source": "ccd81d38461def983f8c2f6165257921588750725bbf0653b7f6449ee89ca338",
+    "recovery": "a55d9b3fc8c4e6c29afc5ac4ac82eaf476a634f55b1ea155da66b132c22b65c3",
     "jobAdmission": "dec2ff8b63a71766f30f79dcf4a0634fdc1b992c96627a8b153ce086def3f2d3"
   },
   "automaticRegistration": false,

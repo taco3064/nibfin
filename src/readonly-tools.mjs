@@ -11,7 +11,7 @@ export const readonlyMcpServer=Object.freeze({command:'/usr/local/bin/node',args
   env:{ANTHROPIC_API_KEY:'',GEMINI_API_KEY:'',NODE_OPTIONS:''}});
 const strings={type:'array',items:{type:'string'},maxItems:256};
 export const readonlyTools=Object.freeze([
-  {name:'verify',description:'Run a guarded command in a writable test copy. Prepare Node inputs first: file=/usr/local/bin/node, args=[/verification-prepare.mjs,/work,/tmp], cwd=/tmp. Use the returned directory as cwd for tests. Never interpret non-passed results as passes. Receipts and logs are retained by Core.',
+  {name:'verify',description:'Run a guarded command in a writable test copy. For a locked Node project, prepare its inputs first: file=/usr/local/bin/node, args=[/verification-prepare.mjs,/work,/tmp], cwd=/tmp. Use the returned directory as cwd for locked project tests. Source-only regression harnesses without npm manifests may use bounded temporary fixtures in this same guarded lane, preserving the read-only Candidate. Never interpret non-passed results as passes. Receipts and logs are retained by Core.',
     inputSchema:{type:'object',additionalProperties:false,required:['file','args','cwd'],properties:{file:{type:'string'},args:strings,cwd:{type:'string'},timeoutMs:{type:'integer',minimum:1,maximum:3600000}}}},
   {name:'github_read',description:'Read authorized public repositories through the narrow host broker. Use native gh read arguments with an explicit --repo. Mutation commands are rejected by the broker.',
     inputSchema:{type:'object',additionalProperties:false,required:['args'],properties:{args:strings}}}

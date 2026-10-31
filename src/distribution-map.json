@@ -526,7 +526,7 @@
     },
     {
       "path": "src/codex.mjs",
-      "sha256": "b4ad4eac8741fa3d7b655884ba16999da24d8c123fe678b1bd9194c37cd8b72d"
+      "sha256": "e8919c973fa5b4104d6e771e6b486c0e686fb65b76a21a2dc0cccb8c13b5cb67"
     },
     {
       "path": "src/collaboration.mjs",
@@ -714,7 +714,7 @@
     },
     {
       "path": "src/readonly-tools.mjs",
-      "sha256": "94dddbcd163380380edd977b1d2188e05196b34e2c425a9ffd6d1e8d9f1d6333"
+      "sha256": "901805e3d4897cca0070477e6d296b1c2fa88e48f948e358dd16ce44f6bfdea7"
     },
     {
       "path": "src/recovery.mjs",

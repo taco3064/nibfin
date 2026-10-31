@@ -362,7 +362,7 @@
     },
     {
       "path": "docs/workflows.md",
-      "sha256": "34790ef71516ffcaa279a3b612604d18b7b8beb9bfbbde4082dd5ce98fc8526b"
+      "sha256": "0761b6bcae1c647ff8f5ecf8ad08748f622bcea642a8bf3c6b02a12761a6f012"
     },
     {
       "path": "docs/workspace.md",
@@ -474,7 +474,7 @@
     },
     {
       "path": "src/agent-session.mjs",
-      "sha256": "1ce6e675d2cffe168de0394f4932def6b3abb28351de4fba3d3260141c026b0c"
+      "sha256": "3ebfbcfb7ae413e28c12e937ef2b4db49f69e4d5d018f770671833372b2180e9"
     },
     {
       "path": "src/archive.mjs",
@@ -526,7 +526,7 @@
     },
     {
       "path": "src/codex.mjs",
-      "sha256": "d983914ecb90a2120d0873c17a711c14b955a82add2ff680588294769665ca41"
+      "sha256": "b4ad4eac8741fa3d7b655884ba16999da24d8c123fe678b1bd9194c37cd8b72d"
     },
     {
       "path": "src/collaboration.mjs",
@@ -674,7 +674,7 @@
     },
     {
       "path": "src/native-role-bindings.mjs",
-      "sha256": "14752983b6f752aa6b72cffe38eb35cca6dd5921959c38af97a147e9e9be7b4e"
+      "sha256": "1dc2335d02b0f6302c1d4ed7bc9fe9b7812a3b98498fa3b2e46862afa1feee34"
     },
     {
       "path": "src/node-verification.mjs",
@@ -806,11 +806,11 @@
     },
     {
       "path": "src/rescue.mjs",
-      "sha256": "8a912f9280003dec824aa370090309985d1ab9638f03938e7a46ee7095672a1b"
+      "sha256": "1415fbef74fe4900c5ae8aeda887ebb129d4e10eeab923ce626953896799afbb"
     },
     {
       "path": "src/role-host.mjs",
-      "sha256": "00c2e2410e5e747a99a50690714fe68d8f5cb319b346693d113da9343847dcb3"
+      "sha256": "9d4f829db160048a76e0e2c244d28907ec7dca607b72ad2c9309ccb6c66ba337"
     },
     {
       "path": "src/role-session.mjs",
@@ -882,7 +882,7 @@
     },
     {
       "path": "src/workflow-install.mjs",
-      "sha256": "81fc1e964553639e1fcb2a1785be2dfe2ae52c0a3e15d409d9b2259637aa4042"
+      "sha256": "e6ee041c7e5ff65412e0f688cc1dcd48e88f8359479df3a39c48b6debb6ac698"
     },
     {
       "path": "src/workflow.mjs",

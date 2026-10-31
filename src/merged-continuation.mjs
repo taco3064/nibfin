@@ -18,6 +18,7 @@ const operations = [
   'verify-deployment',
   'close',
   'mark-delivered',
+  'label',
   'dispatch',
   'fanout',
 ];

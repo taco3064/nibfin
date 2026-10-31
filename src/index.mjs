@@ -128,6 +128,6 @@ export {applyInstallationTransition} from './installation.mjs';
 export {createNativeRoleBindings,nativeRoleSuccessSummary} from './native-role-bindings.mjs';
 export {initialRunnerPoolCapacity,createRunnerPoolCapacity} from './runner-pool-capacity.mjs';
 export {createRunnerPoolHost} from './runner-pool-host.mjs';
-export {actionRunName,actionLogLine} from './action-display.mjs';
+export {actionRunName,actionLogLine,rescueActionReport} from './action-display.mjs';
 
 export {nextDeliveryStage} from './delivery-planner.mjs';

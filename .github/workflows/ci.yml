@@ -169,13 +169,13 @@ jobs:
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa
         if: >-
           ${{ github.event_name == 'push' &&
-              github.ref == 'refs/heads/main' && github.ref_protected }}
+          github.ref == 'refs/heads/main' && github.ref_protected }}
         with:
           path: website/dist
   deploy:
     if: >-
       ${{ github.event_name == 'push' &&
-          github.ref == 'refs/heads/main' && github.ref_protected }}
+      github.ref == 'refs/heads/main' && github.ref_protected }}
     needs: website
     runs-on: ubuntu-latest
     timeout-minutes: 20

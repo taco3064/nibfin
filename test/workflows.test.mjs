@@ -86,7 +86,7 @@ test('real YAML schemas, expressions, outputs, immutable acquisition and native 
   const installation=workflowInstallation({commit:'a'.repeat(40),hostRepository:'example/host',hostCommit:'b'.repeat(40)});
   assert.equal(installation.files.size,6);
   for(const text of installation.files.values())assert(!text.includes('vars.NIBFIN_'));
-  assert(installation.files.get(delivery).includes('ref: '+ 'a'.repeat(40)));assert(installation.inventory.every(v=>/^[a-f0-9]{64}$/.test(v.sha256)));
+  assert(installation.files.get('.github/workflows/nibfin-delivery.yml').includes('ref: '+ 'a'.repeat(40)));assert(installation.inventory.every(v=>/^[a-f0-9]{64}$/.test(v.sha256)));
   for(const p of workflowFiles)assert(installation.inventory.some(v=>v.path===p));
   assert.throws(()=>workflowInstallation({commit:'main',hostRepository:'example/host',hostCommit:'b'.repeat(40)}));
 });

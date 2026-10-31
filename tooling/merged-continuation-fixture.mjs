@@ -33,6 +33,7 @@ export function mergedContinuationFixture() {
     'verify-deployment',
     'close',
     'mark-delivered',
+    'label',
     'dispatch',
     'fanout',
   ];

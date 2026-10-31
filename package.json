@@ -1,6 +1,6 @@
 {
   "name": "@nibfin/core",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Versioned Nibfin Core, host, workflow and Skill distribution",
   "private": true,
   "type": "module",

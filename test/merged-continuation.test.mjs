@@ -5,6 +5,7 @@ import {
   contentIdentity,
   prepareMergedContinuation,
   verifyMergedContinuation,
+  verifyGrant,
 } from '../src/index.mjs';
 import { plan, ownerEvidence } from '../src/core-contract.mjs';
 import { mergedContinuationFixture } from '../tooling/merged-continuation-fixture.mjs';
@@ -127,4 +128,15 @@ test('plans bind later execution to the new Core and retain old receipts', () =>
   f.plan.evidenceCurrent.final.expected = structuredClone(final);
   delete f.plan.continuation;
   assert.throws(() => plan(f.plan), /unapproved-continuation/);
+});
+
+test('fresh Owner authorizes the actual delivered label operation', () => {
+  const f = mergedContinuationFixture();
+  const checked = verifyGrant(f.approve(), {
+    ...f.context,
+    request: { ...f.context.request, operation: 'label' },
+  });
+  assert.equal(checked.ok, true);
+  assert(!f.draft.permissions[0].operations.includes('merge'));
+  assert(!f.draft.permissions[0].operations.includes('repair'));
 });

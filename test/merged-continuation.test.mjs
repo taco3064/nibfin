@@ -6,7 +6,7 @@ import {
   prepareMergedContinuation,
   verifyMergedContinuation,
 } from '../src/index.mjs';
-import { plan } from '../src/core-contract.mjs';
+import { plan, ownerEvidence } from '../src/core-contract.mjs';
 import { mergedContinuationFixture } from '../tooling/merged-continuation-fixture.mjs';
 
 test('fresh Owner permits only post-merge continuation and preserves the parent', () => {
@@ -109,6 +109,10 @@ test('plans bind later execution to the new Core and retain old receipts', () =>
   assert.equal(plan(f.plan).stage, 'final');
   const final = structuredClone(f.all.final);
   final.execution.continuation = structuredClone(checked.execution);
+  ownerEvidence(final, f.plan, 'final');
+  const missingProvenance = structuredClone(final);
+  delete missingProvenance.execution.continuation;
+  assert.throws(() => ownerEvidence(missingProvenance, f.plan, 'final'));
   f.plan.receipts.final = final;
   f.plan.evidenceCurrent.final = { expected: structuredClone(final), consumed: [] };
   assert.equal(plan(f.plan).stage, 'closure');

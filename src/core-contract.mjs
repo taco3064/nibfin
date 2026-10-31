@@ -147,6 +147,14 @@ function ownerContext(value, p, name) {
 }
 function ownerEvidence(e, p, stage) {
   need(e.stage === stage, 'owner-stage');
+  if (p.continuation) {
+    const checked = checkMergedContinuation(p.continuation, p);
+    need(
+      checked.remaining.includes(stage) &&
+        same(e.execution.continuation, checked.execution),
+      'owner-continuation',
+    );
+  } else need(!e.execution.continuation, 'unapproved-continuation');
   for (const k of [...shared, 'shapeHash'])
     if (!(stage === 'shape' && k === 'shapeHash'))
       need(e.binding[k] === p.binding[k], 'owner-binding');

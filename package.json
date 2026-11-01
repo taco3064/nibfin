@@ -1,6 +1,6 @@
 {
   "name": "@nibfin/core",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Versioned Nibfin Core, host, workflow and Skill distribution",
   "private": true,
   "type": "module",
@@ -15,6 +15,7 @@
   },
   "packageManager": "npm@10.9.9",
   "files": [
+    "src/workflow-labels.mjs",
     "src/retained-shape.mjs",
     "src/runner-work-custody.mjs",
     "src/runner-pool-host.mjs",

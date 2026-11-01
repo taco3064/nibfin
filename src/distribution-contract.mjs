@@ -18,6 +18,8 @@ export const distributionAPI = Object.freeze({
   mergedContinuation: 1,
   mergedContinuationRepair: 1,
   unacceptedHandover: 1,
+  unacceptedHandoverRevision: 1,
+  dependencyProgress: 1,
 });
 // Each responsibility has ONE executable public owner. Controller is provenance,
 // never an imported parallel lifecycle or an end-user installation prerequisite.

@@ -57,7 +57,7 @@ const requireThat = (ok, code, detail) => {
 // versioned receipt names. Receipt authentication and custody remain in evidence
 // and workspace; a caller must supply the already independently checked receipts.
 // An observed failed result never serves as a successful prerequisite.
-export function nextDeliveryStage(receipts, transition = null) {
+export function nextDeliveryStage(receipts, transition = null, labels = null) {
   if (transition !== null) {
     requireThat(
       ['repair', 'recovery'].includes(transition),
@@ -86,8 +86,40 @@ export function nextDeliveryStage(receipts, transition = null) {
     return true;
   };
   // CI observation remains distinct from final review and merge policy.
-  for (const stage of deliveryStages) if (!has(stage)) return stage;
-  return 'fanout';
+  const stage = deliveryStages.find((name) => !has(name)) ?? 'fanout';
+  if (labels !== null) {
+    requireThat(
+      Array.isArray(labels) &&
+        labels.every((label) => label && typeof label.name === 'string'),
+      'INVALID_LABELS',
+      'Workflow labels must come from the current Issue',
+    );
+    const names = new Set(labels.map((label) => label.name));
+    requireThat(
+      names.has('scope'),
+      'WORKFLOW_NOT_ENROLLED',
+      'Issue labels do not enroll this work',
+    );
+    if (names.has('shaped'))
+      requireThat(
+        !['shape', 'shape-validator'].includes(stage),
+        'ORIGINAL_WORK_HANDOVER_REQUIRED',
+        'Shaped work requires retained evidence, never a second Shape',
+      );
+    else
+      requireThat(
+        !receipts.publication,
+        'WORKFLOW_RESET_RECONCILIATION_REQUIRED',
+        'Removed shaped label requires reconciling the original cycle',
+      );
+    if (names.has('delivered'))
+      requireThat(
+        ['delivered', 'fanout'].includes(stage),
+        'COMPLETION_RECONCILIATION_REQUIRED',
+        'Delivered work requires completion evidence before continuation',
+      );
+  }
+  return stage;
 }
 
 export const modelRoleStages = Object.freeze([

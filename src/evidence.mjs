@@ -289,7 +289,22 @@ export function validateStageResult(result, context) {
   return v;
 }
 function envelope(v) {
-  fields(v, 'version stage binding execution inputs result');
+  const retained = Object.hasOwn(v, 'retained');
+  fields(
+    v,
+    'version stage binding execution inputs result' + (retained ? ' retained' : ''),
+  );
+  if (retained) {
+    fields(v.retained, 'version handover record scopeHash shapeHash');
+    if (
+      v.retained.version !== 1 ||
+      !['shape', 'shape-validator', 'publication'].includes(v.stage)
+    )
+      fail('retained-stage');
+    for (const key of ['handover', 'record', 'scopeHash', 'shapeHash'])
+      hash(v.retained[key]);
+    if (v.execution?.source !== null) fail('retained-attribution');
+  }
   if (v.version !== 1 || !Object.hasOwn(STAGES, v.stage)) fail('version-stage');
   binding(v.binding);
   execution(v.execution);

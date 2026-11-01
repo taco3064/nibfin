@@ -1,6 +1,6 @@
 {
   "name": "@nibfin/core",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Versioned Nibfin Core, host, workflow and Skill distribution",
   "private": true,
   "type": "module",
@@ -15,6 +15,7 @@
   },
   "packageManager": "npm@10.9.9",
   "files": [
+    "src/retained-shape.mjs",
     "src/runner-work-custody.mjs",
     "src/runner-pool-host.mjs",
     "src/action-display.mjs",
@@ -207,6 +208,7 @@
     "src/core-contract.mjs",
     "src/core-deliver.mjs",
     "src/delivery-revision.mjs",
+    "src/role-continuation.mjs",
     "src/protected-rescue-policy.mjs",
     "provenance/controller-baseline.json",
     "src/delivery-evidence.mjs",

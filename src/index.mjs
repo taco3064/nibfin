@@ -364,6 +364,8 @@ export {
   handoverLabelsIdentity,
   verifyUnacceptedHandover,
   createUnacceptedHandoverEvidence,
+  verifyUnacceptedHandoverRevision,
+  verifyUnacceptedHandoverPrefix,
   checkUnacceptedHandoverFrame,
   createUnacceptedHandoverContinuation,
 } from './delivery-revision.mjs';

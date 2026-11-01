@@ -19,7 +19,9 @@
     "protectedDiagnosis": 1,
     "mergedContinuation": 1,
     "mergedContinuationRepair": 1,
-    "unacceptedHandover": 1
+    "unacceptedHandover": 1,
+    "unacceptedHandoverRevision": 1,
+    "dependencyProgress": 1
   },
   "owners": [
     {
@@ -318,7 +320,7 @@
     },
     {
       "path": "docs/dynamic.md",
-      "sha256": "aa0ac1631c7e6971fb4dc8b85d452e4e8db986e17bc94b6134dbca7bc239c97b"
+      "sha256": "2ca2c101f9377e0f0536e92e6556ecfdf59206c48c2b438a2751c85b942f928d"
     },
     {
       "path": "docs/evidence.md",
@@ -498,11 +500,11 @@
     },
     {
       "path": "npm-shrinkwrap.json",
-      "sha256": "41f565531f98f8ffb82eefdc6c8340b207684e4ab7ed930d213cb599331de3f1"
+      "sha256": "d92e61ba30b674aa5520b48c8fd341a904e62a4004bec041228fa14338991e38"
     },
     {
       "path": "package.json",
-      "sha256": "2c35f0df3049bd7e3afc573c0d4608a55bd4b733696f52161e40bef87f4a32c0"
+      "sha256": "435c2b27c754dd26bfce472082f33e4eecc23d8ad0af0f437b8784cb3c574d8e"
     },
     {
       "path": "provenance/controller-baseline.json",
@@ -662,11 +664,11 @@
     },
     {
       "path": "src/delivery-planner.mjs",
-      "sha256": "9f4c82211cbed47ffb954ebdd565b3790d6ad112f6412294146392e3619dbd5a"
+      "sha256": "d3b57a43bdaad95f89d57edeaf334bf5e7dd8469d832b4afa926fd91cfebd326"
     },
     {
       "path": "src/delivery-revision.mjs",
-      "sha256": "84c4b5bf414381cef2b8667702a195639edbfb423a9c72c64ea6e8ce74e91e92"
+      "sha256": "e993a09fc2cffc9339ecf08d3d7dcf852eca6619d83657b7b8e380357a88ef36"
     },
     {
       "path": "src/deployment.mjs",
@@ -674,7 +676,7 @@
     },
     {
       "path": "src/distribution-contract.mjs",
-      "sha256": "7e77ad1eb33594962cf2c07ae0467cbab488290c7856f2c1fe7d73a9e92d4e7c"
+      "sha256": "bdde26c7fc775e52dfdc1dc143913531c4a347c34f8284e987c166e18371ddc8"
     },
     {
       "path": "src/distribution.mjs",
@@ -686,7 +688,7 @@
     },
     {
       "path": "src/dynamic.mjs",
-      "sha256": "917f46d07c77d2c3b250ca7cc28f161a39a28dff77d337b0e93b9bbb1990f94d"
+      "sha256": "50dba53408055eed4196a845a6528c083f4498ecaeacd51839342ca72851caad"
     },
     {
       "path": "src/egress-gateway.mjs",
@@ -766,7 +768,7 @@
     },
     {
       "path": "src/index.mjs",
-      "sha256": "1397718bcc333e0c195bf0aaa231e5cecded19f37a5a933607ea923c16f0bd38"
+      "sha256": "56bbc7e7aa351b2b46426806d38211d2b8022b81fc361724c557f4fb2996aff7"
     },
     {
       "path": "src/installation.mjs",
@@ -1015,6 +1017,10 @@
     {
       "path": "src/workflow-install.mjs",
       "sha256": "6c657f555e961f20b06e7d97c65eb84afc0708bb6437c8e662b7de22d98aafa2"
+    },
+    {
+      "path": "src/workflow-labels.mjs",
+      "sha256": "080995f24693c339be876231a9610505af09a2c82a35c118fb005a9e5a59f433"
     },
     {
       "path": "src/workflow.mjs",

@@ -1,3 +1,5 @@
+import { workflowLabels } from './workflow-labels.mjs';
+
 export const coreStages = Object.freeze([
   'shape',
   'shape-validator',
@@ -88,13 +90,12 @@ export function nextDeliveryStage(receipts, transition = null, labels = null) {
   // CI observation remains distinct from final review and merge policy.
   const stage = deliveryStages.find((name) => !has(name)) ?? 'fanout';
   if (labels !== null) {
-    requireThat(
-      Array.isArray(labels) &&
-        labels.every((label) => label && typeof label.name === 'string'),
-      'INVALID_LABELS',
-      'Workflow labels must come from the current Issue',
-    );
-    const names = new Set(labels.map((label) => label.name));
+    let names;
+    try {
+      names = workflowLabels(labels);
+    } catch {
+      throw new Blocked('INVALID_LABELS', 'Invalid current Issue workflow labels');
+    }
     requireThat(
       names.has('scope'),
       'WORKFLOW_NOT_ENROLLED',

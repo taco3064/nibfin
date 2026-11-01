@@ -14,6 +14,22 @@ const evaluator = createDependencyEvaluator({
 const decision = await evaluator.evaluate({target, issues}, {signal});
 ```
 
+Native GitHub workflows select `progressSource: 'github-labels'`. In that mode,
+the evaluator observes the current `scope`, `shaped` and `delivered` markers and
+closed Issue state for every prerequisite. This reuses Kairo's Owner-project
+progress observation while retaining Nibfin's bounded traversal and independent
+per-repository authorization. Removing a delivery marker makes the prerequisite
+wait, even when an old local receipt exists. Contradictory live delivery state
+blocks. A new host does not have to recreate historical private completion data.
+No label observation grants execution permission or fabricates a completion/Run.
+`progress` contains these source observations; `completions` remains empty.
+
+The default `progressSource: 'completion'` retains the existing portable receipt
+contract for callers that explicitly consume that evidence protocol. Its
+`current`, `retrieve` and `custody` capabilities below are not used by the GitHub
+label mode. The selected workflow has one progress source, without a receipt or
+label fallback that could override the other source's current state.
+
 `target` and every `issues` catalog entry have canonical lowercase `repository`
 (owner/repo), decimal-string `repositoryId`, `databaseId` and `number`, and a
 separate stable node `issueId`. Database IDs are never converted to Number.

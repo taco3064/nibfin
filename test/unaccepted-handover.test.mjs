@@ -9,6 +9,7 @@ import {
   verifyUnacceptedHandover,
   createUnacceptedHandoverEvidence,
   checkUnacceptedHandoverFrame,
+  verifyUnacceptedHandoverRevision,
 } from '../src/index.mjs';
 import { grantFixture, grantContext } from '../tooling/grant-fixture.mjs';
 
@@ -117,6 +118,83 @@ test('handover repeats independent gates and retains original budget/session', (
   for (const stage of ['accept', 'ci', 'merge', 'final', 'closure', 'delivered'])
     assert.ok(plan.repeatedStages.includes(stage));
   assert.deepEqual(f.original, before);
+});
+
+function revisionFixture() {
+  const f = fixture();
+  const saved = createUnacceptedHandoverEvidence(f);
+  const body = {
+    ...saved,
+    scopeBody: f.grant.payload.work[0].scope.body,
+    cycle: f.current.cycle,
+    attempts: {},
+    operations: {},
+    operationBlobs: {},
+    completions: {},
+    completionBlobs: {},
+    publications: {},
+    dispatch: null,
+    candidate: null,
+    workspace: null,
+    head: null,
+    ci: null,
+    completion: null,
+    stageInput: null,
+    closed: false,
+    deferredRoles: {
+      deliver: { phase: 'prepared', target: { session: f.original.session } },
+    },
+  };
+  const state = { ...body, identity: contentIdentity(body) };
+  return {
+    previous: { ...f, state },
+    original: f.original,
+    current: { ...f.current, core: 'a'.repeat(64), predecessor: state.identity },
+  };
+}
+
+test('pre-execution reapproval preserves cycle, Writer and spent donor budget', () => {
+  const f = revisionFixture();
+  const before = structuredClone(f.previous);
+  const result = verifyUnacceptedHandoverRevision(f);
+  assert.equal(result.previous, before.state.identity);
+  assert.equal(result.session, f.original.session);
+  assert.equal(result.repairs, 2);
+  assert.equal(result.cycle, before.current.cycle);
+  assert.deepEqual(f.previous, before);
+});
+
+test('revision cannot erase an execution, write intent or changed requirements', () => {
+  for (const change of [
+    (f) => {
+      f.previous.state.attempts.deliver = { phase: 'unresolved' };
+    },
+    (f) => {
+      f.previous.state.operations.intent = { phase: 'prepared' };
+    },
+    (f) => {
+      f.previous.state.dispatch = { runId: '1' };
+    },
+    (f) => {
+      f.previous.state.deferredRoles.deliver.phase = 'running';
+    },
+    (f) => {
+      f.current.scopeHash = 'b'.repeat(64);
+    },
+    (f) => {
+      f.current.core = f.previous.current.core;
+    },
+    (f) => {
+      f.original = { ...f.original, repairs: 0 };
+    },
+  ]) {
+    const f = revisionFixture();
+    change(f);
+    const { identity, ...body } = f.previous.state;
+    f.previous.state.identity = contentIdentity(body);
+    f.current.predecessor = f.previous.state.identity;
+    assert.throws(() => verifyUnacceptedHandoverRevision(f));
+  }
 });
 
 test('retained Shape is explicit history and cannot be rewritten or reattributed', () => {

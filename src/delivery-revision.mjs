@@ -5,8 +5,10 @@ import { verifyGrant } from './grants.mjs';
 import { validateDeliveryEvidence } from './delivery-evidence.mjs';
 import { createPreservedRoleContinuation } from './role-continuation.mjs';
 import { retainedShapeEvidence, inspectRetainedShape } from './retained-shape.mjs';
+import { workflowLabels } from './workflow-labels.mjs';
 
 export function handoverLabelsIdentity(labels) {
+  workflowLabels(labels);
   if (
     !Array.isArray(labels) ||
     labels.length > 1000 ||
@@ -17,8 +19,7 @@ export function handoverLabelsIdentity(labels) {
         !/^[1-9][0-9]*$/.test(label.id) ||
         typeof label.name !== 'string',
     ) ||
-    new Set(labels.map((label) => label.id)).size !== labels.length ||
-    new Set(labels.map((label) => label.name)).size !== labels.length
+    new Set(labels.map((label) => label.id)).size !== labels.length
   )
     throw Error('unaccepted-handover:labels');
   return contentIdentity(
@@ -94,6 +95,7 @@ export function unacceptedHandoverPolicy({ original, current } = {}) {
       hash(current.core) &&
       hash(current.authority) &&
       hash(current.labels) &&
+      (current.predecessor === undefined || hash(current.predecessor)) &&
       current.workflow === 'shaped' &&
       typeof current.cycle === 'string' &&
       current.cycle.length > 0,
@@ -165,6 +167,75 @@ export function verifyUnacceptedHandover({ original, current, grant, context }) 
 export function createUnacceptedHandoverEvidence(input) {
   const plan = verifyUnacceptedHandover(input);
   return retainedShapeEvidence({ ...input, identity: plan.identity });
+}
+
+// An engine upgrade may refresh only a retained prefix that has never executed.
+// The previous signed frame remains history; this result grants no execution.
+export function verifyUnacceptedHandoverPrefix(previous) {
+  const need = (ok, reason) => {
+    if (!ok) throw Error('unaccepted-handover-revision:' + reason);
+  };
+  const state = previous?.state;
+  need(state && typeof state === 'object' && !Array.isArray(state), 'previous-state');
+  const { identity, ...body } = state;
+  const plan = verifyUnacceptedHandover(previous);
+  checkUnacceptedHandoverFrame(previous, {
+    ...state,
+    evidenceCurrent: state.expectations,
+  });
+  need(identity === contentIdentity(body), 'previous-state');
+  const emptyRecord = (value) =>
+    value &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    Object.keys(value).length === 0;
+  need(
+    Object.keys(state.receipts).length === retainedStages.length &&
+      emptyRecord(state.attempts) &&
+      [
+        'operations',
+        'operationBlobs',
+        'completions',
+        'completionBlobs',
+        'publications',
+      ].every((key) => emptyRecord(state[key])) &&
+      [
+        'dispatch',
+        'candidate',
+        'workspace',
+        'head',
+        'ci',
+        'completion',
+        'stageInput',
+      ].every((key) => state[key] === null) &&
+      state.closed === false &&
+      state.deferredRoles?.deliver?.phase === 'prepared' &&
+      state.deferredRoles.deliver.target.session === plan.session,
+    'execution-already-started',
+  );
+  return {
+    previous: identity,
+    cycle: previous.current.cycle,
+    session: plan.session,
+    repairs: plan.repairs,
+    next: 'deliver',
+  };
+}
+
+export function verifyUnacceptedHandoverRevision({ previous, current, original }) {
+  const prefix = verifyUnacceptedHandoverPrefix(previous);
+  if (
+    current.predecessor !== prefix.previous ||
+    current.core === previous.current.core ||
+    current.cycle !== previous.current.cycle ||
+    current.scopeHash !== previous.current.scopeHash ||
+    current.labels !== previous.current.labels ||
+    current.memberId !== previous.current.memberId ||
+    canonicalJSON(current.target) !== canonicalJSON(previous.current.target) ||
+    contentIdentity(original) !== contentIdentity(previous.original)
+  )
+    throw Error('unaccepted-handover-revision:original-work');
+  return prefix;
 }
 
 export function checkUnacceptedHandoverFrame(input, frame) {

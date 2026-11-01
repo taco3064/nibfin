@@ -58,13 +58,29 @@ test('real archive, rejection policy and website isolation', () => {
     }
     const env = { ...process.env };
     delete env.NODE_TEST_CONTEXT;
-    const run = (args) =>
-      execFileSync('npm', args, {
-        cwd: fixture,
-        env,
-        encoding: 'utf8',
-        stdio: 'pipe',
-      });
+    const run = (args) => {
+      try {
+        return execFileSync('npm', args, {
+          cwd: fixture,
+          env,
+          encoding: 'utf8',
+          stdio: 'pipe',
+        });
+      } catch (error) {
+        // Preserve the actual nested failure before the disposable fixture is
+        // removed. A wrapper exit alone cannot diagnose a failed source check.
+        const output = [error.stdout, error.stderr].filter(Boolean).join('\n');
+        throw new Error(
+          'Archive fixture npm ' +
+            args.join(' ') +
+            ' failed (status ' +
+            error.status +
+            '):\n' +
+            output,
+          { cause: error },
+        );
+      }
+    };
     run(['ci', '--offline', '--ignore-scripts', '--no-audit', '--no-fund']);
     // Run only identity tests here, avoiding recursive fixture creation.
     execFileSync(process.execPath, ['--test', 'test/identity.test.mjs'], {

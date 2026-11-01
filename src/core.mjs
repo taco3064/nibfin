@@ -34,6 +34,7 @@ import {
   shapeResult,
 } from './core-contract.mjs';
 import { createDeliverFlow } from './core-deliver.mjs';
+import { nextDeliveryStage } from './delivery-planner.mjs';
 export { createDeliverFlow } from './core-deliver.mjs';
 export { coreStages } from './delivery-planner.mjs';
 
@@ -137,9 +138,11 @@ export function createCore({
                 issue.data.state === 'closed' &&
                 issue.data.state_reason === 'completed')) &&
             (issue.data.body ===
-              (executing.receipts.publication
-                ? executing.shapeBody
-                : executing.scopeBody) ||
+              (executing.unacceptedHandover
+                ? executing.scopeBody
+                : executing.receipts.publication
+                  ? executing.shapeBody
+                  : executing.scopeBody) ||
               (stage === 'publication' && issue.data.body === executing.shapeBody)),
           'checkpoint-scope',
         );
@@ -341,6 +344,8 @@ export function createCore({
       endpoint: root + '/issues/' + p.target.number,
     });
     const actual = issue.data;
+    if (p.unacceptedHandover && actual)
+      nextDeliveryStage(p.receipts, p.transition, actual.labels);
     refuse(
       issue.outcome === 'read' &&
         actual?.id === p.target.databaseId &&
@@ -348,7 +353,12 @@ export function createCore({
         String(actual.number) === p.target.number &&
         !actual.pull_request &&
         actual.repository_url === 'https://api.github.com' + root &&
-        (actual.body === (p.receipts.publication ? p.shapeBody : p.scopeBody) ||
+        (actual.body ===
+          (p.unacceptedHandover
+            ? p.scopeBody
+            : p.receipts.publication
+              ? p.shapeBody
+              : p.scopeBody) ||
           (decision.stage === 'publication' &&
             p.prior?.state === 'unresolved' &&
             actual.body === p.shapeBody)),

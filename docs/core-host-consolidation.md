@@ -131,3 +131,27 @@ Completion event observations retain bounded typed diagnostics when a provider
 response is rejected. Response values and credentials do not enter public failure
 diagnostics. Git object `commit_id` values are validated separately from decimal
 GitHub resource IDs, including inside Issue event collections.
+
+Historical UNACCEPTED work uses a separate source-only handover contract.
+`unacceptedHandoverPolicy` retains the original Writer and spent repair count,
+retains published Shape, repeats delivery gates and derives a proof
+identity for a normal current Owner Grant. `verifyUnacceptedHandover` checks that
+Grant against independently supplied current trust, requirements and permissions.
+Issue labels control workflow progress; missing local receipts never restart Shape.
+Historical checksums supply custody, not execution permission.
+
+Derived Shape receipts explicitly carry retained provenance, original role IDs,
+original Scope/Shape hashes and the current Owner handover identity. They have no
+new Run attribution. Core regenerates and checks this prefix against the signed
+source proof on every plan; removing the proof or rewriting history is rejected.
+The format adapter preserves original Shape bytes and converts only the explicit
+legacy inventory syntax for current consumers. Deliver uses the current Issue
+Scope, retains the original Writer and repeats independent Acceptance. An actual
+Shape defect requires the normal Issue reset workflow, never a shaped bypass.
+
+The CLI owns inert reconstruction of archived Git objects, index, worktree and
+conversation bytes. It imports no historical service, login, Git configuration,
+hook or signing key. Initial state and content-addressed custody publish together;
+a CAS-owned maintenance pause cannot clear a later Owner hold. The first adapter
+supports donors with zero spent repairs; a nonzero legacy budget is explicitly
+unsupported until a compatible budget-consumption adapter is implemented.

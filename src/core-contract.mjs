@@ -3,7 +3,12 @@ import { checkMergedContinuation } from './merged-continuation.mjs';
 import { bodyDigest, canonicalJSON } from './grants.mjs';
 import { contentIdentity, compareEvidence } from './evidence.mjs';
 import { githubId, repositoryCoordinates } from './identity.mjs';
-import { coreStages, deliveryStages, nextDeliveryStage } from './delivery-planner.mjs';
+import {
+  coreStages,
+  deliveryStages,
+  nextDeliveryStage,
+} from './delivery-planner.mjs';
+import { checkUnacceptedHandoverFrame } from './delivery-revision.mjs';
 
 const copy = structuredClone,
   same = (a, b) => canonicalJSON(a) === canonicalJSON(b);
@@ -64,6 +69,12 @@ function plan(p) {
       ['personal', 'organization'].includes(p.ownership),
     'scope',
   );
+  if (p.unacceptedHandover) checkUnacceptedHandoverFrame(p.unacceptedHandover, p);
+  else
+    need(
+      !Object.values(p.receipts).some((r) => r.retained),
+      'unapproved-retained-shape',
+    );
   const receipts = validateDeliveryEvidence(p);
   const continuation = p.continuation
     ? checkMergedContinuation(p.continuation, p)

@@ -1,15 +1,15 @@
 {
   "version": 1,
-  "producer": "5c9ae0833acf5fd0d29fec6618f4a3623169123e",
+  "producer": "efb31d8bd3118b3050bba862440624861a4e16ce",
   "package": {
-    "packageVersion": "0.1.5",
-    "coreSha256": "9df89deccde8ee3e14f841b37e2167f97da9239cfef576d6aa51e10f1e26e221"
+    "packageVersion": "0.1.6",
+    "coreSha256": "794911c77cc23c3bbb645dcc05d7076dce592421fe7988efda02e18bc6458585"
   },
   "pins": {
-    "runtime": "9df89deccde8ee3e14f841b37e2167f97da9239cfef576d6aa51e10f1e26e221",
+    "runtime": "794911c77cc23c3bbb645dcc05d7076dce592421fe7988efda02e18bc6458585",
     "workflow": "3e94a70da9fe3cec42567d93dae7adc9f320627ca01616d0c620126d2702c05b",
     "skills": "e256f4f4da556f8a8c66e6764ff83f1b7dd347967de4814bc865fcf453ec1b96",
-    "source": "9df89deccde8ee3e14f841b37e2167f97da9239cfef576d6aa51e10f1e26e221",
+    "source": "794911c77cc23c3bbb645dcc05d7076dce592421fe7988efda02e18bc6458585",
     "recovery": "5fb03698422c1caf9ac337ec1080b063c2de0b6d8d0d6dbca5eb38fbbfb973e8",
     "jobAdmission": "dec2ff8b63a71766f30f79dcf4a0634fdc1b992c96627a8b153ce086def3f2d3"
   },

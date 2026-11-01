@@ -30,6 +30,9 @@ def main():
 
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
+    # Queue parent cancellation until the fixed handlers can reap every child.
+    # SIGTERM during Python bootstrap would otherwise kill the proof owner.
+    os.write(3, b'{"ready":true}\n')
     error_read, error_write = os.pipe()
     pid = os.fork()
     if pid == 0:
@@ -39,12 +42,16 @@ def main():
             signal.signal(signal.SIGTERM, signal.SIG_DFL)
             signal.signal(signal.SIGINT, signal.SIG_DFL)
             os.setsid()
-            os.execve(command['file'], [command['file'], *command['args']], dict(os.environ))
+            os.execve(
+                command['file'], [command['file'], *command['args']],
+                dict(os.environ),
+            )
         except BaseException:
             os.write(error_write, b'1')
             os._exit(127)
     os.close(error_write)
-    deadline = time.monotonic() + max(0, (command['deadlineAt'] - time.time() * 1000) / 1000)
+    remaining = (command['deadlineAt'] - time.time() * 1000) / 1000
+    deadline = time.monotonic() + max(0, remaining)
     status = None
     cleanup_deadline = None
     timed_out = False
@@ -60,8 +67,13 @@ def main():
         except ChildProcessError:
             if status is None:
                 return 125
-            proof = {'reconciled': True, 'exitCode': os.waitstatus_to_exitcode(status),
-                     'cancelled': stopped, 'timeout': timed_out, 'spawnFailed': bool(os.read(error_read, 1))}
+            proof = {
+                'reconciled': True,
+                'exitCode': os.waitstatus_to_exitcode(status),
+                'cancelled': stopped,
+                'timeout': timed_out,
+                'spawnFailed': bool(os.read(error_read, 1)),
+            }
             os.close(error_read)
             os.write(3, (json.dumps(proof) + '\n').encode())
             return 0

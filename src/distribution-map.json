@@ -298,7 +298,7 @@
     },
     {
       "path": "docs/core-host-consolidation.md",
-      "sha256": "4b3f26107e201e7a192500781218bdabb1f396df00212fac516d457fa0296ad4"
+      "sha256": "9bad8a7ce6548f2c7e818848c8f1919c24d82414db995394a6238adb0f1c3b27"
     },
     {
       "path": "docs/core.md",
@@ -990,7 +990,7 @@
     },
     {
       "path": "src/verification-child.mjs",
-      "sha256": "794399fe95936365ed2b758ced7cb9117e2fa5e5eba3abf71d85e8f2848d9a86"
+      "sha256": "e0685733014ef96e6fd21c2b74d40b4cec0816eb1f771a9fd6ea0842ee483c18"
     },
     {
       "path": "src/verification-prepare.mjs",
@@ -1002,7 +1002,7 @@
     },
     {
       "path": "src/verification-supervisor.py",
-      "sha256": "06a9fb0b4c1e47a58aee10bd054cd95b45a549d80bf4c5cd82711a27aec01d7c"
+      "sha256": "0add02842d68e3d61428e80bac5c8a77ae2941f969bba460a5b596f811d131c2"
     },
     {
       "path": "src/verification.mjs",

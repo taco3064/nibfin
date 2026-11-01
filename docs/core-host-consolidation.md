@@ -155,3 +155,8 @@ hook or signing key. Initial state and content-addressed custody publish togethe
 a CAS-owned maintenance pause cannot clear a later Owner hold. The first adapter
 supports donors with zero spent repairs; a nonzero legacy budget is explicitly
 unsupported until a compatible budget-consumption adapter is implemented.
+
+The fixed verification supervisor signals readiness only after its kernel
+subreaper and signal handlers are installed. The parent queues early cancellation
+until this handshake, avoiding an unproven exit during Python bootstrap. Missing
+readiness or reconciliation proof still keeps the lane unresolved.
